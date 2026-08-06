@@ -1,0 +1,46 @@
+# Workspaces del monorepo.
+# `blueprints/**` queda fuera a proposito: el bundle del blueprint vive dentro del
+# proyecto y contiene una copia de estos mismos manifiestos bajo `workspace/`.
+# Si pnpm los recorriera, resolveria dos workspaces raiz en un solo arbol.
+packages:
+  - apps/*
+  - packages/*
+  - "!blueprints/**"
+
+# Expo/Metro no resuelve symlinks anidados de pnpm. `hoisted` es el unico linker
+# con el que un monorepo pnpm + Expo SDK 57 arranca. Las versiones que difieren
+# entre apps (react 19.2.8 web vs 19.2.3 movil, tailwindcss 4.x web vs 3.x movil)
+# siguen quedando anidadas por app: hoisted solo eleva lo que no entra en conflicto.
+nodeLinker: hoisted
+
+# Sin esta clave el primer `pnpm install` sale 1 con ERR_PNPM_IGNORED_BUILDS.
+#
+# LA FORMA IMPORTA: es un MAPA de `paquete: booleano`, no una secuencia. Si se
+# escribe como lista (`- esbuild`), pnpm 11 la coerciona a un mapa con indices
+# numericos como llaves, los nombres de paquete quedan como VALORES, no autorizan
+# nada, y pnpm reescribe el archivo agregando entradas cuyo valor es la oracion
+# "set this to true or false". El install sigue saliendo 1 y el archivo ya quedo
+# corrupto. Comprobado ejecutando pnpm 11.20.0 en ambas formas.
+#
+# Ojo con la vecina: `onlyBuiltDependencies` es la clave de pnpm 10. pnpm 11 la
+# sigue aceptando y NO hace nada, sin warning.
+#
+# La lista es la MEDIDA en una instalacion real de este manifiesto, no una lista
+# plausible: el unico paquete con script de build bloqueado es esbuild, que llega
+# por tsx, por drizzle-kit y por vitest. `@biomejs/biome`, `supabase`, `@swc/core`
+# y `sharp` no aparecen — no tienen script que aprobar en estas versiones.
+allowBuilds:
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - '@expo/cli@57.0.13'
+  - '@expo/config-plugins@57.0.7'
+  - babel-preset-expo@57.0.6
+  - expo-asset@57.0.9
+  - expo-file-system@57.0.2
+  - expo-modules-core@57.0.10
+  - expo-router@57.0.11
+  - expo-symbols@57.0.2
+  - expo@57.0.11
+  - expo-location@57.0.8
+  - expo-notifications@57.0.9

@@ -1,0 +1,24 @@
+# Git for Windows trae `core.autocrlf=true` por defecto: al hacer checkout convierte
+# LF en CRLF. El `biome.json` de este proyecto declara `lineEnding: "lf"`, asi que
+# sin este archivo el primer `pnpm lint` del paso 1 fallaria en TODOS los archivos
+# en una maquina Windows — y el error se leeria como un problema de formato del
+# codigo, no como una conversion de fin de linea.
+#
+# Este archivo tiene que existir ANTES del primer commit del bloque Bootstrap: lo
+# que decide como se normaliza un archivo es el .gitattributes vigente cuando se
+# agrega al indice.
+* text=auto eol=lf
+
+# Binarios: nunca se normalizan.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.jks binary
+*.keystore binary
+
+# Generados: no ensucian el diff de una revision.
+pnpm-lock.yaml linguist-generated=true -diff
+drizzle/** linguist-generated=true

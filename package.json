@@ -1,0 +1,46 @@
+{
+  "name": "rutas-transporte-personal",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "biome check . --error-on-warnings",
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:mobile": "pnpm --filter @rutas/mobile test",
+    "db:generate": "drizzle-kit generate",
+    "db:generate:custom": "drizzle-kit generate --custom",
+    "db:migrate": "drizzle-kit migrate",
+    "db:check": "tsx scripts/check-schema.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:reset": "pnpm exec supabase db reset --no-verify",
+    "db:up": "pnpm exec supabase status >/dev/null 2>&1 || pnpm exec supabase start",
+    "db:down": "pnpm exec supabase stop",
+    "db:status": "pnpm exec supabase status",
+    "env:write": "node scripts/write-env.mjs",
+    "worker:version": "pnpm --filter @rutas/worker exec tsx src/index.ts --version",
+    "worker:dev": "pnpm --filter @rutas/worker dev",
+    "worker:start": "pnpm --filter @rutas/worker exec tsx src/index.ts serve",
+    "mobile:doctor": "pnpm --filter @rutas/mobile exec expo-doctor"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.7",
+    "@playwright/test": "^1.62.1",
+    "@rutas/shared": "workspace:*",
+    "drizzle-kit": "0.31.10",
+    "drizzle-orm": "0.45.2",
+    "postgres": "^3.4.9",
+    "supabase": "2.111.0",
+    "tsx": "^4.23.8",
+    "turbo": "^2.10.8",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

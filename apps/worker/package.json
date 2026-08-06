@@ -1,0 +1,31 @@
+{
+  "name": "@rutas/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts serve",
+    "start": "tsx src/index.ts serve",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.0",
+    "@rutas/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.112.1",
+    "croner": "^10.0.1",
+    "date-fns": "^4.4.0",
+    "@date-fns/tz": "^1.5.0",
+    "drizzle-orm": "0.45.2",
+    "expo-server-sdk": "^7.0.0",
+    "hono": "^4.13.0",
+    "pino": "^10.3.1",
+    "playwright": "^1.62.1",
+    "postgres": "^3.4.9",
+    "tsx": "^4.23.8",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3"
+  }
+}

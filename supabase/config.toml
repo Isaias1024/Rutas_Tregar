@@ -1,0 +1,112 @@
+# Servicio local del que dependen las compuertas de los pasos 2 a 16.
+#
+# Este archivo ES el aprovisionamiento local del proyecto. No hay un
+# docker-compose aparte a proposito: las pruebas de RLS necesitan el esquema
+# `auth` real de Supabase, y un Postgres desnudo no lo tiene — un compose propio
+# seria una segunda base de datos que no puede probar lo que hay que probar.
+#
+# Fijado de imagenes: el CLI de Supabase fija internamente el tag de cada imagen
+# (postgres, gotrue, postgrest, storage, kong) por version de CLI. Por eso el pin
+# vive en `package.json` como `"supabase": "2.111.0"` y tiene su fila en la §11
+# del blueprint. Cambiar la version del CLI cambia las imagenes; ninguna otra
+# cosa lo hace.
+#
+# Healthcheck: `supabase start` es sincrono — regresa solo cuando cada servicio
+# acepta conexiones. `pnpm db:status` lo reafirma con codigo de salida.
+
+project_id = "rutas-transporte-personal"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+
+# Servidor de correo de prueba. La seccion se llamaba `[inbucket]` y esta OBSOLETA:
+# el CLI 2.111.0 emite `WARN: config section [inbucket] is deprecated. Please use
+# [local_smtp] instead.` El nombre y la forma nuevos se confirmaron contra el
+# `supabase/config.toml` que genera `supabase init` con esa misma version del CLI.
+[local_smtp]
+enabled = true
+port = 54324
+
+# --- Servicios APAGADOS A PROPOSITO --------------------------------------------
+# `supabase start` reporta al arrancar: "Stopped services: [realtime, storage,
+# imgproxy, edge_runtime, analytics, vector, pooler]". Es lo esperado, no un fallo,
+# y arranca bastante mas rapido. Ninguno lo necesita ningun paso de la §9:
+#
+#   storage      — no hay subida de archivos en v1. El PDF del cliente se genera
+#                  bajo demanda y se descarga; no se guarda en ningun lado.
+#   realtime     — el monitor en vivo es por SONDEO cada 30 s con TanStack Query
+#                  (decision 10 de la §20.3), no por suscripcion.
+#   imgproxy     — solo lo usa storage.
+#   edge_runtime — no hay Edge Functions: el trabajo de fondo vive en el worker
+#                  contenedor de Railway.
+#   analytics,
+#   vector       — telemetria del propio stack local; no la consume nadie.
+#   pooler       — drizzle-kit necesita conexion DIRECTA para migrar
+#                  (`DIRECT_DATABASE_URL`), y en local no hay concurrencia que
+#                  justifique un pooler.
+#
+# Si algun paso llegara a necesitar uno, se enciende aqui Y se documenta en la §19.6.
+[storage]
+enabled = false
+
+[realtime]
+enabled = false
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = ["http://127.0.0.1:3000/auth/callback", "rutas://auth/callback"]
+# Sesiones cortas: no hay Cloudflare Access ni VPN delante del panel, asi que la
+# ventana de una sesion robada es la unica compensacion barata que queda.
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+# NADIE se registra solo. El panel es por invitacion y los choferes los da de
+# alta un administrador. Este es el interruptor que lo hace cierto en el backend
+# y no solo en la UI.
+enable_signup = false
+enable_manual_linking = false
+
+[auth.email]
+enable_signup = false
+enable_confirmations = false
+double_confirm_changes = true
+
+[auth.sms]
+enable_signup = false
+
+# Google OAuth solo para el panel web. En local queda apagado: las pruebas de
+# invitacion usan el API de administracion con la service role key, que no
+# necesita salir a internet.
+[auth.external.google]
+enabled = false
+client_id = "env(SUPABASE_AUTH_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_GOOGLE_SECRET)"
+skip_nonce_check = false
+
+[auth.rate_limit]
+# Limite de intentos de login. Segunda compensacion barata por no tener VPN.
+sign_in_sign_ups = 10
+token_refresh = 150
+
+[analytics]
+enabled = false
+
+[edge_runtime]
+enabled = false

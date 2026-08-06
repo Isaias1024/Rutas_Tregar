@@ -1,0 +1,56 @@
+# --- dependencias y build ---
+node_modules/
+.pnpm-store/
+.turbo/
+dist/
+.next/
+out/
+build/
+
+# --- Expo / React Native ---
+.expo/
+apps/mobile/android/
+apps/mobile/ios/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# --- pruebas ---
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+coverage/
+
+# --- Supabase local ---
+supabase/.temp/
+supabase/.branches/
+
+# --- entorno ---
+# El patron general oculta todo .env...
+.env
+.env.*
+# ...y estas dos excepciones lo reabren. Van DESPUES del patron que anulan,
+# porque en gitignore gana la ultima regla que hace match.
+!.env.example
+!.env.test.example
+
+# --- bundle del blueprint ---
+# En esta instancia del bundle, los artefactos de diseno quedaron en la raiz del
+# proyecto en vez de bajo blueprints/rutas-transporte-personal/. Contienen una
+# copia de estos mismos configs bajo workspace/. No se versionan con el codigo:
+# son un artefacto de diseno con su propio ciclo de vida.
+/blueprints/
+/blueprint.md
+/epics/
+/tasks.json
+/workspace/
+
+# --- sistema operativo y editores ---
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
