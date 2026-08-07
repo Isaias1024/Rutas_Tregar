@@ -44,6 +44,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@date-fns/tz':
+        specifier: ^1.5.0
+        version: 1.5.0
       '@expo/ui':
         specifier: ~57.0.9
         version: 57.0.9(26bf5c5d50df0a8c7129adde9f188d5a)
@@ -53,6 +56,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.112.1
         version: 2.112.1
+      date-fns:
+        specifier: ^4.4.0
+        version: 4.4.0
       expo:
         specifier: ~57.0.11
         version: 57.0.11(cb816d8f9307ed57ecedbb433af155c7)
