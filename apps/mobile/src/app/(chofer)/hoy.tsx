@@ -49,7 +49,7 @@ export default function PaginaHoy() {
       renderItem={({ item }) => (
         <TarjetaAsignacion
           asignacion={item}
-          onPress={() => router.push(`/(chofer)/ruta/${item.id}` as never)}
+          onPress={() => router.push({ pathname: '/(chofer)/ruta/[id]', params: { id: item.id } })}
         />
       )}
     />

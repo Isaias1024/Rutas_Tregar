@@ -28,7 +28,7 @@ create policy asignacion_select_chofer on asignacion
 -- nunca ejercita esta politica en la practica (usa la connection string de
 -- servicio), pero se otorga el privilegio para que quede correcta si algun
 -- dia se consulta via PostgREST con el JWT de un supervisor.
-grant insert, update, delete on asignacion to authenticated;
+grant insert, delete on asignacion to authenticated;
 
 create policy asignacion_all_supervisor_admin on asignacion
   for all
@@ -44,6 +44,25 @@ create policy asignacion_all_supervisor_admin on asignacion
       where u.id = auth.uid() and u.rol in ('supervisor', 'admin')
     )
   );
+
+-- UPDATE es GRANT de columna a proposito, no de tabla completa. `authenticated`
+-- es el UNICO rol de Postgres compartido por admin, supervisor y chofer (los
+-- distingue `usuario.rol`, no un rol de Postgres distinto) y RLS no puede
+-- restringir columnas por policy — solo por fila. Cualquier columna que se
+-- otorgue aqui queda alcanzable por la policy de chofer de abajo tambien,
+-- sobre su propia fila, asi que el grant se queda estrictamente en lo que
+-- el chofer de verdad necesita tocar: sus dos contadores. La reasignacion
+-- via PostgREST que sugeria el comentario del paso 7 nunca se implemento —
+-- el panel jamas la ejercita — y no se agrega aqui hasta que haga falta de
+-- verdad, con un trigger que bloquee las demas columnas si el dia llega.
+grant update (cnt_abordaron, cnt_retornaron) on asignacion to authenticated;
+
+-- Paso 10: el chofer registra "cuantos abordaron"/"cuantos regresaron" al
+-- marcar fin_ruta/retorno, hablando directo a PostgREST con su JWT.
+create policy asignacion_update_contadores_propios on asignacion
+  for update
+  using (chofer_id = auth.uid())
+  with check (chofer_id = auth.uid());
 
 -- === evento ======================================================================
 -- Append-only por permiso, no por buena costumbre: NINGUN rol recibe el

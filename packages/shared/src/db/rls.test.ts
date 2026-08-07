@@ -186,4 +186,28 @@ describe('rls: aislamiento entre choferes', () => {
     await expect(comoA`update usuario set rol = 'admin' where id = ${choferAId}`).rejects.toThrow();
     await comoA.end();
   });
+
+  it('el chofer A puede registrar cnt_abordaron en su propia asignacion', async () => {
+    const comoA = await comoUsuario(choferAId);
+    await comoA`update asignacion set cnt_abordaron = 12 where id = ${asignacionAId}`;
+    const [fila] = await comoA`select cnt_abordaron from asignacion where id = ${asignacionAId}`;
+    expect(fila?.cnt_abordaron).toBe(12);
+    await comoA.end();
+  });
+
+  it('el chofer A no puede tocar el cnt_abordaron de una asignacion del chofer B', async () => {
+    const comoA = await comoUsuario(choferAId);
+    const filas =
+      await comoA`update asignacion set cnt_abordaron = 99 where id = ${asignacionBId} returning id`;
+    expect(filas).toHaveLength(0);
+    await comoA.end();
+  });
+
+  it('el chofer A no puede cambiar el camion de su propia asignacion (solo los contadores tienen GRANT)', async () => {
+    const comoA = await comoUsuario(choferAId);
+    await expect(
+      comoA`update asignacion set camion_id = ${camionId} where id = ${asignacionAId}`,
+    ).rejects.toThrow();
+    await comoA.end();
+  });
 });

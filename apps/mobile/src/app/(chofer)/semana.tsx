@@ -59,11 +59,10 @@ export default function PaginaSemana() {
             asignacion={item}
             soloLectura={esFuturo}
             onPress={() =>
-              router.push(
-                (esFuturo
-                  ? `/(chofer)/ruta/${item.id}?soloLectura=1`
-                  : `/(chofer)/ruta/${item.id}`) as never,
-              )
+              router.push({
+                pathname: '/(chofer)/ruta/[id]',
+                params: esFuturo ? { id: item.id, soloLectura: '1' } : { id: item.id },
+              })
             }
           />
         );

@@ -135,6 +135,9 @@ function normalizar(filas: FilaCruda[]): AsignacionDetallada[] {
   });
 }
 
+const SELECT_ASIGNACION_DETALLADA =
+  'id, fecha, secuencia, camion_codigo, horario:horario_id(id, turno, hora_inicio_esperada, hora_fin_esperada, ruta:ruta_id(id, nombre, parada_inicio:parada_inicio_id(nombre), parada_fin:parada_fin_id(nombre)))';
+
 async function consultarSupabase(
   fechaInicio: string,
   fechaFin: string,
@@ -144,9 +147,7 @@ async function consultarSupabase(
   // y no habria como burlarlo aunque se intentara.
   const { data, error } = await supabase
     .from('asignacion')
-    .select(
-      'id, fecha, secuencia, camion_codigo, horario:horario_id(id, turno, hora_inicio_esperada, hora_fin_esperada, ruta:ruta_id(id, nombre, parada_inicio:parada_inicio_id(nombre), parada_fin:parada_fin_id(nombre)))',
-    )
+    .select(SELECT_ASIGNACION_DETALLADA)
     .is('cancelada_en', null)
     .gte('fecha', fechaInicio)
     .lte('fecha', fechaFin);
@@ -155,6 +156,20 @@ async function consultarSupabase(
     throw error;
   }
   return normalizar((data ?? []) as unknown as FilaCruda[]);
+}
+
+/** Para la pantalla de detalle (paso 10): una sola asignacion por id. */
+export async function obtenerAsignacionPorId(id: string): Promise<AsignacionDetallada | null> {
+  const { data, error } = await supabase
+    .from('asignacion')
+    .select(SELECT_ASIGNACION_DETALLADA)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+  return normalizar([data as unknown as FilaCruda])[0] ?? null;
 }
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
