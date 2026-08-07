@@ -52,9 +52,16 @@ interface Props {
   ) => Promise<Resultado<{ id: string; credencial: string; passwordTemporal: string }>>;
   accionEditar: (input: unknown) => Promise<Resultado<{ id: string }>>;
   accionBorrar: (input: unknown) => Promise<Resultado<{ id: string }>>;
+  accionDarDeBaja: (input: unknown) => Promise<Resultado<{ id: string }>>;
 }
 
-export function TablaChoferes({ choferes, accionCrear, accionEditar, accionBorrar }: Props) {
+export function TablaChoferes({
+  choferes,
+  accionCrear,
+  accionEditar,
+  accionBorrar,
+  accionDarDeBaja,
+}: Props) {
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [editando, setEditando] = useState<Chofer | null>(null);
   const [pendiente, startTransition] = useTransition();
@@ -128,6 +135,21 @@ export function TablaChoferes({ choferes, accionCrear, accionEditar, accionBorra
     });
   }
 
+  function darDeBaja(chofer: Chofer) {
+    if (
+      !confirm(
+        `¿Dar de baja a "${chofer.nombre ?? chofer.credencial}"? Esto borra su nombre, correo y ` +
+          'telefono de forma permanente (LFPDPPP) y revoca su acceso. Sus rutas y eventos historicos ' +
+          'se conservan. No se puede deshacer.',
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      await accionDarDeBaja(chofer.id);
+    });
+  }
+
   const botonNuevo = (
     <Button type="button" onClick={abrirCrear}>
       Nuevo chofer
@@ -181,6 +203,14 @@ export function TablaChoferes({ choferes, accionCrear, accionEditar, accionBorra
                       >
                         Borrar
                       </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => darDeBaja(chofer)}
+                      >
+                        Dar de baja
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -213,6 +243,14 @@ export function TablaChoferes({ choferes, accionCrear, accionEditar, accionBorra
                   </Button>
                   <Button type="button" variant="outline" size="sm" onClick={() => borrar(chofer)}>
                     Borrar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => darDeBaja(chofer)}
+                  >
+                    Dar de baja
                   </Button>
                 </div>
               </li>

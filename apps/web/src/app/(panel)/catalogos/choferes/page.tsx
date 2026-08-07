@@ -1,4 +1,5 @@
 import { borrarChofer, crearChofer, editarChofer, listarChoferes } from '@/server/catalogos';
+import { darDeBaja } from '@/server/baja';
 import { TablaChoferes } from './tabla-choferes';
 
 export const dynamic = 'force-dynamic';
@@ -14,6 +15,7 @@ export default async function PaginaChoferes() {
         accionCrear={crearChofer}
         accionEditar={editarChofer}
         accionBorrar={borrarChofer}
+        accionDarDeBaja={darDeBaja}
       />
     </div>
   );

@@ -1,10 +1,17 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, Text, TextInput, View } from 'react-native';
 import { iniciarSesionConCredencial } from '@/lib/supabase';
 
 // Mensaje unico para credencial inexistente o contrasena incorrecta: nunca
 // revela cual de las dos fallo (Done-when del paso 8).
 const MENSAJE_GENERICO = 'Credencial o contrasena incorrecta.';
+
+function abrirAvisoPrivacidad() {
+  const baseUrl = process.env.EXPO_PUBLIC_PANEL_BASE_URL;
+  if (baseUrl) {
+    Linking.openURL(`${baseUrl}/privacidad`);
+  }
+}
 
 export default function PaginaLogin() {
   const [credencial, setCredencial] = useState('');
@@ -73,6 +80,10 @@ export default function PaginaLogin() {
         ) : (
           <Text className="text-xl font-semibold text-primary-fg">Entrar</Text>
         )}
+      </Pressable>
+
+      <Pressable className="mt-6 items-center" onPress={abrirAvisoPrivacidad}>
+        <Text className="text-sm text-muted-foreground underline">Aviso de privacidad</Text>
       </Pressable>
     </View>
   );

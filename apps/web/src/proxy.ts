@@ -19,7 +19,16 @@ import { type NextRequest, NextResponse } from 'next/server';
 // guarda su sesion en expo-secure-store, no en cookies del navegador — se
 // autentica con un header `Authorization: Bearer <access_token>` que el
 // route handler mismo valida contra Supabase.
-const RUTAS_PUBLICAS = ['/login', '/auth/callback', '/api/dispositivos'];
+// El aviso de privacidad y la pantalla de consentimiento (paso 16) las abre
+// la app del chofer sin sesion del panel — un chofer no puede ni debe tener
+// una.
+const RUTAS_PUBLICAS = [
+  '/login',
+  '/auth/callback',
+  '/api/dispositivos',
+  '/privacidad',
+  '/consentimiento',
+];
 const PREFIJOS_ADMIN = ['/catalogos', '/rutas', '/paradas', '/bitacora'];
 // `/api/reportes` (el CSV en streaming) entra aqui igual que `/reportes`: no
 // esta bajo el prefijo `/reportes` como string, asi que sin esta entrada

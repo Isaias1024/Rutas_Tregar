@@ -229,22 +229,28 @@ describe('reportes (paso 15) contra Postgres real', () => {
   });
 
   describe('4. bitacora de ejecuciones — pantalla paginada', () => {
-    it('pagina por cursor: dos paginas de limite 2 cubren las 3 filas sin repetir', async () => {
-      const primera = await listarBitacoraEjecuciones({ desde, hasta, limite: 2 });
-      expect(primera.filas).toHaveLength(2);
-      expect(primera.cursorSiguiente).not.toBeNull();
+    // Las pruebas de este describe no filtran por cliente ni por ruta a
+    // proposito — `listarBitacoraEjecuciones` es una consulta global por
+    // rango de fechas, igual que la produce el reporte real. Por eso nunca
+    // asumen un total EXACTO de filas (otro archivo de prueba corriendo en
+    // paralelo contra la misma base puede sembrar asignaciones en el mismo
+    // rango): solo verifican que las 3 filas propias aparecen, cada una una
+    // sola vez, recorriendo tantas paginas como haga falta.
+    it('pagina por cursor: recorre todas las paginas sin repetir ninguna fila propia', async () => {
+      const idsVistos: string[] = [];
+      let cursor: string | undefined;
+      for (let i = 0; i < 50; i++) {
+        const pagina = await listarBitacoraEjecuciones({ desde, hasta, limite: 2, cursor });
+        expect(pagina.filas.length).toBeLessThanOrEqual(2);
+        idsVistos.push(...pagina.filas.map((f) => f.id));
+        if (!pagina.cursorSiguiente) break;
+        cursor = pagina.cursorSiguiente;
+      }
 
-      const segunda = await listarBitacoraEjecuciones({
-        desde,
-        hasta,
-        limite: 2,
-        cursor: primera.cursorSiguiente ?? undefined,
-      });
-      expect(segunda.filas).toHaveLength(1);
-      expect(segunda.cursorSiguiente).toBeNull();
-
-      const idsVistos = new Set([...primera.filas, ...segunda.filas].map((f) => f.id));
-      expect(idsVistos.size).toBe(3);
+      const idsPropios = [asignacionA1Id, asignacionA2Id, asignacionB1Id];
+      for (const id of idsPropios) {
+        expect(idsVistos.filter((visto) => visto === id)).toHaveLength(1);
+      }
     });
 
     it('trae el origen del evento inicio_ruta por fila', async () => {
@@ -291,9 +297,13 @@ describe('reportes (paso 15) contra Postgres real', () => {
           'inicio_ruta_en,inicio_ruta_origen,fin_ruta_en,fin_ruta_origen,cnt_abordaron,' +
           'retorno_en,retorno_origen,cnt_retornaron',
       );
-      // encabezado + 3 filas de datos.
-      expect(lineas).toHaveLength(4);
-      const filaConAbordaron = lineas.find((l) => l.includes(',18,'));
+      // No se asume un total exacto de lineas (ver el comentario del
+      // describe anterior): solo que las 3 propias, identificadas por el
+      // nombre de ruta unico de este archivo, esten ahi con los datos
+      // correctos.
+      const lineasPropias = lineas.filter((l) => l.includes('Ruta de prueba (reportes)'));
+      expect(lineasPropias).toHaveLength(3);
+      const filaConAbordaron = lineasPropias.find((l) => l.includes(',18,'));
       expect(filaConAbordaron).toBeDefined();
       expect(filaConAbordaron).toContain('app');
     });
