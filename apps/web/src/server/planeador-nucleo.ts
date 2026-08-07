@@ -10,8 +10,8 @@ import {
   type Resultado,
   siguienteSecuencia,
 } from '@rutas/shared';
-import { asignacion, camion, db, horario, notificacionProgramada } from '@rutas/shared/db';
-import { and, eq, isNull, ne } from 'drizzle-orm';
+import { asignacion, camion, db, horario } from '@rutas/shared/db';
+import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 import { registrarAuditoria } from '@/lib/audit/registrar';
 
 const NO_ENCONTRADO: Resultado<never> = {
@@ -95,6 +95,17 @@ export async function asignarNucleo(
       recurso: { tipo: 'asignacion', id },
       despues: { horarioId, fecha, secuencia, choferId, camionId, camionCodigo: camionFila.codigo },
     });
+    // "Se crea O reasigna" (paso 14, Done-when): reasignarNucleo ya
+    // encolaba esto desde el paso 7; a la creacion inicial le faltaba.
+    // `on conflict ... do nothing` sobre el indice parcial (igual que
+    // `encolarSiNoExiste` en apps/worker/src/push/programar.ts) porque esta
+    // fila recien creada no puede tener ya una pendiente — pero el mismo
+    // patron evita que un reasignar inmediato despues choque (ver abajo).
+    await tx.execute(
+      sql`insert into notificacion_programada (id, asignacion_id, tipo, enviar_en)
+          values (${crypto.randomUUID()}, ${id}, 'asignacion_nueva', now())
+          on conflict (asignacion_id, tipo) where enviado_en is null do nothing`,
+    );
   });
 
   return { ok: true, data: { id } };
@@ -170,13 +181,16 @@ export async function reasignarNucleo(
       despues: { choferId, camionId, camionCodigo: camionFila.codigo },
     });
     // Reasignar de ultimo minuto se le avisa al chofer nuevo: la cola del
-    // worker la recoge por `enviar_en <= now()` (paso 13).
-    await tx.insert(notificacionProgramada).values({
-      id: crypto.randomUUID(),
-      asignacionId,
-      tipo: 'asignacion_nueva',
-      enviarEn: new Date(),
-    });
+    // worker la recoge por `enviar_en <= now()` (paso 13). `on conflict do
+    // nothing`: si asignarNucleo (u otro reasignar) ya dejo una fila
+    // pendiente para esta asignacion, no hace falta una segunda — al
+    // enviarla, destinatariosDe() en apps/worker/src/push/enviar.ts resuelve
+    // el chofer actual desde `asignacion` en ese momento, no desde esta fila.
+    await tx.execute(
+      sql`insert into notificacion_programada (id, asignacion_id, tipo, enviar_en)
+          values (${crypto.randomUUID()}, ${asignacionId}, 'asignacion_nueva', now())
+          on conflict (asignacion_id, tipo) where enviado_en is null do nothing`,
+    );
   });
 
   return { ok: true, data: { id: asignacionId } };

@@ -2,6 +2,8 @@ import { db, notificacionProgramada } from '@rutas/shared/db';
 import { Cron } from 'croner';
 import { and, eq, isNull, lte } from 'drizzle-orm';
 import type { Logger } from 'pino';
+import { enviarNotificacion } from './push/enviar.ts';
+import { programarAlertasRetraso, programarRecordatorios } from './push/programar.ts';
 
 // croner en America/Mexico_City, barriendo notificacion_programada cada
 // minuto (§13, § worker-y-reportes.md). Idempotente por diseno: enviado_en
@@ -17,9 +19,10 @@ export interface NotificacionPendiente {
 export type EnviarNotificacion = (notificacion: NotificacionPendiente) => Promise<void>;
 
 /**
- * La entrega real (expo-server-sdk) llega en el paso 14. Este placeholder
- * existe para que el barrido de hoy ya tenga la forma final: marcar y
- * despues intentar enviar, nunca al reves.
+ * Sin entrega inyectada, no envia nada (solo demuestra que enviado_en se
+ * marca ANTES de "enviar"). `iniciarScheduler` siempre pasa la entrega real
+ * (`enviarNotificacion`, paso 14); este placeholder queda como default para
+ * quien llame `barrerNotificacionesPendientes` sin especificarla.
  */
 const enviarPlaceholder: EnviarNotificacion = async () => {};
 
@@ -59,9 +62,14 @@ export async function barrerNotificacionesPendientes(
   return pendientes.length;
 }
 
-export function iniciarScheduler(logger: Logger, enviar?: EnviarNotificacion): Cron {
+export function iniciarScheduler(logger: Logger): Cron {
   return new Cron('* * * * *', { timezone: 'America/Mexico_City' }, async () => {
-    const total = await barrerNotificacionesPendientes(logger, enviar);
+    await programarRecordatorios();
+    await programarAlertasRetraso();
+
+    const total = await barrerNotificacionesPendientes(logger, (notificacion) =>
+      enviarNotificacion(logger, notificacion),
+    );
     if (total > 0) {
       logger.info({ total }, 'notificaciones procesadas');
     }

@@ -12,7 +12,13 @@ import { type NextRequest, NextResponse } from 'next/server';
 // corre en el runtime de Node por default desde v16, por eso puede consultar
 // Postgres directo aqui igual que un server component.
 
-const RUTAS_PUBLICAS = ['/login', '/auth/callback'];
+// No son publicas en el sentido de "cualquiera pasa": son las rutas que el
+// proxy no gatea con la sesion de cookies del panel porque tienen su propia
+// autenticacion. POST /api/dispositivos (paso 14) la llama la app movil, que
+// guarda su sesion en expo-secure-store, no en cookies del navegador — se
+// autentica con un header `Authorization: Bearer <access_token>` que el
+// route handler mismo valida contra Supabase.
+const RUTAS_PUBLICAS = ['/login', '/auth/callback', '/api/dispositivos'];
 const PREFIJOS_ADMIN = ['/catalogos', '/rutas', '/paradas', '/bitacora'];
 const PREFIJOS_SUPERVISOR_ADMIN = ['/monitor', '/planeador', '/reportes'];
 

@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { IndicadorPendientes } from '@/componentes/indicador-pendientes';
 import { supabase } from '@/lib/supabase';
+import { registrarDispositivoPush } from '@/push/registrar';
 import '../global.css';
 
 interface UsuarioSesion {
@@ -113,6 +114,16 @@ export default function RootLayout() {
       router.replace('/');
     }
   }, [cargando, session, usuario, segmentos, router]);
+
+  // Se registra una vez que hay sesion utilizable (no mientras falta
+  // cambiar la contrasena): pide permiso, obtiene el token de Expo y lo
+  // manda al panel (paso 14). Un fallo aqui (sin permiso, sin red) no debe
+  // impedir el uso de la app, por eso no hay manejo de error visible.
+  useEffect(() => {
+    if (usuario && !usuario.debeCambiarPassword) {
+      registrarDispositivoPush();
+    }
+  }, [usuario]);
 
   return (
     <SesionContext.Provider value={{ cargando, session, usuario, refrescarUsuario }}>
