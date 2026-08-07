@@ -50,6 +50,10 @@ const ESPECIFICACION = [
   // compuerta que confirma que el `.env` de todo el proyecto esta completo
   // para el paso actual, no solo lo que este proceso importa.
   { clave: 'EXPO_PUBLIC_PANEL_BASE_URL', desdePaso: 14 },
+  // No la lee el panel tampoco: la lee el worker (Playwright imprimiendo
+  // /reportes/cliente/[id]/imprimible), pero por la misma razon que la
+  // anterior este gate valida que exista igual.
+  { clave: 'PANEL_BASE_URL', desdePaso: 15 },
 ] as const;
 
 type Clave = (typeof ESPECIFICACION)[number]['clave'];

@@ -118,6 +118,7 @@ const valores = {
   WORKER_SHARED_SECRET: crypto.randomUUID(),
   EXPO_ACCESS_TOKEN: '',
   EXPO_PUBLIC_PANEL_BASE_URL: 'http://127.0.0.1:3000',
+  PANEL_BASE_URL: 'http://127.0.0.1:3000',
   APP_TIMEZONE: 'America/Mexico_City',
   LOG_LEVEL: 'info',
   E2E_BASE_URL: 'http://127.0.0.1:3000',

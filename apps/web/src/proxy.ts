@@ -1,6 +1,7 @@
 // `@/lib/env` importa primero A PROPOSITO: su carga de `.env` tiene que
 // correr antes de que `@rutas/shared/db` evalue su propio
 // `process.env.DATABASE_URL` al importarse (mismo peligro que en invitacion.ts).
+import { timingSafeEqual } from 'node:crypto';
 import { env } from '@/lib/env';
 import { db, usuario } from '@rutas/shared/db';
 import { createServerClient } from '@supabase/ssr';
@@ -20,7 +21,15 @@ import { type NextRequest, NextResponse } from 'next/server';
 // route handler mismo valida contra Supabase.
 const RUTAS_PUBLICAS = ['/login', '/auth/callback', '/api/dispositivos'];
 const PREFIJOS_ADMIN = ['/catalogos', '/rutas', '/paradas', '/bitacora'];
-const PREFIJOS_SUPERVISOR_ADMIN = ['/monitor', '/planeador', '/reportes'];
+// `/api/reportes` (el CSV en streaming) entra aqui igual que `/reportes`: no
+// esta bajo el prefijo `/reportes` como string, asi que sin esta entrada
+// cualquier usuario autenticado (incluido un chofer) podria descargarlo.
+const PREFIJOS_SUPERVISOR_ADMIN = ['/monitor', '/planeador', '/reportes', '/api/reportes'];
+
+// Patron de la unica ruta que acepta el secreto del worker EN VEZ de una
+// sesion de cookies (paso 15, §5): Chromium headless no trae sesion de
+// navegador, y esta es la pagina que imprime a PDF.
+const RUTA_IMPRIMIBLE = /^\/reportes\/cliente\/[^/]+\/imprimible$/;
 
 function coincide(pathname: string, prefijos: string[]): boolean {
   return prefijos.some((prefijo) => pathname === prefijo || pathname.startsWith(`${prefijo}/`));
@@ -33,11 +42,36 @@ function respuestaNoAutorizado(mensaje: string) {
   );
 }
 
+/**
+ * Comparacion en tiempo constante (igual que apps/worker/src/servidor.ts:
+ * el mismo secreto compartido, otro proceso, sin un modulo comun entre panel
+ * y worker para no acoplarlos por una funcion de tres lineas).
+ */
+function secretosCoinciden(recibido: string, esperado: string): boolean {
+  const bufRecibido = Buffer.from(recibido);
+  const bufEsperado = Buffer.from(esperado);
+  if (bufRecibido.length !== bufEsperado.length) {
+    timingSafeEqual(bufRecibido, bufRecibido);
+    return false;
+  }
+  return timingSafeEqual(bufRecibido, bufEsperado);
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (coincide(pathname, RUTAS_PUBLICAS)) {
     return NextResponse.next();
+  }
+
+  if (RUTA_IMPRIMIBLE.test(pathname)) {
+    const secretoRecibido = request.headers.get('x-rutas-worker-secret');
+    const secretoEsperado = env.WORKER_SHARED_SECRET;
+    if (secretoRecibido && secretoEsperado && secretosCoinciden(secretoRecibido, secretoEsperado)) {
+      return NextResponse.next();
+    }
+    // Sin secreto valido: sigue el flujo normal de abajo, que exige sesion
+    // de supervisor/admin por cookies como cualquier otra pagina de /reportes.
   }
 
   // Proxy no tiene acceso a `next/headers` (eso es solo para render): las

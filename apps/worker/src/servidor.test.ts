@@ -1,9 +1,20 @@
+import { randomUUID } from 'node:crypto';
 import pino from 'pino';
 import { describe, expect, it } from 'vitest';
 import { crearApp } from './servidor.ts';
 
 const SECRETO = 'secreto-de-prueba-1234567890';
+const PANEL_BASE_URL = 'http://127.0.0.1:3000';
 const logger = pino({ enabled: false });
+
+function appDePrueba() {
+  return crearApp({
+    secreto: SECRETO,
+    panelBaseUrl: PANEL_BASE_URL,
+    logger,
+    verificarSalud: async () => true,
+  });
+}
 
 interface CuerpoRespuesta {
   codigo?: string;
@@ -12,23 +23,34 @@ interface CuerpoRespuesta {
 
 describe('GET /salud', () => {
   it('responde 200 con db: "ok" cuando la base responde', async () => {
-    const app = crearApp({ secreto: SECRETO, logger, verificarSalud: async () => true });
+    const app = appDePrueba();
     const respuesta = await app.request('/salud');
     expect(respuesta.status).toBe(200);
     expect(await respuesta.json()).toEqual({ db: 'ok' });
   });
 
   it('responde 503 con db: "caida" cuando la base no responde', async () => {
-    const app = crearApp({ secreto: SECRETO, logger, verificarSalud: async () => false });
+    const app = crearApp({
+      secreto: SECRETO,
+      panelBaseUrl: PANEL_BASE_URL,
+      logger,
+      verificarSalud: async () => false,
+    });
     const respuesta = await app.request('/salud');
     expect(respuesta.status).toBe(503);
     expect(await respuesta.json()).toEqual({ db: 'caida' });
   });
 });
 
-describe('POST /reportes/pdf', () => {
+// Estas pruebas cubren SOLO el gate de autenticacion y el limite de tasa,
+// que corren ANTES de tocar Postgres o abrir Chromium (paso 15) — por eso
+// las peticiones van sin cuerpo o con un `cliente_id` que no existe: nunca
+// deberian llegar a `generarPdfCliente` de verdad, y si no llegaran el 401 o
+// el 429 tampoco se verian. La generacion real del PDF (con Chromium de
+// verdad) se prueba aparte en reportes/pdf.test.ts.
+describe('POST /reportes/pdf — autenticacion y limite de tasa', () => {
   it('responde 401 con codigo secreto_invalido sin el header', async () => {
-    const app = crearApp({ secreto: SECRETO, logger, verificarSalud: async () => true });
+    const app = appDePrueba();
     const respuesta = await app.request('/reportes/pdf', { method: 'POST' });
     expect(respuesta.status).toBe(401);
     const cuerpo = (await respuesta.json()) as CuerpoRespuesta;
@@ -36,7 +58,7 @@ describe('POST /reportes/pdf', () => {
   });
 
   it('responde 401 con un secreto incorrecto', async () => {
-    const app = crearApp({ secreto: SECRETO, logger, verificarSalud: async () => true });
+    const app = appDePrueba();
     const respuesta = await app.request('/reportes/pdf', {
       method: 'POST',
       headers: { 'x-rutas-worker-secret': 'otro-secreto-cualquiera' },
@@ -48,22 +70,36 @@ describe('POST /reportes/pdf', () => {
     expect(cuerpo.mensaje).not.toMatch(/caracter|posicion/i);
   });
 
-  it('responde 200 con el secreto correcto', async () => {
-    const app = crearApp({ secreto: SECRETO, logger, verificarSalud: async () => true });
+  it('con el secreto correcto pero sin cuerpo, pasa el gate y responde validacion (422)', async () => {
+    const app = appDePrueba();
     const respuesta = await app.request('/reportes/pdf', {
       method: 'POST',
       headers: { 'x-rutas-worker-secret': SECRETO },
     });
-    expect(respuesta.status).toBe(200);
+    expect(respuesta.status).toBe(422);
+    const cuerpo = (await respuesta.json()) as CuerpoRespuesta;
+    expect(cuerpo.codigo).toBe('validacion');
+  });
+
+  it('con el secreto correcto y un cliente_id inexistente, responde no_encontrado (404) sin abrir Chromium', async () => {
+    const app = appDePrueba();
+    const respuesta = await app.request('/reportes/pdf', {
+      method: 'POST',
+      headers: { 'x-rutas-worker-secret': SECRETO, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clienteId: randomUUID(), desde: '2026-01-01', hasta: '2026-01-31' }),
+    });
+    expect(respuesta.status).toBe(404);
+    const cuerpo = (await respuesta.json()) as CuerpoRespuesta;
+    expect(cuerpo.codigo).toBe('no_encontrado');
   });
 
   it('responde 429 con codigo limite_excedido despues de 30 peticiones en un minuto', async () => {
-    const app = crearApp({ secreto: SECRETO, logger, verificarSalud: async () => true });
+    const app = appDePrueba();
     const headers = { 'x-rutas-worker-secret': SECRETO };
 
     for (let i = 0; i < 30; i++) {
       const respuesta = await app.request('/reportes/pdf', { method: 'POST', headers });
-      expect(respuesta.status).toBe(200);
+      expect(respuesta.status).toBe(422);
     }
 
     const respuesta31 = await app.request('/reportes/pdf', { method: 'POST', headers });
@@ -75,7 +111,7 @@ describe('POST /reportes/pdf', () => {
   it('el limite de tasa es independiente por secreto', async () => {
     // Simula dos secretos "correctos" con dos apps distintas: agotar el
     // limite de una no debe afectar a la otra.
-    const app = crearApp({ secreto: SECRETO, logger, verificarSalud: async () => true });
+    const app = appDePrueba();
     const headers = { 'x-rutas-worker-secret': SECRETO };
     for (let i = 0; i < 30; i++) {
       await app.request('/reportes/pdf', { method: 'POST', headers });
@@ -83,8 +119,8 @@ describe('POST /reportes/pdf', () => {
     const agotado = await app.request('/reportes/pdf', { method: 'POST', headers });
     expect(agotado.status).toBe(429);
 
-    const otraApp = crearApp({ secreto: SECRETO, logger, verificarSalud: async () => true });
+    const otraApp = appDePrueba();
     const fresca = await otraApp.request('/reportes/pdf', { method: 'POST', headers });
-    expect(fresca.status).toBe(200);
+    expect(fresca.status).toBe(422);
   });
 });

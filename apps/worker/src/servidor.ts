@@ -1,9 +1,11 @@
 import { timingSafeEqual } from 'node:crypto';
 import { serve, type ServerType } from '@hono/node-server';
+import { reportePdfSchema } from '@rutas/shared';
 import { db } from '@rutas/shared/db';
 import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Logger } from 'pino';
+import { generarPdfCliente } from './reportes/pdf.ts';
 
 // Hono sobre @hono/node-server (§13). El secreto compartido se compara en
 // tiempo constante, nunca con `===` sobre el string crudo (§ worker-y-reportes.md).
@@ -39,12 +41,14 @@ function secretosCoinciden(recibido: string, esperado: string): boolean {
 export interface OpcionesApp {
   secreto: string;
   logger: Logger;
+  panelBaseUrl: string;
   verificarSalud?: () => Promise<boolean>;
 }
 
 export function crearApp({
   secreto,
   logger,
+  panelBaseUrl,
   verificarSalud = verificarSaludReal,
 }: OpcionesApp): Hono {
   const app = new Hono();
@@ -71,12 +75,29 @@ export function crearApp({
     marcasVigentes.push(ahora);
     peticionesPorSecreto.set(secretoRecibido, marcasVigentes);
 
-    // La generacion real del PDF (imprimir la pagina del panel con
-    // Playwright/Chromium) llega en un paso posterior; este endpoint por
-    // ahora solo demuestra que la autenticacion y el limite de tasa
-    // funcionan de verdad.
-    logger.info({ path: '/reportes/pdf' }, 'solicitud de reporte autenticada');
-    return c.json({ ok: true, mensaje: 'Generacion de PDF pendiente de implementar.' }, 200);
+    // Cuerpo plano `{codigo, mensaje}`, igual que `secreto_invalido` y
+    // `limite_excedido` arriba: este endpoint es el unico del worker y nunca
+    // adopto el sobre `Resultado<T>` (`{ok, error}`) que usan las server
+    // actions del panel — mantenerlo consistente consigo mismo importa mas
+    // que igualarlo a un patron de otro proceso.
+    const cuerpo = await c.req.json().catch(() => null);
+    const parseo = reportePdfSchema.safeParse(cuerpo);
+    if (!parseo.success) {
+      const primero = parseo.error.issues[0];
+      return c.json({ codigo: 'validacion', mensaje: primero?.message ?? 'Entrada invalida' }, 422);
+    }
+
+    const resultado = await generarPdfCliente(parseo.data, { panelBaseUrl, secreto });
+    if (!resultado.ok) {
+      logger.info({ path: '/reportes/pdf', codigo: resultado.codigo }, 'PDF no generado');
+      return c.json({ codigo: resultado.codigo, mensaje: resultado.mensaje }, 404);
+    }
+
+    logger.info({ path: '/reportes/pdf', clienteId: parseo.data.clienteId }, 'PDF generado');
+    return c.body(new Uint8Array(resultado.buffer), 200, {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="reporte-${parseo.data.clienteId}.pdf"`,
+    });
   });
 
   return app;

@@ -45,3 +45,18 @@ export const db: Db = new Proxy({} as Db, {
     return typeof valor === 'function' ? valor.bind(real) : valor;
   },
 });
+
+/**
+ * El cliente `postgres.js` crudo detras de `db` (paso 15), para el unico caso
+ * que drizzle no cubre: un cursor que entrega filas en lotes sin acumular el
+ * arreglo completo (CSV en streaming de la bitacora de ejecuciones). NO abre
+ * una conexion nueva — reutiliza la misma instancia perezosa de `conectar()`.
+ * Se expone como funcion y no como `db.$client` porque el `Proxy` de arriba
+ * hace `.bind(real)` sobre todo valor que sea funcion, y `bind` no conserva
+ * los metodos (`.unsafe`, `.cursor`) que `postgres.js` cuelga como
+ * propiedades del propio `sql` — un `db.$client` a traves del proxy vendria
+ * roto.
+ */
+export function clienteSql(): ReturnType<typeof postgres> {
+  return conectar().$client;
+}

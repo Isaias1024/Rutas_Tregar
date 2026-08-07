@@ -48,12 +48,13 @@ if (comando === '--version') {
 } else if (comando === 'serve') {
   const puerto = Number.parseInt(process.env.WORKER_PORT ?? '', 10);
   const secreto = process.env.WORKER_SHARED_SECRET;
-  if (Number.isNaN(puerto) || !secreto) {
-    logger.error('faltan WORKER_PORT o WORKER_SHARED_SECRET en el entorno');
+  const panelBaseUrl = process.env.PANEL_BASE_URL;
+  if (Number.isNaN(puerto) || !secreto || !panelBaseUrl) {
+    logger.error('faltan WORKER_PORT, WORKER_SHARED_SECRET o PANEL_BASE_URL en el entorno');
     process.exit(1);
   }
 
-  iniciarServidor({ puerto, secreto, logger });
+  iniciarServidor({ puerto, secreto, panelBaseUrl, logger });
   iniciarScheduler(logger);
   logger.info({ puerto }, 'rutas-worker arrancado');
 } else {

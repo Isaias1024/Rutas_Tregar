@@ -8,4 +8,5 @@ export * from './flujo.ts';
 export * from './estado.ts';
 export * from './eventos.ts';
 export * from './dispositivos.ts';
+export * from './reportes.ts';
 export * from './resultado.ts';
