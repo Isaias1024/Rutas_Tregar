@@ -29,6 +29,13 @@
       "when": 1786099669728,
       "tag": "0003_curvy_tomas",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786114204387,
+      "tag": "0004_endurecer_rls_seguridad",
+      "breakpoints": true
     }
   ]
 }

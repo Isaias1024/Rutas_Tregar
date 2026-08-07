@@ -87,17 +87,30 @@ export function crearApp({
       return c.json({ codigo: 'validacion', mensaje: primero?.message ?? 'Entrada invalida' }, 422);
     }
 
-    const resultado = await generarPdfCliente(parseo.data, { panelBaseUrl, secreto });
-    if (!resultado.ok) {
-      logger.info({ path: '/reportes/pdf', codigo: resultado.codigo }, 'PDF no generado');
-      return c.json({ codigo: resultado.codigo, mensaje: resultado.mensaje }, 404);
-    }
+    // Auditoria de seguridad: sin este try/catch, un fallo de Chromium (o de
+    // red hacia el panel) llegaba sin capturar hasta el manejador de errores
+    // por default de Hono, que usa SU PROPIO `console.error` — no la
+    // instancia de `pino` con `redact` que se crea en index.ts. Hoy ningun
+    // dato sensible viaja por ese camino de error, pero es el UNICO punto de
+    // todo el worker donde un error podia imprimirse fuera del logger
+    // configurado, asi que se cierra por consistencia antes de que algo
+    // sensible llegue a pasar por ahi.
+    try {
+      const resultado = await generarPdfCliente(parseo.data, { panelBaseUrl, secreto });
+      if (!resultado.ok) {
+        logger.info({ path: '/reportes/pdf', codigo: resultado.codigo }, 'PDF no generado');
+        return c.json({ codigo: resultado.codigo, mensaje: resultado.mensaje }, 404);
+      }
 
-    logger.info({ path: '/reportes/pdf', clienteId: parseo.data.clienteId }, 'PDF generado');
-    return c.body(new Uint8Array(resultado.buffer), 200, {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="reporte-${parseo.data.clienteId}.pdf"`,
-    });
+      logger.info({ path: '/reportes/pdf', clienteId: parseo.data.clienteId }, 'PDF generado');
+      return c.body(new Uint8Array(resultado.buffer), 200, {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="reporte-${parseo.data.clienteId}.pdf"`,
+      });
+    } catch (error) {
+      logger.error({ path: '/reportes/pdf', err: error }, 'fallo al generar el PDF');
+      return c.json({ codigo: 'error_interno', mensaje: 'No se pudo generar el PDF.' }, 500);
+    }
   });
 
   return app;

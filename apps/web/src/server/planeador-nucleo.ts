@@ -54,31 +54,45 @@ export async function asignarNucleo(
     return errorValidacion('El camion esta en mantenimiento.', 'camionId');
   }
 
-  const asignacionesDelDia = await db
-    .select({ horarioId: asignacion.horarioId, turno: horario.turno })
-    .from(asignacion)
-    .innerJoin(horario, eq(horario.id, asignacion.horarioId))
-    .where(
-      and(
-        eq(asignacion.choferId, choferId),
-        eq(asignacion.fecha, fecha),
-        isNull(asignacion.canceladaEn),
-      ),
-    );
-
-  if (hayTraslape(asignacionesDelDia, { id: horarioId, turno: horarioFila.turno })) {
-    return errorConflicto('Este chofer ya tiene otra ruta asignada en ese turno y fecha.');
-  }
-
-  const asignacionesDelHorarioEseDia = await db
-    .select({ secuencia: asignacion.secuencia })
-    .from(asignacion)
-    .where(and(eq(asignacion.horarioId, horarioId), eq(asignacion.fecha, fecha)));
-
-  const secuencia = siguienteSecuencia(asignacionesDelHorarioEseDia.map((a) => a.secuencia));
-
   const id = crypto.randomUUID();
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
+    // Auditoria de seguridad: `hayTraslape` es puramente en memoria — leia
+    // fuera de cualquier bloqueo y decidia antes de escribir, asi que dos
+    // peticiones concurrentes de asignar/reasignar al MISMO chofer el MISMO
+    // dia (dos horarios distintos, dos supervisores a la vez, o un
+    // doble-clic) podian pasar esta comprobacion las dos ANTES de que
+    // cualquiera insertara, dejando al chofer doble-agendado en el mismo
+    // turno sin que ninguna violara ninguna restriccion de la base. Un
+    // advisory lock con alcance de transaccion (`_xact_`, se libera solo al
+    // hacer commit o rollback — nunca hay que soltarlo a mano) serializa
+    // cualquier otra transaccion que intente lo mismo para este chofer y
+    // esta fecha: la segunda espera a que la primera termine, y para
+    // entonces ya ve la asignacion que la primera dejo.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${choferId} || ${fecha}), 1)`);
+
+    const asignacionesDelDia = await tx
+      .select({ horarioId: asignacion.horarioId, turno: horario.turno })
+      .from(asignacion)
+      .innerJoin(horario, eq(horario.id, asignacion.horarioId))
+      .where(
+        and(
+          eq(asignacion.choferId, choferId),
+          eq(asignacion.fecha, fecha),
+          isNull(asignacion.canceladaEn),
+        ),
+      );
+
+    if (hayTraslape(asignacionesDelDia, { id: horarioId, turno: horarioFila.turno })) {
+      return errorConflicto('Este chofer ya tiene otra ruta asignada en ese turno y fecha.');
+    }
+
+    const asignacionesDelHorarioEseDia = await tx
+      .select({ secuencia: asignacion.secuencia })
+      .from(asignacion)
+      .where(and(eq(asignacion.horarioId, horarioId), eq(asignacion.fecha, fecha)));
+
+    const secuencia = siguienteSecuencia(asignacionesDelHorarioEseDia.map((a) => a.secuencia));
+
     await tx.insert(asignacion).values({
       id,
       horarioId,
@@ -106,9 +120,9 @@ export async function asignarNucleo(
           values (${crypto.randomUUID()}, ${id}, 'asignacion_nueva', now())
           on conflict (asignacion_id, tipo) where enviado_en is null do nothing`,
     );
-  });
 
-  return { ok: true, data: { id } };
+    return { ok: true, data: { id } } satisfies Resultado<{ id: string }>;
+  });
 }
 
 export async function reasignarNucleo(
@@ -147,24 +161,30 @@ export async function reasignarNucleo(
     return errorValidacion('El camion esta en mantenimiento.', 'camionId');
   }
 
-  const asignacionesDelDia = await db
-    .select({ horarioId: asignacion.horarioId, turno: horario.turno })
-    .from(asignacion)
-    .innerJoin(horario, eq(horario.id, asignacion.horarioId))
-    .where(
-      and(
-        eq(asignacion.choferId, choferId),
-        eq(asignacion.fecha, antes.fecha),
-        isNull(asignacion.canceladaEn),
-        ne(asignacion.id, asignacionId),
-      ),
-    );
+  return db.transaction(async (tx) => {
+    // Mismo advisory lock que asignarNucleo, y por la misma razon:
+    // `hayTraslape` decidia fuera de cualquier bloqueo, asi que una
+    // reasignacion concurrente al mismo chofer/fecha podia colarse en la
+    // ventana entre el SELECT y el INSERT/UPDATE.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${choferId} || ${antes.fecha}), 1)`);
 
-  if (hayTraslape(asignacionesDelDia, { id: antes.horarioId, turno: horarioFila.turno })) {
-    return errorConflicto('Este chofer ya tiene otra ruta asignada en ese turno y fecha.');
-  }
+    const asignacionesDelDia = await tx
+      .select({ horarioId: asignacion.horarioId, turno: horario.turno })
+      .from(asignacion)
+      .innerJoin(horario, eq(horario.id, asignacion.horarioId))
+      .where(
+        and(
+          eq(asignacion.choferId, choferId),
+          eq(asignacion.fecha, antes.fecha),
+          isNull(asignacion.canceladaEn),
+          ne(asignacion.id, asignacionId),
+        ),
+      );
 
-  await db.transaction(async (tx) => {
+    if (hayTraslape(asignacionesDelDia, { id: antes.horarioId, turno: horarioFila.turno })) {
+      return errorConflicto('Este chofer ya tiene otra ruta asignada en ese turno y fecha.');
+    }
+
     await tx
       .update(asignacion)
       .set({ choferId, camionId, camionCodigo: camionFila.codigo })
@@ -191,9 +211,9 @@ export async function reasignarNucleo(
           values (${crypto.randomUUID()}, ${asignacionId}, 'asignacion_nueva', now())
           on conflict (asignacion_id, tipo) where enviado_en is null do nothing`,
     );
-  });
 
-  return { ok: true, data: { id: asignacionId } };
+    return { ok: true, data: { id: asignacionId } } satisfies Resultado<{ id: string }>;
+  });
 }
 
 export async function cancelarNucleo(

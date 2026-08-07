@@ -315,21 +315,13 @@ describe('subirPendiente: idempotencia contra Supabase real', () => {
     expect(filas).toHaveLength(1);
   });
 
-  it('sube el contador a la asignacion al registrar fin_ruta', async () => {
-    const payload = payloadDePrueba({
-      client_event_id: randomUUID(),
-      asignacion_id: asignacionId,
-      tipo: 'fin_ruta',
-      capturado_por: choferId,
-      contador: { campo: 'cnt_abordaron', valor: 17 },
-    });
-
-    expect(await subirPendiente(payload, clienteChofer)).toBe('exito');
-
-    const [fila] = await sql`select cnt_abordaron from asignacion where id = ${asignacionId}`;
-    expect(fila?.cnt_abordaron).toBe(17);
-  });
-
+  // Orden a proposito: `evento_validar_insert_chofer_trigger` (auditoria de
+  // seguridad, post paso 16) rechaza un insert que no sea el siguiente paso
+  // de ORDEN_PASOS para esa asignacion. Esta suite ya iba vio_ruta →
+  // listo_inicio; "vaciarCola... inicio_ruta" tiene que correr ANTES que
+  // "sube el contador... fin_ruta" para que la secuencia completa quede en
+  // orden real (vio_ruta, listo_inicio, inicio_ruta, fin_ruta) — antes de
+  // ese trigger el orden entre estas dos pruebas no importaba.
   it('vaciarCola sobre la cola real: sube lo pendiente y la deja vacia', async () => {
     const almacen = crearAlmacenFalso();
     const payload = payloadDePrueba({
@@ -351,5 +343,20 @@ describe('subirPendiente: idempotencia contra Supabase real', () => {
     const filas =
       await sql`select id from evento where client_event_id = ${payload.client_event_id}`;
     expect(filas).toHaveLength(1);
+  });
+
+  it('sube el contador a la asignacion al registrar fin_ruta', async () => {
+    const payload = payloadDePrueba({
+      client_event_id: randomUUID(),
+      asignacion_id: asignacionId,
+      tipo: 'fin_ruta',
+      capturado_por: choferId,
+      contador: { campo: 'cnt_abordaron', valor: 17 },
+    });
+
+    expect(await subirPendiente(payload, clienteChofer)).toBe('exito');
+
+    const [fila] = await sql`select cnt_abordaron from asignacion where id = ${asignacionId}`;
+    expect(fila?.cnt_abordaron).toBe(17);
   });
 });

@@ -71,7 +71,16 @@ enabled = false
 [auth]
 enabled = true
 site_url = "http://127.0.0.1:3000"
-additional_redirect_urls = ["http://127.0.0.1:3000/auth/callback", "rutas://auth/callback"]
+# Solo el callback del panel: la app movil NUNCA hace OAuth con deep link —
+# el chofer teclea credencial y contrasena directo contra Supabase Auth
+# (§ movil-expo.md), asi que no hay un flujo real que use un esquema
+# `rutas://`. Auditoria de seguridad: una entrada de redirect registrada sin
+# ningun codigo que la ejercite es superficie muerta que solo invita
+# confusion (o un futuro mal uso) — se quita en vez de dejarla "por si
+# acaso". Si algun dia se agrega login OAuth a la app, el esquema real de
+# apps/mobile/app.json hoy es `mobile://`, no `rutas://` — habria que
+# registrar el que exista entonces, no reactivar este.
+additional_redirect_urls = ["http://127.0.0.1:3000/auth/callback"]
 # Sesiones cortas: no hay Cloudflare Access ni VPN delante del panel, asi que la
 # ventana de una sesion robada es la unica compensacion barata que queda.
 jwt_expiry = 3600
