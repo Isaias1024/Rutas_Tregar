@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { z } from 'zod';
 
 /**
@@ -5,7 +7,22 @@ import { z } from 'zod';
  * a partir del paso"). `BUILD_STEP` (default 99, es decir "build terminado")
  * decide cuales de estas variables son obligatorias hoy; el resto puede faltar
  * sin que el import lance. Nadie mas en el panel lee `process.env` directo.
+ *
+ * Next solo carga `.env*` desde la raiz de `apps/web`, pero el unico `.env`
+ * del proyecto vive en la raiz del monorepo, y los workers que Next levanta
+ * para recolectar datos de pagina no reevaluan `next.config.ts`. Por eso la
+ * carga tiene que pasar por aqui — el mismo patron que usan drizzle.config.ts,
+ * vitest.setup.ts y los scripts de `scripts/` con `process.loadEnvFile('.env')`.
+ * Next (dev, build y cada worker) siempre corre con cwd = apps/web, asi que
+ * la raiz del monorepo esta dos niveles arriba. Bajo Vitest, cwd ya es la
+ * raiz (vitest.setup.ts corre primero y ya dejo `.env` cargado), asi que esta
+ * ruta no existe ahi y el guard no hace nada. En produccion tampoco existe
+ * este archivo: las variables llegan ya puestas por la plataforma.
  */
+const ENV_RAIZ = path.resolve(process.cwd(), '../../.env');
+if (existsSync(ENV_RAIZ)) {
+  process.loadEnvFile(ENV_RAIZ);
+}
 
 const ESPECIFICACION = [
   { clave: 'APP_TIMEZONE', desdePaso: 1 },
