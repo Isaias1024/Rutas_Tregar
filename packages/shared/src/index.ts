@@ -2,4 +2,5 @@
 // entra por aqui.
 export * from './tokens.ts';
 export * from './catalogos.ts';
+export * from './paradas-rutas.ts';
 export * from './resultado.ts';

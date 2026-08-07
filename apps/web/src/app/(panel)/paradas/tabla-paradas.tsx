@@ -1,0 +1,157 @@
+'use client';
+
+import type { Resultado } from '@rutas/shared';
+import { useState, useTransition } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { EstadoVacio } from '@/components/estado-vacio';
+import { type Coordenadas, SelectorParada } from '@/components/mapa/selector-parada';
+
+interface Parada {
+  id: string;
+  nombre: string;
+  direccion: string;
+  lat: number;
+  lng: number;
+}
+
+interface Props {
+  paradas: Parada[];
+  accionCrear: (input: unknown) => Promise<Resultado<{ id: string }>>;
+  apiKey: string | undefined;
+}
+
+export function TablaParadas({ paradas, accionCrear, apiKey }: Props) {
+  const [dialogoAbierto, setDialogoAbierto] = useState(false);
+  const [nombre, setNombre] = useState('');
+  const [direccion, setDireccion] = useState('');
+  const [coordenadas, setCoordenadas] = useState<Coordenadas | null>(null);
+  const [pendiente, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function abrirCrear() {
+    setNombre('');
+    setDireccion('');
+    setCoordenadas(null);
+    setError(null);
+    setDialogoAbierto(true);
+  }
+
+  function guardar() {
+    setError(null);
+    startTransition(async () => {
+      const resultado = await accionCrear({
+        nombre,
+        direccion,
+        lat: coordenadas?.lat,
+        lng: coordenadas?.lng,
+      });
+      if (!resultado.ok) {
+        setError(resultado.error.mensaje);
+        return;
+      }
+      setDialogoAbierto(false);
+    });
+  }
+
+  const botonNuevo = (
+    <Button type="button" onClick={abrirCrear}>
+      Nueva parada
+    </Button>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">{botonNuevo}</div>
+
+      {paradas.length === 0 ? (
+        <EstadoVacio titulo="Aun no hay paradas. Crea la primera" accion={botonNuevo} />
+      ) : (
+        <>
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Direccion</TableHead>
+                  <TableHead className="text-right">Coordenadas</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paradas.map((parada) => (
+                  <TableRow key={parada.id}>
+                    <TableCell>{parada.nombre}</TableCell>
+                    <TableCell>{parada.direccion}</TableCell>
+                    <TableCell className="text-right font-mono text-xs tabular-nums">
+                      {parada.lat.toFixed(5)}, {parada.lng.toFixed(5)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <ul className="space-y-3 md:hidden">
+            {paradas.map((parada) => (
+              <li key={parada.id} className="rounded-lg border border-border p-4">
+                <p className="font-medium text-foreground">{parada.nombre}</p>
+                <p className="text-sm text-muted-foreground">{parada.direccion}</p>
+                <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
+                  {parada.lat.toFixed(5)}, {parada.lng.toFixed(5)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      <Dialog open={dialogoAbierto} onOpenChange={setDialogoAbierto}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nueva parada</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <label htmlFor="parada-nombre" className="text-sm font-medium">
+                Nombre
+              </label>
+              <Input
+                id="parada-nombre"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+              />
+            </div>
+            <SelectorParada
+              apiKey={apiKey}
+              direccion={direccion}
+              coordenadas={coordenadas}
+              onDireccionChange={setDireccion}
+              onCoordenadasChange={setCoordenadas}
+            />
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            <DialogFooter>
+              <Button type="button" onClick={guardar} disabled={pendiente}>
+                Crear
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

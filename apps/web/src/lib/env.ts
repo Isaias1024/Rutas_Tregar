@@ -34,6 +34,10 @@ const ESPECIFICACION = [
   { clave: 'SUPABASE_SERVICE_ROLE_KEY', desdePaso: 3 },
   { clave: 'GOOGLE_OAUTH_ALLOWED_DOMAIN', desdePaso: 3 },
   { clave: 'E2E_BASE_URL', desdePaso: 5 },
+  // `desdePaso: 6` documenta desde cuando §10 la pide en un despliegue real,
+  // pero NUNCA se exige aqui (ver CLAVES_OPCIONALES abajo): el propio paso 6
+  // pide que, sin ella, el formulario de parada degrade a captura manual de
+  // coordenadas en vez de romper el build o la pantalla.
   { clave: 'NEXT_PUBLIC_GOOGLE_MAPS_API_KEY', desdePaso: 6 },
   { clave: 'EXPO_PUBLIC_SUPABASE_URL', desdePaso: 8 },
   { clave: 'EXPO_PUBLIC_SUPABASE_ANON_KEY', desdePaso: 8 },
@@ -44,6 +48,11 @@ const ESPECIFICACION = [
 ] as const;
 
 type Clave = (typeof ESPECIFICACION)[number]['clave'];
+
+// La unica variable de la tabla que §10 documenta "requerida desde el paso N"
+// sin que este modulo la exija nunca: su propio paso de origen (6) pide
+// degradar a captura manual en vez de fallar cuando falta.
+const CLAVES_OPCIONALES = new Set<Clave>(['NEXT_PUBLIC_GOOGLE_MAPS_API_KEY']);
 
 const esquemaCrudo = z.object(
   Object.fromEntries(ESPECIFICACION.map(({ clave }) => [clave, z.string().optional()])) as Record<
@@ -56,7 +65,8 @@ function construirEnv(buildStep: number, entorno: NodeJS.ProcessEnv) {
   const crudo = esquemaCrudo.parse(entorno);
 
   const faltantes = ESPECIFICACION.filter(
-    ({ clave, desdePaso }) => buildStep >= desdePaso && !crudo[clave],
+    ({ clave, desdePaso }) =>
+      !CLAVES_OPCIONALES.has(clave) && buildStep >= desdePaso && !crudo[clave],
   ).map(({ clave }) => clave);
 
   if (faltantes.length > 0) {
