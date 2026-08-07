@@ -7,14 +7,16 @@ import {
 } from '@rutas/shared';
 import { TZDate } from '@date-fns/tz';
 import { format } from 'date-fns';
-import * as Crypto from 'expo-crypto';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { PasoActivo } from '@/componentes/paso-activo';
 import { type AsignacionDetallada, obtenerAsignacionPorId } from '@/datos/asignaciones';
 import { supabase } from '@/lib/supabase';
-import { capturarUbicacion } from '@/ubicacion';
+import { almacenSqlite } from '@/outbox/db';
+import { vaciarCola } from '@/outbox/flusher';
+import { registrarEvento } from '@/outbox/registrar';
+import { useSesion } from '../../_layout';
 
 const ETIQUETA_PASO: Record<TipoEvento, string> = {
   vio_ruta: 'Vi la ruta',
@@ -26,9 +28,6 @@ const ETIQUETA_PASO: Record<TipoEvento, string> = {
 
 const ETIQUETA_TURNO: Record<string, string> = { manana: 'Manana', tarde: 'Tarde', noche: 'Noche' };
 
-// Solo estos dos pasos capturan GPS (§ movil-expo.md, paso 10).
-const REQUIERE_GPS: ReadonlySet<TipoEvento> = new Set(['listo_inicio', 'fin_ruta']);
-
 interface EventoFila extends EventoRegistrado {
   ocurrioEn: string;
 }
@@ -39,6 +38,7 @@ function formatearHora(iso: string): string {
 
 export default function PaginaDetalleRuta() {
   const { id, soloLectura } = useLocalSearchParams<{ id: string; soloLectura?: string }>();
+  const { usuario } = useSesion();
   const [asignacion, setAsignacion] = useState<AsignacionDetallada | null>(null);
   const [eventos, setEventos] = useState<EventoFila[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -46,20 +46,39 @@ export default function PaginaDetalleRuta() {
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
-    const [detalle, respuestaEventos] = await Promise.all([
+    const [detalle, respuestaEventos, pendientes] = await Promise.all([
       obtenerAsignacionPorId(id),
       supabase
         .from('evento')
         .select('tipo, ocurrio_en')
         .eq('asignacion_id', id)
         .order('ocurrio_en', { ascending: true }),
+      almacenSqlite.listar(),
     ]);
     setAsignacion(detalle);
-    setEventos(
-      (respuestaEventos.data ?? []).map((fila) => ({
+
+    // Combina lo ya subido con lo que sigue en el outbox local para esta
+    // asignacion: la UI avanza con lo que se acaba de encolar, sin esperar
+    // a que el flusher realmente lo suba (paso 11).
+    const combinados = new Map<TipoEvento, EventoFila>();
+    for (const fila of respuestaEventos.data ?? []) {
+      combinados.set(fila.tipo as TipoEvento, {
         tipo: fila.tipo as TipoEvento,
         ocurrioEn: fila.ocurrio_en,
-      })),
+      });
+    }
+    for (const fila of pendientes) {
+      if (fila.payload.asignacion_id === id) {
+        combinados.set(fila.payload.tipo, {
+          tipo: fila.payload.tipo,
+          ocurrioEn: fila.payload.ocurrio_en,
+        });
+      }
+    }
+    setEventos(
+      ORDEN_PASOS.filter((tipo) => combinados.has(tipo)).map(
+        (tipo) => combinados.get(tipo) as EventoFila,
+      ),
     );
   }, [id]);
 
@@ -71,47 +90,28 @@ export default function PaginaDetalleRuta() {
   const paso = siguientePaso(eventos);
   const eventosPorTipo = new Map(eventos.map((evento) => [evento.tipo, evento]));
 
-  async function registrar(contador?: number) {
-    if (!paso) {
+  async function registrar(contadorValor?: number) {
+    if (!paso || !usuario) {
       return;
     }
     setRegistrando(true);
     setError(null);
     try {
-      const { data: datosUsuario, error: errorUsuario } = await supabase.auth.getUser();
-      const capturadoPor = datosUsuario.user?.id;
-      if (errorUsuario || !capturadoPor) {
-        throw new Error('Sin sesion');
-      }
+      const contador =
+        requiereContador(paso) && contadorValor !== undefined
+          ? {
+              campo: (paso === 'fin_ruta' ? 'cnt_abordaron' : 'cnt_retornaron') as
+                | 'cnt_abordaron'
+                | 'cnt_retornaron',
+              valor: contadorValor,
+            }
+          : undefined;
 
-      const ubicacion = REQUIERE_GPS.has(paso) ? await capturarUbicacion() : null;
-
-      const { error: errorEvento } = await supabase.from('evento').insert({
-        asignacion_id: id,
-        tipo: paso,
-        ocurrio_en: new Date().toISOString(),
-        monotonic_ms: Math.round(globalThis.performance.now()),
-        lat: ubicacion?.lat ?? null,
-        lng: ubicacion?.lng ?? null,
-        gps_precision_m: ubicacion?.gpsPrecisionM ?? null,
-        sin_gps: ubicacion ? ubicacion.sinGps : true,
-        origen: 'app',
-        capturado_por: capturadoPor,
-        client_event_id: Crypto.randomUUID(),
-      });
-      if (errorEvento) {
-        throw errorEvento;
-      }
-
-      if (requiereContador(paso) && contador !== undefined) {
-        const campo = paso === 'fin_ruta' ? 'cnt_abordaron' : 'cnt_retornaron';
-        await supabase
-          .from('asignacion')
-          .update({ [campo]: contador })
-          .eq('id', id);
-      }
-
+      await registrarEvento({ asignacionId: id, tipo: paso, capturadoPor: usuario.id, contador });
       await cargar();
+      // No bloquea el avance de la UI (ya se recargo arriba con el evento
+      // local): solo intenta vaciar la cola de una vez si hay red.
+      void vaciarCola();
     } catch {
       setError('No se pudo registrar. Intenta de nuevo.');
     } finally {

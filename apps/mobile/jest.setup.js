@@ -32,3 +32,13 @@ if (existsSync(envRaiz)) {
     }
   }
 }
+
+// El `performance` que provee el entorno de pruebas de React Native es un
+// polyfill minimo (sin `markResourceTiming`), y el fetch real de `undici`
+// que usan las pruebas de outbox contra el Supabase local (ver
+// outbox.test.ts) lo llama para su propia instrumentacion interna. Sin
+// esto, esa llamada revienta con "markResourceTiming is not a function" —
+// es puramente diagnostico, un no-op no cambia ningun resultado de prueba.
+if (typeof performance !== 'undefined' && typeof performance.markResourceTiming !== 'function') {
+  performance.markResourceTiming = () => {};
+}

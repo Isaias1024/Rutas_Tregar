@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { createContext, useContext, useEffect, useState } from 'react';
+import { IndicadorPendientes } from '@/componentes/indicador-pendientes';
 import { supabase } from '@/lib/supabase';
 import '../global.css';
 
@@ -115,6 +116,7 @@ export default function RootLayout() {
 
   return (
     <SesionContext.Provider value={{ cargando, session, usuario, refrescarUsuario }}>
+      <IndicadorPendientes />
       <Stack screenOptions={{ headerShown: false }} />
     </SesionContext.Provider>
   );
