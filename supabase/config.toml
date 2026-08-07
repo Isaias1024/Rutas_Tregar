@@ -77,14 +77,26 @@ additional_redirect_urls = ["http://127.0.0.1:3000/auth/callback", "rutas://auth
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10
-# NADIE se registra solo. El panel es por invitacion y los choferes los da de
-# alta un administrador. Este es el interruptor que lo hace cierto en el backend
-# y no solo en la UI.
-enable_signup = false
+# En true A PROPOSITO, aunque el nombre sugiera lo contrario: este
+# interruptor es GLOBAL (afecta OAuth y email por igual) y en `false`
+# GoTrue rechaza incluso la primera sesion de un admin/supervisor invitado
+# legitimo, porque no puede crear su identidad de Auth. Medido: con
+# `enable_signup = false` bajo `[auth.email]`, ni siquiera un usuario
+# creado por el Admin API podia iniciar sesion — `GOTRUE_EXTERNAL_EMAIL_ENABLED`
+# quedaba en `false` tambien, y el chofer real (paso 8) habria quedado sin
+# poder entrar nunca. "Nadie se registra solo" lo hace cierto la compuerta de
+# invitacion (`apps/web/src/lib/auth/invitacion.ts`, verifica que ya exista
+# una fila en `usuario`) mas el hecho de que ningun camino de la UI llama al
+# signup publico: los choferes se crean solo con `supabaseAdmin.auth.admin.createUser`.
+enable_signup = true
 enable_manual_linking = false
 
 [auth.email]
-enable_signup = false
+# Tambien en true a proposito: ver el comentario largo junto al
+# `enable_signup` de `[auth]`. En `false` este apaga
+# `GOTRUE_EXTERNAL_EMAIL_ENABLED` — el login por correo/contrasena entero,
+# no solo el auto-registro — y ese es el camino que usan los choferes.
+enable_signup = true
 enable_confirmations = false
 double_confirm_changes = true
 

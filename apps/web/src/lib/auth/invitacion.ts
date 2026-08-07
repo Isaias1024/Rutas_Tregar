@@ -2,14 +2,9 @@
 // fuera del proceso principal de Next) tiene que correr antes de que
 // `@rutas/shared/db` evalue su propio `process.env.DATABASE_URL` al importarse.
 import { env } from '@/lib/env';
+import type { Resultado } from '@rutas/shared';
 import { db, usuario } from '@rutas/shared/db';
 import { eq, type InferSelectModel } from 'drizzle-orm';
-
-// Envoltura de respuesta unica del panel (§5): ninguna funcion lanza un
-// string, todas devuelven esta forma.
-export type Resultado<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: { codigo: string; mensaje: string; campo?: string } };
 
 export type UsuarioInvitado = InferSelectModel<typeof usuario>;
 

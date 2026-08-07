@@ -16,6 +16,13 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@rutas/shared'],
   outputFileTracingRoot: raizMonorepo,
   typedRoutes: true,
+  // Next 16 bloquea con 403 los recursos de `next dev` cuando el navegador
+  // entra por un origen que no sea `localhost`. Todo este proyecto usa
+  // `127.0.0.1` a proposito (Supabase local, Playwright, `E2E_BASE_URL`), y
+  // sin esto React nunca hidrata: el bundle del runtime se bloquea, ningun
+  // manejador de clic se conecta, y cualquier prueba e2e se cuelga
+  // esperando un dialogo que jamas abre.
+  allowedDevOrigins: ['127.0.0.1', 'localhost'],
 };
 
 export default nextConfig;
