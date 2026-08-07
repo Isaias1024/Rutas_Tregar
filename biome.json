@@ -41,7 +41,11 @@
         "noNonNullAssertion": "error"
       },
       "suspicious": {
-        "noExplicitAny": "error"
+        "noExplicitAny": "error",
+        "noUnknownAtRules": {
+          "level": "error",
+          "options": { "ignore": ["tailwind"] }
+        }
       }
     }
   },

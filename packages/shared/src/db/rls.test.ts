@@ -162,4 +162,28 @@ describe('rls: aislamiento entre choferes', () => {
     await expect(comoA`delete from evento where id = ${eventoAId}`).rejects.toThrow();
     await comoA.end();
   });
+
+  it('el chofer A puede apagar su propio debe_cambiar_password', async () => {
+    const comoA = await comoUsuario(choferAId);
+    await comoA`update usuario set debe_cambiar_password = false where id = ${choferAId}`;
+    const [fila] = await comoA`select debe_cambiar_password from usuario where id = ${choferAId}`;
+    expect(fila?.debe_cambiar_password).toBe(false);
+    await comoA.end();
+
+    await db.execute(sql`update usuario set debe_cambiar_password = true where id = ${choferAId}`);
+  });
+
+  it('el chofer A no puede apagar el debe_cambiar_password del chofer B', async () => {
+    const comoA = await comoUsuario(choferAId);
+    const filas =
+      await comoA`update usuario set debe_cambiar_password = false where id = ${choferBId} returning id`;
+    expect(filas).toHaveLength(0);
+    await comoA.end();
+  });
+
+  it('el chofer A no puede cambiar su propio rol (solo debe_cambiar_password tiene GRANT)', async () => {
+    const comoA = await comoUsuario(choferAId);
+    await expect(comoA`update usuario set rol = 'admin' where id = ${choferAId}`).rejects.toThrow();
+    await comoA.end();
+  });
 });

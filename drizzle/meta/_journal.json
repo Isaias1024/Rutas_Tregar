@@ -15,6 +15,13 @@
       "when": 1786053144529,
       "tag": "0001_perpetual_shaman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786071795796,
+      "tag": "0002_polite_red_shift",
+      "breakpoints": true
     }
   ]
 }
