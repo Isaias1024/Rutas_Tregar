@@ -29,11 +29,23 @@ const RUTAS_PUBLICAS = [
   '/privacidad',
   '/consentimiento',
 ];
-const PREFIJOS_ADMIN = ['/catalogos', '/rutas', '/paradas', '/bitacora'];
 // `/api/reportes` (el CSV en streaming) entra aqui igual que `/reportes`: no
 // esta bajo el prefijo `/reportes` como string, asi que sin esta entrada
 // cualquier usuario autenticado (incluido un chofer) podria descargarlo.
-const PREFIJOS_SUPERVISOR_ADMIN = ['/monitor', '/planeador', '/reportes', '/api/reportes'];
+// Admin y supervisor comparten exactamente el mismo acceso de panel (la
+// unica diferencia funcional entre ambos es 'crear_supervisor' en
+// @/lib/authz/can, que no gatea ninguna ruta todavia): no existe ningun
+// prefijo exclusivo de admin.
+const PREFIJOS_SUPERVISOR_ADMIN = [
+  '/monitor',
+  '/planeador',
+  '/reportes',
+  '/api/reportes',
+  '/catalogos',
+  '/rutas',
+  '/paradas',
+  '/bitacora',
+];
 
 // Patron de la unica ruta que acepta el secreto del worker EN VEZ de una
 // sesion de cookies (paso 15, §5): Chromium headless no trae sesion de
@@ -125,10 +137,6 @@ export async function proxy(request: NextRequest) {
 
   if (!fila?.activo || fila.deletedAt !== null) {
     return redirigirALogin();
-  }
-
-  if (coincide(pathname, PREFIJOS_ADMIN) && fila.rol !== 'admin') {
-    return respuestaNoAutorizado('Esta seccion es solo para administradores.');
   }
 
   if (

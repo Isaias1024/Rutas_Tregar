@@ -24,7 +24,12 @@ export type AccionSinRecurso =
   | 'gestionar_rutas_paradas'
   | 'gestionar_usuarios'
   | 'dar_de_baja'
-  | 'ver_bitacora';
+  | 'ver_bitacora'
+  // Unica accion que distingue a admin de supervisor. No hay todavia ninguna
+  // pantalla que la consuma (el alta de usuarios admin/supervisor se hace
+  // fuera del panel); cuando exista, debe usar esta accion ademas de
+  // 'gestionar_usuarios' cuando el rol objetivo sea 'supervisor'.
+  | 'crear_supervisor';
 
 /**
  * Acciones que solo el dueno del recurso puede ejercer: el chofer sobre su
@@ -42,28 +47,25 @@ export type Accion = AccionSinRecurso | AccionPropia | AccionProhibida;
 
 export type RecursoPropio = { choferId: string } | { usuarioId: string };
 
+// Admin y supervisor comparten exactamente el mismo acceso de panel: la
+// unica diferencia funcional entre ambos roles es 'crear_supervisor', abajo.
+const PERMISOS_PANEL: readonly AccionSinRecurso[] = [
+  'ver_panel',
+  'ver_monitor',
+  'planear',
+  'capturar_evento',
+  'corregir_contadores',
+  'generar_reportes',
+  'gestionar_catalogos',
+  'gestionar_rutas_paradas',
+  'gestionar_usuarios',
+  'dar_de_baja',
+  'ver_bitacora',
+];
+
 const PERMISOS: Record<Rol, ReadonlySet<AccionSinRecurso>> = {
-  admin: new Set<AccionSinRecurso>([
-    'ver_panel',
-    'ver_monitor',
-    'planear',
-    'capturar_evento',
-    'corregir_contadores',
-    'generar_reportes',
-    'gestionar_catalogos',
-    'gestionar_rutas_paradas',
-    'gestionar_usuarios',
-    'dar_de_baja',
-    'ver_bitacora',
-  ]),
-  supervisor: new Set<AccionSinRecurso>([
-    'ver_panel',
-    'ver_monitor',
-    'planear',
-    'capturar_evento',
-    'corregir_contadores',
-    'generar_reportes',
-  ]),
+  admin: new Set<AccionSinRecurso>([...PERMISOS_PANEL, 'crear_supervisor']),
+  supervisor: new Set<AccionSinRecurso>(PERMISOS_PANEL),
   chofer: new Set<AccionSinRecurso>([]),
 };
 

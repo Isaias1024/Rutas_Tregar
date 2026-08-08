@@ -41,9 +41,14 @@ test.describe('Catalogos', () => {
     ).toHaveCount(0);
   });
 
-  test('un supervisor no puede entrar a catalogos', async ({ page, context, baseURL }) => {
+  test('un supervisor tiene el mismo acceso a catalogos que un admin', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
     await iniciarSesionComo(context, 'supervisor', baseURL ?? 'http://127.0.0.1:3000');
     const respuesta = await page.goto('/catalogos/clientes');
-    expect(respuesta?.status()).toBe(403);
+    expect(respuesta?.status()).toBe(200);
+    await expect(page.getByRole('heading', { name: 'Clientes' })).toBeVisible();
   });
 });

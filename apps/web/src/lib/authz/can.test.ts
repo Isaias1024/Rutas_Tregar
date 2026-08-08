@@ -14,9 +14,10 @@ interface Caso {
   esperado: boolean;
 }
 
-// Una fila por celda de la matriz de la §8, mas las negativas que el paso 4
-// nombra explicitamente: supervisor creando un usuario, chofer viendo la
-// bitacora, admin editando un evento.
+// Una fila por celda de la matriz: supervisor tiene exactamente el mismo
+// acceso de panel que admin, salvo 'crear_supervisor' (la unica diferencia
+// funcional entre ambos roles). Mas las negativas explicitas: chofer viendo
+// la bitacora, admin editando un evento.
 const CASOS: Caso[] = [
   // --- admin: puede ---
   { descripcion: 'admin puede ver el panel', usuario: ADMIN, accion: 'ver_panel', esperado: true },
@@ -80,6 +81,12 @@ const CASOS: Caso[] = [
     accion: 'ver_bitacora',
     esperado: true,
   },
+  {
+    descripcion: 'admin puede crear un supervisor',
+    usuario: ADMIN,
+    accion: 'crear_supervisor',
+    esperado: true,
+  },
   // --- admin: no puede ---
   {
     descripcion: 'admin NO puede editar una fila de evento',
@@ -137,35 +144,41 @@ const CASOS: Caso[] = [
     accion: 'generar_reportes',
     esperado: true,
   },
-  // --- supervisor: no puede ---
   {
-    descripcion: 'supervisor NO puede crear un usuario',
+    descripcion: 'supervisor puede crear y editar usuarios (excepto supervisores)',
     usuario: SUPERVISOR,
     accion: 'gestionar_usuarios',
-    esperado: false,
+    esperado: true,
   },
   {
-    descripcion: 'supervisor NO puede dar de baja a un usuario',
+    descripcion: 'supervisor puede dar de baja a un usuario',
     usuario: SUPERVISOR,
     accion: 'dar_de_baja',
-    esperado: false,
+    esperado: true,
   },
   {
-    descripcion: 'supervisor NO puede editar catalogos',
+    descripcion: 'supervisor puede administrar clientes, camiones y choferes',
     usuario: SUPERVISOR,
     accion: 'gestionar_catalogos',
-    esperado: false,
+    esperado: true,
   },
   {
-    descripcion: 'supervisor NO puede editar rutas ni paradas',
+    descripcion: 'supervisor puede administrar rutas y paradas',
     usuario: SUPERVISOR,
     accion: 'gestionar_rutas_paradas',
-    esperado: false,
+    esperado: true,
   },
   {
-    descripcion: 'supervisor NO puede ver la bitacora completa',
+    descripcion: 'supervisor puede ver la bitacora completa',
     usuario: SUPERVISOR,
     accion: 'ver_bitacora',
+    esperado: true,
+  },
+  // --- supervisor: no puede ---
+  {
+    descripcion: 'supervisor NO puede crear un supervisor: la unica diferencia con admin',
+    usuario: SUPERVISOR,
+    accion: 'crear_supervisor',
     esperado: false,
   },
   {
@@ -227,6 +240,12 @@ const CASOS: Caso[] = [
     descripcion: 'chofer NO puede ver la bitacora',
     usuario: CHOFER,
     accion: 'ver_bitacora',
+    esperado: false,
+  },
+  {
+    descripcion: 'chofer NO puede crear un supervisor',
+    usuario: CHOFER,
+    accion: 'crear_supervisor',
     esperado: false,
   },
   {

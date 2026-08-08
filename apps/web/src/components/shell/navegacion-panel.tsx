@@ -8,16 +8,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 
 type Rol = 'admin' | 'supervisor' | 'chofer';
 
+// Admin y supervisor ven exactamente el mismo menu: la unica diferencia
+// funcional entre ambos roles es 'crear_supervisor' en @/lib/authz/can, que
+// no tiene todavia ninguna pantalla asociada.
 const ENLACES: ReadonlyArray<{ href: string; etiqueta: string; roles: readonly Rol[] }> = [
   { href: '/monitor', etiqueta: 'Monitor', roles: ['admin', 'supervisor'] },
   { href: '/planeador', etiqueta: 'Planeador', roles: ['admin', 'supervisor'] },
-  { href: '/catalogos/clientes', etiqueta: 'Clientes', roles: ['admin'] },
-  { href: '/catalogos/camiones', etiqueta: 'Camiones', roles: ['admin'] },
-  { href: '/catalogos/choferes', etiqueta: 'Choferes', roles: ['admin'] },
-  { href: '/rutas', etiqueta: 'Rutas', roles: ['admin'] },
-  { href: '/paradas', etiqueta: 'Paradas', roles: ['admin'] },
+  { href: '/catalogos/clientes', etiqueta: 'Clientes', roles: ['admin', 'supervisor'] },
+  { href: '/catalogos/camiones', etiqueta: 'Camiones', roles: ['admin', 'supervisor'] },
+  { href: '/catalogos/choferes', etiqueta: 'Choferes', roles: ['admin', 'supervisor'] },
+  { href: '/rutas', etiqueta: 'Rutas', roles: ['admin', 'supervisor'] },
+  { href: '/paradas', etiqueta: 'Paradas', roles: ['admin', 'supervisor'] },
   { href: '/reportes/cumplimiento', etiqueta: 'Reportes', roles: ['admin', 'supervisor'] },
-  { href: '/bitacora', etiqueta: 'Bitacora', roles: ['admin'] },
+  { href: '/bitacora', etiqueta: 'Bitacora', roles: ['admin', 'supervisor'] },
   { href: '/cuenta', etiqueta: 'Mi cuenta', roles: ['admin', 'supervisor', 'chofer'] },
 ];
 
