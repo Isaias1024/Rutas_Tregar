@@ -5,8 +5,6 @@ import { idSchema } from './catalogos.ts';
 // asignar/reasignar/cancelar. Sin acceso a base ni a sesion: reciben datos
 // ya consultados y devuelven una decision, para poder probarse sin Postgres.
 
-export type Turno = 'manana' | 'tarde' | 'noche';
-
 /** Las horas llegan como `HH:MM` (zod) o `HH:MM:SS` (columna `time` de Postgres). */
 export interface IntervaloHorario {
   horaInicioEsperada: string;

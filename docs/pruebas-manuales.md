@@ -563,7 +563,39 @@ como filas.
 
 ☐ Prueba tambien que **no** se pueda asignar dos veces lo mismo: intenta asignar el mismo chofer a
 otro horario que se traslape en hora. **Debe pasar:** aparece un mensaje de error explicando el
-choque, y no se guarda nada.
+choque, y no se guarda nada. En la lista de choferes, el que ya trae una ruta encimada sale apagado
+y con la leyenda `(horario encimado)`.
+
+☐ **Un chofer si puede llevar varias rutas el mismo dia**, mientras las horas no se toquen. Asigna al
+mismo `Chofer de Prueba` un segundo horario que **no** se encime — por ejemplo, si el primero va de
+`13:30` a `15:30`, crea uno de `16:00` a `17:00` y asignaselo.
+
+**Debe pasar:** se guarda sin quejarse, y las dos rutas aparecen con el mismo chofer. La regla no es
+"un chofer, una ruta por dia": es "un chofer no puede tener dos rutas cuyos horarios se superpongan".
+
+> **Dos rutas pegadas no son conflicto.** Si una termina a las `15:30` y la siguiente empieza a las
+> `15:30` en punto, se permite: una acaba justo donde arranca la otra, no hay superposicion real.
+
+---
+
+### Paso 4b — Quitarle el chofer a una ruta sin borrar nada
+
+☐ En **Planeador**, en la fila de una ruta que ya tenga chofer, presiona **Cancelar** y acepta la
+confirmacion.
+
+**Debe pasar, todo esto junto:**
+
+- La linea con el chofer y el camion desaparece de inmediato.
+- **La ruta sigue ahi**, con su horario y su boton **Asignar** listo para otro chofer.
+- No se borro la ruta, ni el horario, ni la parada, ni se cancelo la ejecucion de la ruta.
+- Si vuelves a asignar ese mismo horario, se deja.
+
+> **Que hace por dentro:** no borra la fila, la marca como cancelada. El historico y los eventos que
+> el chofer ya hubiera marcado se conservan — es lo que permite que el reporte del mes pasado siga
+> cuadrando despues de una desasignacion. Lo unico que se suelta es el vinculo chofer + camion.
+
+☐ Si algo sale mal (por ejemplo, otra pestana ya la cancelo), **debe aparecer el mensaje de error en
+rojo debajo del boton**. Un boton que no hace nada y no dice por que es un defecto, no un exito.
 
 ---
 
