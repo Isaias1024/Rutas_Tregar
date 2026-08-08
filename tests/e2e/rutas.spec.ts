@@ -32,6 +32,48 @@ test.describe('Paradas y rutas', () => {
     await expect(filaCreada).toBeVisible();
   });
 
+  test('un admin edita una parada existente por captura manual (sin llave de Maps)', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await iniciarSesionComo(context, 'admin', baseURL ?? 'http://127.0.0.1:3000');
+    await page.goto('/paradas');
+    await expect(page.getByRole('heading', { name: 'Paradas' })).toBeVisible();
+
+    const nombreOriginal = `Parada E2E editar ${Date.now()}`;
+    const nombreEditado = `${nombreOriginal} (editada)`;
+
+    await page.getByRole('button', { name: 'Nueva parada' }).click();
+    await page.getByLabel('Nombre').fill(nombreOriginal);
+    await page.getByLabel('Direccion').fill('Calle de prueba 456, Monterrey, N.L.');
+    await page.getByLabel('Latitud').fill('25.6866');
+    await page.getByLabel('Longitud').fill('-100.3161');
+    await page.getByRole('button', { name: 'Crear' }).click();
+
+    const filaCreada = page.locator('tr:visible, li:visible').filter({ hasText: nombreOriginal });
+    await expect(filaCreada).toBeVisible();
+
+    await filaCreada.getByRole('button', { name: 'Editar' }).click();
+
+    // El dialogo de edicion reutiliza el mismo selector de parada, precargado
+    // con los datos existentes: el flujo de busqueda+mapa/captura manual es
+    // identico al de creacion, solo cambia el titulo y el verbo del boton.
+    await expect(page.getByRole('heading', { name: 'Editar parada' })).toBeVisible();
+    await expect(page.getByLabel('Nombre')).toHaveValue(nombreOriginal);
+    await expect(page.getByLabel('Direccion')).toHaveValue('Calle de prueba 456, Monterrey, N.L.');
+    await expect(page.getByLabel('Latitud')).toHaveValue('25.6866');
+    await expect(page.getByLabel('Longitud')).toHaveValue('-100.3161');
+
+    await page.getByLabel('Nombre').fill(nombreEditado);
+    await page.getByLabel('Latitud').fill('25.7');
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+
+    const filaEditada = page.locator('tr:visible, li:visible').filter({ hasText: nombreEditado });
+    await expect(filaEditada).toBeVisible();
+    await expect(filaEditada).toContainText('25.70000');
+  });
+
   test('un admin da de alta una ruta con dos horarios en el mismo turno', async ({
     page,
     context,

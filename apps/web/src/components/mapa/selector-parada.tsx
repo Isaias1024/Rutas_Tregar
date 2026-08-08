@@ -49,7 +49,7 @@ export function SelectorParada({
           onCoordenadasChange={onCoordenadasChange}
         />
         <p className="text-xs text-muted-foreground">
-          O haz clic en el mapa para colocar el pin directamente.
+          Haz clic en el mapa o arrastra el pin para ajustar la ubicacion con precision.
         </p>
         <div className="h-64 w-full overflow-hidden rounded-lg border border-border">
           <MapaGoogle
@@ -64,7 +64,18 @@ export function SelectorParada({
               }
             }}
           >
-            {coordenadas ? <Marker position={coordenadas} /> : null}
+            {coordenadas ? (
+              <Marker
+                position={coordenadas}
+                draggable
+                onDragEnd={(evento) => {
+                  const latLng = evento.latLng;
+                  if (latLng) {
+                    onCoordenadasChange({ lat: latLng.lat(), lng: latLng.lng() });
+                  }
+                }}
+              />
+            ) : null}
           </MapaGoogle>
         </div>
       </div>

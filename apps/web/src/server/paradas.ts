@@ -4,8 +4,9 @@
 // `.env` tiene que correr antes de que `@rutas/shared/db` evalue
 // `process.env.DATABASE_URL` al importarse. Import de solo efecto.
 import '@/lib/env';
-import { paradaCrearSchema, type Resultado } from '@rutas/shared';
+import { paradaCrearSchema, paradaEditarSchema, type Resultado } from '@rutas/shared';
 import { db, parada } from '@rutas/shared/db';
+import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { can } from '@/lib/authz/can';
 import { registrarAuditoria } from '@/lib/audit/registrar';
@@ -21,6 +22,11 @@ function errorValidacion(mensaje: string, campo?: string): Resultado<never> {
 const SIN_PERMISO: Resultado<never> = {
   ok: false,
   error: { codigo: 'no_autorizado', mensaje: 'No tienes permiso para administrar paradas.' },
+};
+
+const NO_ENCONTRADA: Resultado<never> = {
+  ok: false,
+  error: { codigo: 'no_encontrado', mensaje: 'La parada no existe.' },
 };
 
 async function actorAutorizado() {
@@ -58,6 +64,40 @@ export async function crearParada(input: unknown): Promise<Resultado<{ id: strin
       accion: 'crear',
       recurso: { tipo: 'parada', id },
       despues: parseo.data,
+    });
+  });
+
+  revalidatePath('/paradas');
+  revalidatePath('/rutas');
+  return { ok: true, data: { id } };
+}
+
+export async function editarParada(input: unknown): Promise<Resultado<{ id: string }>> {
+  const parseo = paradaEditarSchema.safeParse(input);
+  if (!parseo.success) {
+    const primero = parseo.error.issues[0];
+    return errorValidacion(primero?.message ?? 'Entrada invalida', primero?.path[0]?.toString());
+  }
+
+  const actor = await actorAutorizado();
+  if (!actor) {
+    return SIN_PERMISO;
+  }
+
+  const [antes] = await db.select().from(parada).where(eq(parada.id, parseo.data.id)).limit(1);
+  if (!antes) {
+    return NO_ENCONTRADA;
+  }
+
+  const { id, ...datos } = parseo.data;
+  await db.transaction(async (tx) => {
+    await tx.update(parada).set(datos).where(eq(parada.id, id));
+    await registrarAuditoria(tx, {
+      actor: actor.id,
+      accion: 'editar',
+      recurso: { tipo: 'parada', id },
+      antes: { nombre: antes.nombre, direccion: antes.direccion, lat: antes.lat, lng: antes.lng },
+      despues: datos,
     });
   });
 

@@ -33,11 +33,13 @@ interface Parada {
 interface Props {
   paradas: Parada[];
   accionCrear: (input: unknown) => Promise<Resultado<{ id: string }>>;
+  accionEditar: (input: unknown) => Promise<Resultado<{ id: string }>>;
   apiKey: string | undefined;
 }
 
-export function TablaParadas({ paradas, accionCrear, apiKey }: Props) {
+export function TablaParadas({ paradas, accionCrear, accionEditar, apiKey }: Props) {
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [nombre, setNombre] = useState('');
   const [direccion, setDireccion] = useState('');
   const [coordenadas, setCoordenadas] = useState<Coordenadas | null>(null);
@@ -45,6 +47,7 @@ export function TablaParadas({ paradas, accionCrear, apiKey }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   function abrirCrear() {
+    setEditandoId(null);
     setNombre('');
     setDireccion('');
     setCoordenadas(null);
@@ -52,15 +55,32 @@ export function TablaParadas({ paradas, accionCrear, apiKey }: Props) {
     setDialogoAbierto(true);
   }
 
+  function abrirEditar(parada: Parada) {
+    setEditandoId(parada.id);
+    setNombre(parada.nombre);
+    setDireccion(parada.direccion);
+    setCoordenadas({ lat: parada.lat, lng: parada.lng });
+    setError(null);
+    setDialogoAbierto(true);
+  }
+
   function guardar() {
     setError(null);
     startTransition(async () => {
-      const resultado = await accionCrear({
-        nombre,
-        direccion,
-        lat: coordenadas?.lat,
-        lng: coordenadas?.lng,
-      });
+      const resultado = editandoId
+        ? await accionEditar({
+            id: editandoId,
+            nombre,
+            direccion,
+            lat: coordenadas?.lat,
+            lng: coordenadas?.lng,
+          })
+        : await accionCrear({
+            nombre,
+            direccion,
+            lat: coordenadas?.lat,
+            lng: coordenadas?.lng,
+          });
       if (!resultado.ok) {
         setError(resultado.error.mensaje);
         return;
@@ -90,6 +110,7 @@ export function TablaParadas({ paradas, accionCrear, apiKey }: Props) {
                   <TableHead>Nombre</TableHead>
                   <TableHead>Direccion</TableHead>
                   <TableHead className="text-right">Coordenadas</TableHead>
+                  <TableHead className="w-0" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -100,6 +121,16 @@ export function TablaParadas({ paradas, accionCrear, apiKey }: Props) {
                     <TableCell className="text-right font-mono text-xs tabular-nums">
                       {parada.lat.toFixed(5)}, {parada.lng.toFixed(5)}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => abrirEditar(parada)}
+                      >
+                        Editar
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -109,11 +140,23 @@ export function TablaParadas({ paradas, accionCrear, apiKey }: Props) {
           <ul className="space-y-3 md:hidden">
             {paradas.map((parada) => (
               <li key={parada.id} className="rounded-lg border border-border p-4">
-                <p className="font-medium text-foreground">{parada.nombre}</p>
-                <p className="text-sm text-muted-foreground">{parada.direccion}</p>
-                <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
-                  {parada.lat.toFixed(5)}, {parada.lng.toFixed(5)}
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-medium text-foreground">{parada.nombre}</p>
+                    <p className="text-sm text-muted-foreground">{parada.direccion}</p>
+                    <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
+                      {parada.lat.toFixed(5)}, {parada.lng.toFixed(5)}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => abrirEditar(parada)}
+                  >
+                    Editar
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
@@ -123,7 +166,7 @@ export function TablaParadas({ paradas, accionCrear, apiKey }: Props) {
       <Dialog open={dialogoAbierto} onOpenChange={setDialogoAbierto}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Nueva parada</DialogTitle>
+            <DialogTitle>{editandoId ? 'Editar parada' : 'Nueva parada'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1">
@@ -146,7 +189,7 @@ export function TablaParadas({ paradas, accionCrear, apiKey }: Props) {
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
             <DialogFooter>
               <Button type="button" onClick={guardar} disabled={pendiente}>
-                Crear
+                {editandoId ? 'Guardar cambios' : 'Crear'}
               </Button>
             </DialogFooter>
           </div>

@@ -1,5 +1,5 @@
 import { env } from '@/lib/env';
-import { crearParada, listarParadas } from '@/server/paradas';
+import { crearParada, editarParada, listarParadas } from '@/server/paradas';
 import { TablaParadas } from './tabla-paradas';
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +13,7 @@ export default async function PaginaParadas() {
       <TablaParadas
         paradas={paradas}
         accionCrear={crearParada}
+        accionEditar={editarParada}
         apiKey={env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
       />
     </div>

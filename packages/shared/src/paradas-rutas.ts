@@ -12,6 +12,9 @@ export const paradaCrearSchema = z.object({
 });
 export type ParadaCrear = z.infer<typeof paradaCrearSchema>;
 
+export const paradaEditarSchema = paradaCrearSchema.extend({ id: idSchema });
+export type ParadaEditar = z.infer<typeof paradaEditarSchema>;
+
 export const TURNOS = ['manana', 'tarde', 'noche'] as const;
 
 const horaSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Hora invalida (HH:MM)');
