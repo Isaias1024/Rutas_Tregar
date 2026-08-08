@@ -11,6 +11,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { PasoActivo } from '@/componentes/paso-activo';
+import { PasoStepper, type PasoStepperItem } from '@/componentes/paso-stepper';
 import { type AsignacionDetallada, obtenerAsignacionPorId } from '@/datos/asignaciones';
 import { supabase } from '@/lib/supabase';
 import { almacenSqlite } from '@/outbox/db';
@@ -137,9 +138,30 @@ export default function PaginaDetalleRuta() {
     );
   }
 
+  const completados = eventos.length;
+  const totalPasos = ORDEN_PASOS.length;
+  const tituloProgreso = paso ? `Paso ${completados + 1} de ${totalPasos}` : 'Ruta completada';
+
+  const pasosStepper: PasoStepperItem[] = ORDEN_PASOS.map((tipoPaso) => {
+    const cumplido = eventosPorTipo.get(tipoPaso);
+    if (cumplido) {
+      return {
+        tipo: tipoPaso,
+        etiqueta: ETIQUETA_PASO[tipoPaso],
+        estado: 'completado',
+        horaTexto: formatearHora(cumplido.ocurrioEn),
+      };
+    }
+    return {
+      tipo: tipoPaso,
+      etiqueta: ETIQUETA_PASO[tipoPaso],
+      estado: tipoPaso === paso ? 'activo' : 'futuro',
+    };
+  });
+
   return (
-    <ScrollView className="flex-1 bg-background" contentContainerClassName="gap-4 p-4">
-      <View>
+    <ScrollView className="flex-1 bg-background" contentContainerClassName="gap-5 p-4">
+      <View className="rounded-app border border-border bg-surface p-4">
         <Text className="text-xl font-semibold text-foreground">
           {asignacion.horario.ruta.nombre}
         </Text>
@@ -156,26 +178,12 @@ export default function PaginaDetalleRuta() {
         </Text>
       </View>
 
-      <View className="gap-2">
-        {ORDEN_PASOS.map((tipoPaso) => {
-          const cumplido = eventosPorTipo.get(tipoPaso);
-          if (!cumplido) {
-            return null;
-          }
-          return (
-            <View
-              key={tipoPaso}
-              className="flex-row items-center justify-between rounded-app border border-border bg-surface px-4 py-3"
-            >
-              <Text className="text-base font-medium text-foreground">
-                {ETIQUETA_PASO[tipoPaso]}
-              </Text>
-              <Text className="tabular-nums text-base text-foreground-muted">
-                {formatearHora(cumplido.ocurrioEn)}
-              </Text>
-            </View>
-          );
-        })}
+      <View>
+        <View className="mb-3 flex-row items-center justify-between">
+          <Text className="text-base font-semibold text-foreground">Progreso</Text>
+          <Text className="text-sm font-medium text-primary">{tituloProgreso}</Text>
+        </View>
+        <PasoStepper pasos={pasosStepper} />
       </View>
 
       {error ? <Text className="text-center text-base text-destructive">{error}</Text> : null}
@@ -189,16 +197,6 @@ export default function PaginaDetalleRuta() {
           Solo lectura: los dias futuros no se marcan todavia.
         </Text>
       ) : null}
-
-      <View className="gap-2">
-        {ORDEN_PASOS.filter((tipoPaso) => !eventosPorTipo.has(tipoPaso) && tipoPaso !== paso).map(
-          (tipoPaso) => (
-            <Text key={tipoPaso} className="text-base text-foreground-muted">
-              {ETIQUETA_PASO[tipoPaso]}
-            </Text>
-          ),
-        )}
-      </View>
     </ScrollView>
   );
 }

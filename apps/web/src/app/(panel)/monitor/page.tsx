@@ -12,7 +12,10 @@ function fechaOperativaHoy(): string {
 export default function PaginaMonitor() {
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-foreground">Monitor</h1>
+      <div>
+        <h1 className="text-2xl font-semibold text-foreground">Monitor</h1>
+        <p className="text-sm text-muted-foreground">Estado en vivo de las rutas de hoy.</p>
+      </div>
       <MonitorTabla fecha={fechaOperativaHoy()} />
     </div>
   );

@@ -1,6 +1,7 @@
 import { requiereContador, type TipoEvento } from '@rutas/shared';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 const ETIQUETA_PASO: Record<TipoEvento, string> = {
   vio_ruta: 'Vi la ruta',
@@ -35,6 +36,9 @@ export function PasoActivo({ tipo, registrando, onConfirmar }: Props) {
     !necesitaContador ||
     (contadorTexto.trim() !== '' && Number.isFinite(contadorNumero) && contadorNumero >= 0);
 
+  const escala = useSharedValue(1);
+  const estiloEscala = useAnimatedStyle(() => ({ transform: [{ scale: escala.value }] }));
+
   return (
     <View className="gap-3">
       {necesitaContador ? (
@@ -52,18 +56,26 @@ export function PasoActivo({ tipo, registrando, onConfirmar }: Props) {
           />
         </View>
       ) : null}
-      <Pressable
-        className="h-[72px] items-center justify-center rounded-app bg-primary disabled:opacity-50"
-        disabled={registrando || !contadorValido}
-        onPress={() => onConfirmar(necesitaContador ? contadorNumero : undefined)}
-        testID="boton-paso-activo"
-      >
-        {registrando ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text className="text-xl font-semibold text-primary-fg">{ETIQUETA_PASO[tipo]}</Text>
-        )}
-      </Pressable>
+      <Animated.View style={estiloEscala}>
+        <Pressable
+          className="h-[72px] items-center justify-center rounded-app bg-primary disabled:opacity-50"
+          disabled={registrando || !contadorValido}
+          onPressIn={() => {
+            escala.value = withTiming(0.97, { duration: 100 });
+          }}
+          onPressOut={() => {
+            escala.value = withTiming(1, { duration: 150 });
+          }}
+          onPress={() => onConfirmar(necesitaContador ? contadorNumero : undefined)}
+          testID="boton-paso-activo"
+        >
+          {registrando ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text className="text-xl font-semibold text-primary-fg">{ETIQUETA_PASO[tipo]}</Text>
+          )}
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }

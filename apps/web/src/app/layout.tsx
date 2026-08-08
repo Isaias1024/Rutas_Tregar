@@ -1,10 +1,16 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Geist_Mono, Inter } from 'next/font/google';
 import { Providers } from '@/components/providers';
 import './globals.css';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+// El sistema de diseno (§7) pide Inter con stack de sistema de respaldo. El
+// nombre de la variable tiene que ser exactamente `--font-sans`: es el mismo
+// nombre que `@theme inline` en globals.css reenvia hacia la utilidad
+// `font-sans` de Tailwind — un nombre distinto (p. ej. el `--font-geist-sans`
+// que trae la plantilla por defecto) deja esa variable sin valor y el
+// navegador cae a su serif por defecto en todo el panel.
+const inter = Inter({
+  variable: '--font-sans',
   subsets: ['latin'],
 });
 
@@ -23,7 +29,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html lang="en" className={`${inter.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>
       </body>

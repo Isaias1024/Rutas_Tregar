@@ -39,9 +39,16 @@ loadEnvConfig(raizMonorepo);
 // puede dar de alta una parada. `frame-ancestors 'none'` (la proteccion que
 // de verdad importaba aqui) no tiene ese riesgo: no depende de ningun
 // recurso de terceros.
+// `next dev` (Turbopack) evalua el runtime de React Server Components y el
+// cliente de HMR con `eval()` — sin `unsafe-eval` el navegador lo bloquea
+// silenciosamente contra esta CSP y la app nunca hidrata, en cualquier
+// pagina. Production (`next build && next start`, que es lo que corre en
+// Vercel) no lo necesita y se queda estricta.
+const esDesarrollo = process.env.NODE_ENV !== 'production';
+
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com`,
+  `script-src 'self' 'unsafe-inline'${esDesarrollo ? " 'unsafe-eval'" : ''} https://maps.googleapis.com https://maps.gstatic.com`,
   `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
   `img-src 'self' data: blob: https:`,
   `font-src 'self' data: https://fonts.gstatic.com`,
