@@ -46,6 +46,7 @@ export function TablaParadas({ paradas, accionCrear, accionEditar, accionBorrar,
   const [coordenadas, setCoordenadas] = useState<Coordenadas | null>(null);
   const [pendiente, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
 
   function abrirCrear() {
     setEditandoId(null);
@@ -96,8 +97,12 @@ export function TablaParadas({ paradas, accionCrear, accionEditar, accionBorrar,
     ) {
       return;
     }
+    setErrorBorrado(null);
     startTransition(async () => {
-      await accionBorrar(parada.id);
+      const resultado = await accionBorrar(parada.id);
+      if (!resultado.ok) {
+        setErrorBorrado(resultado.error.mensaje);
+      }
     });
   }
 
@@ -110,6 +115,7 @@ export function TablaParadas({ paradas, accionCrear, accionEditar, accionBorrar,
   return (
     <div className="space-y-4">
       <div className="flex justify-end">{botonNuevo}</div>
+      {errorBorrado ? <p className="text-sm text-destructive">{errorBorrado}</p> : null}
 
       {paradas.length === 0 ? (
         <EstadoVacio titulo="Aun no hay paradas. Crea la primera" accion={botonNuevo} />
