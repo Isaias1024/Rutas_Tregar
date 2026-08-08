@@ -7,25 +7,69 @@ import { idSchema } from './catalogos.ts';
 
 export type Turno = 'manana' | 'tarde' | 'noche';
 
-export interface AsignacionDelDiaParaChofer {
-  horarioId: string;
-  turno: Turno;
+/** Las horas llegan como `HH:MM` (zod) o `HH:MM:SS` (columna `time` de Postgres). */
+export interface IntervaloHorario {
+  horaInicioEsperada: string;
+  horaFinEsperada: string;
+}
+
+export type AsignacionDelDiaParaChofer = IntervaloHorario;
+
+const MINUTOS_DEL_DIA = 24 * 60;
+
+function aMinutos(hora: string): number {
+  const [horas, minutos] = hora.split(':');
+  return Number(horas) * 60 + Number(minutos);
 }
 
 /**
- * El traslape se evalua por turno, no por ruta ni por horario: si el chofer
- * ya tiene, ese mismo dia, otra asignacion activa en el mismo turno pero de
- * un horario distinto, es un conflicto — sin importar si esa otra asignacion
- * es de la misma ruta o de una distinta. Dos horarios DISTINTOS del mismo
- * turno con choferes DISTINTOS no chocan entre si porque cada uno se evalua
- * contra el calendario de su propio chofer.
+ * El intervalo del horario dentro del dia, en minutos desde medianoche y
+ * medio abierto: `[inicio, fin)`. Medio abierto es justo lo que hace que
+ * 08:00–10:00 y 10:00–11:00 NO cuenten como conflicto: la primera termina
+ * exactamente donde arranca la segunda.
+ *
+ * `horarioSchema` ya exige `fin > inicio`, asi que el caso `fin <= inicio`
+ * solo puede venir de una fila vieja que cruza medianoche. Ahi el horario
+ * ocupa dos tramos del mismo dia — la cola despues del inicio y la cabeza
+ * antes del fin — y se devuelven los dos: preferimos marcar un conflicto de
+ * mas que dejar a un chofer doble-agendado de madrugada.
+ */
+function tramosDelDia(horario: IntervaloHorario): Array<[number, number]> {
+  const inicio = aMinutos(horario.horaInicioEsperada);
+  const fin = aMinutos(horario.horaFinEsperada);
+  if (fin > inicio) {
+    return [[inicio, fin]];
+  }
+  return [
+    [inicio, MINUTOS_DEL_DIA],
+    [0, fin],
+  ];
+}
+
+function tramosSeSuperponen(a: [number, number], b: [number, number]): boolean {
+  return a[0] < b[1] && b[0] < a[1];
+}
+
+/**
+ * Traslape real de horarios, no de turnos: un chofer puede tener CUANTAS
+ * rutas quepan en su dia mientras ninguna se encime con otra. La regla vieja
+ * comparaba `turno`, lo que en la practica era "un chofer, una ruta por
+ * turno" y bloqueaba el caso normal de 04:00–05:00 mas 08:00–09:00.
+ *
+ * Quien llama filtra por chofer y por fecha, y excluye la propia fila cuando
+ * reasigna. Aqui solo se comparan intervalos: dos asignaciones del MISMO
+ * horario (una segunda vuelta) tienen las mismas horas y por lo tanto si se
+ * superponen — el mismo chofer no puede manejar las dos.
  */
 export function hayTraslape(
   asignacionesDelDia: AsignacionDelDiaParaChofer[],
-  horarioNuevo: { id: string; turno: Turno },
+  horarioNuevo: IntervaloHorario,
 ): boolean {
-  return asignacionesDelDia.some(
-    (a) => a.turno === horarioNuevo.turno && a.horarioId !== horarioNuevo.id,
+  const tramosNuevos = tramosDelDia(horarioNuevo);
+  return asignacionesDelDia.some((existente) =>
+    tramosDelDia(existente).some((tramoExistente) =>
+      tramosNuevos.some((tramoNuevo) => tramosSeSuperponen(tramoExistente, tramoNuevo)),
+    ),
   );
 }
 

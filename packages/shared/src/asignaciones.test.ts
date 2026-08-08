@@ -11,20 +11,86 @@ import { asignacion, camion, cliente, db, horario, parada, ruta, usuario } from 
 
 describe('logica pura', () => {
   describe('hayTraslape', () => {
-    const asignacionesDelDia: AsignacionDelDiaParaChofer[] = [
-      { horarioId: 'horario-a', turno: 'manana' },
+    const ochoADiez: AsignacionDelDiaParaChofer[] = [
+      { horaInicioEsperada: '08:00', horaFinEsperada: '10:00' },
     ];
 
-    it('rechaza un segundo horario del mismo turno', () => {
-      expect(hayTraslape(asignacionesDelDia, { id: 'horario-b', turno: 'manana' })).toBe(true);
+    it('acepta varias rutas separadas el mismo dia, aunque sean del mismo turno', () => {
+      // El caso que la regla vieja (por turno) bloqueaba de mas: la jornada
+      // de 8 horas de un chofer cabe partida en varias vueltas.
+      const jornada: AsignacionDelDiaParaChofer[] = [
+        { horaInicioEsperada: '04:00', horaFinEsperada: '05:00' },
+        { horaInicioEsperada: '08:00', horaFinEsperada: '09:00' },
+        { horaInicioEsperada: '12:00', horaFinEsperada: '13:00' },
+      ];
+      expect(hayTraslape(jornada, { horaInicioEsperada: '16:00', horaFinEsperada: '17:00' })).toBe(
+        false,
+      );
+      expect(hayTraslape([], { horaInicioEsperada: '04:00', horaFinEsperada: '05:00' })).toBe(
+        false,
+      );
     });
 
-    it('acepta un horario de otro turno', () => {
-      expect(hayTraslape(asignacionesDelDia, { id: 'horario-b', turno: 'tarde' })).toBe(false);
+    it('rechaza un horario que empieza dentro de otro', () => {
+      expect(
+        hayTraslape(ochoADiez, { horaInicioEsperada: '09:00', horaFinEsperada: '11:00' }),
+      ).toBe(true);
+      expect(
+        hayTraslape(ochoADiez, { horaInicioEsperada: '09:30', horaFinEsperada: '10:30' }),
+      ).toBe(true);
     });
 
-    it('no se traslapa consigo mismo (mismo horario_id)', () => {
-      expect(hayTraslape(asignacionesDelDia, { id: 'horario-a', turno: 'manana' })).toBe(false);
+    it('rechaza un horario contenido en otro y uno que lo contiene', () => {
+      expect(
+        hayTraslape(ochoADiez, { horaInicioEsperada: '08:30', horaFinEsperada: '09:00' }),
+      ).toBe(true);
+      expect(
+        hayTraslape(ochoADiez, { horaInicioEsperada: '07:00', horaFinEsperada: '11:00' }),
+      ).toBe(true);
+    });
+
+    it('acepta dos rutas consecutivas: 08:00-10:00 y 10:00-11:00', () => {
+      // El intervalo es medio abierto: terminar exactamente donde arranca la
+      // siguiente no es conflicto.
+      expect(
+        hayTraslape(ochoADiez, { horaInicioEsperada: '10:00', horaFinEsperada: '11:00' }),
+      ).toBe(false);
+      expect(
+        hayTraslape(ochoADiez, { horaInicioEsperada: '06:00', horaFinEsperada: '08:00' }),
+      ).toBe(false);
+    });
+
+    it('rechaza el mismo horario dos veces: el chofer no puede manejar las dos vueltas', () => {
+      expect(
+        hayTraslape(ochoADiez, { horaInicioEsperada: '08:00', horaFinEsperada: '10:00' }),
+      ).toBe(true);
+    });
+
+    it('compara igual con segundos (`HH:MM:SS`, como llega de la columna time)', () => {
+      const conSegundos: AsignacionDelDiaParaChofer[] = [
+        { horaInicioEsperada: '08:00:00', horaFinEsperada: '10:00:00' },
+      ];
+      expect(
+        hayTraslape(conSegundos, { horaInicioEsperada: '10:00:00', horaFinEsperada: '11:00:00' }),
+      ).toBe(false);
+      expect(
+        hayTraslape(conSegundos, { horaInicioEsperada: '09:00:00', horaFinEsperada: '11:00:00' }),
+      ).toBe(true);
+    });
+
+    it('un horario que cruza medianoche ocupa los dos tramos del dia', () => {
+      const nocturno: AsignacionDelDiaParaChofer[] = [
+        { horaInicioEsperada: '22:00', horaFinEsperada: '06:00' },
+      ];
+      expect(hayTraslape(nocturno, { horaInicioEsperada: '04:00', horaFinEsperada: '05:00' })).toBe(
+        true,
+      );
+      expect(hayTraslape(nocturno, { horaInicioEsperada: '23:00', horaFinEsperada: '23:30' })).toBe(
+        true,
+      );
+      expect(hayTraslape(nocturno, { horaInicioEsperada: '08:00', horaFinEsperada: '09:00' })).toBe(
+        false,
+      );
     });
   });
 
@@ -68,6 +134,18 @@ describe('logica pura contra datos reales de Postgres', () => {
   // "mismo chofer si choca": evita pisar el unico (horario_id, fecha,
   // secuencia) que ya ocupan las filas del bloque de la secuencia arriba.
   const fechaDosHorarios = '2026-09-08';
+
+  /** El calendario de un chofer en `fechaDosHorarios`, tal como lo lee planeador-nucleo. */
+  function horasDelDia(choferId: string) {
+    return db
+      .select({
+        horaInicioEsperada: horario.horaInicioEsperada,
+        horaFinEsperada: horario.horaFinEsperada,
+      })
+      .from(asignacion)
+      .innerJoin(horario, eq(horario.id, asignacion.horarioId))
+      .where(and(eq(asignacion.choferId, choferId), eq(asignacion.fecha, fechaDosHorarios)));
+  }
 
   beforeAll(async () => {
     await db.execute(
@@ -235,31 +313,38 @@ describe('logica pura contra datos reales de Postgres', () => {
       },
     ]);
 
-    const asignacionesChofer1 = await db
-      .select({ horarioId: asignacion.horarioId, turno: horario.turno })
-      .from(asignacion)
-      .innerJoin(horario, eq(horario.id, asignacion.horarioId))
-      .where(and(eq(asignacion.choferId, chofer1Id), eq(asignacion.fecha, fechaDosHorarios)));
-    expect(hayTraslape(asignacionesChofer1, { id: horario1Id, turno: 'manana' })).toBe(false);
+    // chofer1 solo ve 06:00-07:00 en su calendario, chofer2 solo 08:00-09:00:
+    // cada quien puede tomar el horario del otro sin conflicto.
+    const asignacionesChofer1 = await horasDelDia(chofer1Id);
+    expect(asignacionesChofer1).toEqual([
+      { horaInicioEsperada: '06:00:00', horaFinEsperada: '07:00:00' },
+    ]);
+    expect(
+      hayTraslape(asignacionesChofer1, { horaInicioEsperada: '08:00', horaFinEsperada: '09:00' }),
+    ).toBe(false);
 
-    const asignacionesChofer2 = await db
-      .select({ horarioId: asignacion.horarioId, turno: horario.turno })
-      .from(asignacion)
-      .innerJoin(horario, eq(horario.id, asignacion.horarioId))
-      .where(and(eq(asignacion.choferId, chofer2Id), eq(asignacion.fecha, fechaDosHorarios)));
-    expect(hayTraslape(asignacionesChofer2, { id: horario2Id, turno: 'manana' })).toBe(false);
+    const asignacionesChofer2 = await horasDelDia(chofer2Id);
+    expect(
+      hayTraslape(asignacionesChofer2, { horaInicioEsperada: '06:00', horaFinEsperada: '07:00' }),
+    ).toBe(false);
   });
 
-  it('el mismo chofer con otra asignacion del mismo turno si se detecta como traslape', async () => {
-    // chofer1 ya esta en horario1 (manana) ese dia (fila insertada arriba);
-    // intentar ponerlo tambien en horario2 (tambien manana) es el conflicto
-    // real que el paso 7 pide bloquear.
-    const asignacionesChofer1 = await db
-      .select({ horarioId: asignacion.horarioId, turno: horario.turno })
-      .from(asignacion)
-      .innerJoin(horario, eq(horario.id, asignacion.horarioId))
-      .where(and(eq(asignacion.choferId, chofer1Id), eq(asignacion.fecha, fechaDosHorarios)));
+  it('el mismo chofer: horas separadas se aceptan, horas encimadas se rechazan', async () => {
+    // chofer1 ya esta en horario1 (06:00-07:00) ese dia. horario2 es
+    // 08:00-09:00, MISMO turno "manana": la regla vieja lo rechazaba por
+    // turno, la nueva lo acepta porque las horas no se tocan. Lo que si se
+    // rechaza es una ruta que cae encima de 06:00-07:00.
+    const asignacionesChofer1 = await horasDelDia(chofer1Id);
 
-    expect(hayTraslape(asignacionesChofer1, { id: horario2Id, turno: 'manana' })).toBe(true);
+    expect(
+      hayTraslape(asignacionesChofer1, { horaInicioEsperada: '08:00', horaFinEsperada: '09:00' }),
+    ).toBe(false);
+    expect(
+      hayTraslape(asignacionesChofer1, { horaInicioEsperada: '06:30', horaFinEsperada: '07:30' }),
+    ).toBe(true);
+    // Consecutivas, pegadas: 07:00 arranca justo donde termina la anterior.
+    expect(
+      hayTraslape(asignacionesChofer1, { horaInicioEsperada: '07:00', horaFinEsperada: '08:00' }),
+    ).toBe(false);
   });
 });

@@ -1,6 +1,12 @@
 'use client';
 
-import type { Asignar, Cancelar, Reasignar, Resultado } from '@rutas/shared';
+import {
+  type Asignar,
+  type Cancelar,
+  hayTraslape,
+  type Reasignar,
+  type Resultado,
+} from '@rutas/shared';
 import Link from 'next/link';
 import { useMemo, useState, useTransition } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -120,6 +126,38 @@ export function PlaneadorSemana({
     return asignacionesDelDia.filter((a) => a.horarioId === horarioId);
   }
 
+  const horarioPorId = useMemo(() => new Map(horarios.map((h) => [h.id, h])), [horarios]);
+
+  // Mismo `hayTraslape` que corre en el servidor (@rutas/shared): aqui solo
+  // adelanta la respuesta apagando en la lista a quien ya trae una ruta
+  // encimada ese dia. La decision real sigue siendo la del servidor, que es
+  // la unica que ve la tabla completa y corre bajo el advisory lock.
+  const choferesConTraslape = useMemo(() => {
+    const conflictivos = new Set<string>();
+    const objetivo = dialogo ? horarioPorId.get(dialogo.horarioId) : undefined;
+    if (!objetivo) {
+      return conflictivos;
+    }
+    const horariosPorChofer = new Map<string, Horario[]>();
+    for (const a of asignacionesDelDia) {
+      // Al reasignar, la propia fila no cuenta como conflicto consigo misma.
+      if (a.id === dialogo?.asignacionExistente?.id) {
+        continue;
+      }
+      const suyo = horarioPorId.get(a.horarioId);
+      if (!suyo) {
+        continue;
+      }
+      horariosPorChofer.set(a.choferId, [...(horariosPorChofer.get(a.choferId) ?? []), suyo]);
+    }
+    for (const [choferId, ocupados] of horariosPorChofer) {
+      if (hayTraslape(ocupados, objetivo)) {
+        conflictivos.add(choferId);
+      }
+    }
+    return conflictivos;
+  }, [dialogo, asignacionesDelDia, horarioPorId]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -226,6 +264,7 @@ export function PlaneadorSemana({
         asignacionExistente={dialogo?.asignacionExistente ?? null}
         fecha={diaSeleccionado}
         choferes={choferes}
+        choferesConTraslape={choferesConTraslape}
         camiones={camiones}
         accionAsignar={accionAsignar}
         accionReasignar={accionReasignar}
@@ -243,20 +282,35 @@ function BotonCancelar({
   accionCancelar: Props['accionCancelar'];
 }) {
   const [pendiente, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   function cancelar() {
-    if (!confirm('¿Cancelar esta asignacion? La fila y sus eventos se conservan.')) {
+    if (
+      !confirm(
+        '¿Quitar al chofer de esta ruta? La ruta, el horario y las paradas se conservan; solo se libera la asignacion.',
+      )
+    ) {
       return;
     }
+    setError(null);
     startTransition(async () => {
-      await accionCancelar({ asignacionId });
+      // El resultado se ignoraba: una cancelacion rechazada (sin permiso, o
+      // la fila ya cancelada desde otra pestana) dejaba la fila en pantalla
+      // sin decir por que, y se leia como "el boton no hace nada".
+      const resultado = await accionCancelar({ asignacionId });
+      if (!resultado.ok) {
+        setError(resultado.error.mensaje);
+      }
     });
   }
 
   return (
-    <Button type="button" size="sm" variant="outline" disabled={pendiente} onClick={cancelar}>
-      Cancelar
-    </Button>
+    <span className="flex flex-col items-end gap-1">
+      <Button type="button" size="sm" variant="outline" disabled={pendiente} onClick={cancelar}>
+        Cancelar
+      </Button>
+      {error ? <span className="text-xs text-destructive">{error}</span> : null}
+    </span>
   );
 }
 
@@ -272,6 +326,7 @@ function DialogoAsignar({
   asignacionExistente,
   fecha,
   choferes,
+  choferesConTraslape,
   camiones,
   accionAsignar,
   accionReasignar,
@@ -283,6 +338,7 @@ function DialogoAsignar({
   asignacionExistente: AsignacionFila | null;
   fecha: string;
   choferes: Chofer[];
+  choferesConTraslape: Set<string>;
   camiones: Camion[];
   accionAsignar: Props['accionAsignar'];
   accionReasignar: Props['accionReasignar'];
@@ -347,11 +403,15 @@ function DialogoAsignar({
                     <SelectValue placeholder="Selecciona un chofer" />
                   </SelectTrigger>
                   <SelectContent>
-                    {choferes.map((chofer) => (
-                      <SelectItem key={chofer.id} value={chofer.id}>
-                        {chofer.nombre ?? chofer.id}
-                      </SelectItem>
-                    ))}
+                    {choferes.map((chofer) => {
+                      const traslapa = choferesConTraslape.has(chofer.id);
+                      return (
+                        <SelectItem key={chofer.id} value={chofer.id} disabled={traslapa}>
+                          {chofer.nombre ?? chofer.id}
+                          {traslapa ? ' (horario encimado)' : ''}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               )}

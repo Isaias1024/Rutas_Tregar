@@ -27,6 +27,11 @@ function errorConflicto(mensaje: string): Resultado<never> {
   return { ok: false, error: { codigo: 'conflicto', mensaje } };
 }
 
+// Se nombra el traslape, no el turno: un chofer puede tener varias rutas el
+// mismo dia y lo unico que lo impide es que dos se encimen en horario.
+export const MENSAJE_TRASLAPE =
+  'Este chofer ya tiene otra ruta asignada que se superpone con este horario.';
+
 export async function asignarNucleo(
   actorId: string,
   datos: Asignar,
@@ -71,7 +76,10 @@ export async function asignarNucleo(
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${choferId} || ${fecha}), 1)`);
 
     const asignacionesDelDia = await tx
-      .select({ horarioId: asignacion.horarioId, turno: horario.turno })
+      .select({
+        horaInicioEsperada: horario.horaInicioEsperada,
+        horaFinEsperada: horario.horaFinEsperada,
+      })
       .from(asignacion)
       .innerJoin(horario, eq(horario.id, asignacion.horarioId))
       .where(
@@ -82,8 +90,8 @@ export async function asignarNucleo(
         ),
       );
 
-    if (hayTraslape(asignacionesDelDia, { id: horarioId, turno: horarioFila.turno })) {
-      return errorConflicto('Este chofer ya tiene otra ruta asignada en ese turno y fecha.');
+    if (hayTraslape(asignacionesDelDia, horarioFila)) {
+      return errorConflicto(MENSAJE_TRASLAPE);
     }
 
     const asignacionesDelHorarioEseDia = await tx
@@ -169,7 +177,10 @@ export async function reasignarNucleo(
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${choferId} || ${antes.fecha}), 1)`);
 
     const asignacionesDelDia = await tx
-      .select({ horarioId: asignacion.horarioId, turno: horario.turno })
+      .select({
+        horaInicioEsperada: horario.horaInicioEsperada,
+        horaFinEsperada: horario.horaFinEsperada,
+      })
       .from(asignacion)
       .innerJoin(horario, eq(horario.id, asignacion.horarioId))
       .where(
@@ -181,8 +192,8 @@ export async function reasignarNucleo(
         ),
       );
 
-    if (hayTraslape(asignacionesDelDia, { id: antes.horarioId, turno: horarioFila.turno })) {
-      return errorConflicto('Este chofer ya tiene otra ruta asignada en ese turno y fecha.');
+    if (hayTraslape(asignacionesDelDia, horarioFila)) {
+      return errorConflicto(MENSAJE_TRASLAPE);
     }
 
     await tx
@@ -229,13 +240,25 @@ export async function cancelarNucleo(
     return NO_ENCONTRADO;
   }
 
-  // Nunca un DELETE: la fila y sus eventos se conservan, solo se marca
-  // `cancelada_en` (Done-when del paso 7).
+  // Nunca un DELETE: solo se desasigna al chofer marcando `cancelada_en`.
+  // La ruta, el horario, las paradas y los eventos ya marcados se conservan
+  // intactos — esta fila es UNICAMENTE el vinculo chofer+camion+fecha, y es
+  // lo unico que se suelta. El horario queda libre para otro chofer porque
+  // todas las consultas del planeador filtran por `cancelada_en is null`.
   await db.transaction(async (tx) => {
     await tx
       .update(asignacion)
       .set({ canceladaEn: new Date() })
       .where(eq(asignacion.id, asignacionId));
+    // Sin esto, el chofer recien desasignado seguia recibiendo el push:
+    // `destinatariosDe` en apps/worker/src/push/enviar.ts resuelve el chofer
+    // desde `asignacion` al momento de enviar y no mira `cancelada_en`, asi
+    // que una fila pendiente encolada por asignar/reasignar sobrevivia a la
+    // cancelacion. Solo las pendientes: las ya enviadas son historial.
+    await tx.execute(
+      sql`delete from notificacion_programada
+          where asignacion_id = ${asignacionId} and enviado_en is null`,
+    );
     await registrarAuditoria(tx, {
       actor: actorId,
       accion: 'cancelar',
