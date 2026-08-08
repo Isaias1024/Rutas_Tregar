@@ -36,6 +36,13 @@
       "when": 1786114204387,
       "tag": "0004_endurecer_rls_seguridad",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786214426743,
+      "tag": "0005_mean_cobalt_man",
+      "breakpoints": true
     }
   ]
 }

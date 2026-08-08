@@ -111,6 +111,7 @@ export const parada = pgTable('parada', {
   lat: doublePrecision('lat').notNull(),
   lng: doublePrecision('lng').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
 // --- ruta -----------------------------------------------------------------

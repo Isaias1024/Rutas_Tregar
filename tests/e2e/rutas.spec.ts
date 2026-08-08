@@ -74,6 +74,36 @@ test.describe('Paradas y rutas', () => {
     await expect(filaEditada).toContainText('25.70000');
   });
 
+  test('un admin borra una parada y deja de aparecer en el listado', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await iniciarSesionComo(context, 'admin', baseURL ?? 'http://127.0.0.1:3000');
+    await page.goto('/paradas');
+    await expect(page.getByRole('heading', { name: 'Paradas' })).toBeVisible();
+
+    const nombreParada = `Parada E2E borrar ${Date.now()}`;
+
+    await page.getByRole('button', { name: 'Nueva parada' }).click();
+    await page.getByLabel('Nombre').fill(nombreParada);
+    await page.getByLabel('Direccion').fill('Calle de prueba 789, Monterrey, N.L.');
+    await page.getByLabel('Latitud').fill('25.6866');
+    await page.getByLabel('Longitud').fill('-100.3161');
+    await page.getByRole('button', { name: 'Crear' }).click();
+
+    const filaCreada = page.locator('tr:visible, li:visible').filter({ hasText: nombreParada });
+    await expect(filaCreada).toBeVisible();
+
+    // El borrado es logico (`deleted_at`): la confirmacion del navegador es la
+    // unica friccion antes de que desaparezca del listado (y por tanto del
+    // selector de "nueva ruta"), tal como ya pasa con clientes y camiones.
+    page.once('dialog', (dialogo) => dialogo.accept());
+    await filaCreada.getByRole('button', { name: 'Borrar' }).click();
+
+    await expect(filaCreada).toBeHidden();
+  });
+
   test('un admin da de alta una ruta con dos horarios en el mismo turno', async ({
     page,
     context,

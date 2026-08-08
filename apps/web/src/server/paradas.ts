@@ -4,9 +4,9 @@
 // `.env` tiene que correr antes de que `@rutas/shared/db` evalue
 // `process.env.DATABASE_URL` al importarse. Import de solo efecto.
 import '@/lib/env';
-import { paradaCrearSchema, paradaEditarSchema, type Resultado } from '@rutas/shared';
+import { idSchema, paradaCrearSchema, paradaEditarSchema, type Resultado } from '@rutas/shared';
 import { db, parada } from '@rutas/shared/db';
-import { eq } from 'drizzle-orm';
+import { eq, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { can } from '@/lib/authz/can';
 import { registrarAuditoria } from '@/lib/audit/registrar';
@@ -37,11 +37,14 @@ async function actorAutorizado() {
   return actor;
 }
 
-// `parada` no tiene borrado logico (§4): no se borra desde el paso 6, solo se
-// crea y se lista. Una parada referenciada por una ruta activa se protege por
-// la FK `restrict` de `ruta.parada_inicio_id`/`parada_fin_id`.
+// El borrado es logico (`deleted_at`), igual que cliente/camion: una parada
+// borrada desaparece de aqui (y por tanto del selector de "nueva ruta"), pero
+// una ruta que ya la referencia sigue resolviendo su nombre via `innerJoin`
+// en listarRutas(), que no filtra por deleted_at. La FK `restrict` de
+// `ruta.parada_inicio_id`/`parada_fin_id` solo protege contra un DELETE real,
+// que este modulo nunca emite.
 export async function listarParadas() {
-  return db.select().from(parada).orderBy(parada.nombre);
+  return db.select().from(parada).where(isNull(parada.deletedAt)).orderBy(parada.nombre);
 }
 
 export async function crearParada(input: unknown): Promise<Resultado<{ id: string }>> {
@@ -104,4 +107,35 @@ export async function editarParada(input: unknown): Promise<Resultado<{ id: stri
   revalidatePath('/paradas');
   revalidatePath('/rutas');
   return { ok: true, data: { id } };
+}
+
+export async function borrarParada(input: unknown): Promise<Resultado<{ id: string }>> {
+  const parseo = idSchema.safeParse(input);
+  if (!parseo.success) {
+    return errorValidacion('Id invalido');
+  }
+
+  const actor = await actorAutorizado();
+  if (!actor) {
+    return SIN_PERMISO;
+  }
+
+  const [antes] = await db.select().from(parada).where(eq(parada.id, parseo.data)).limit(1);
+  if (!antes || antes.deletedAt) {
+    return NO_ENCONTRADA;
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.update(parada).set({ deletedAt: new Date() }).where(eq(parada.id, parseo.data));
+    await registrarAuditoria(tx, {
+      actor: actor.id,
+      accion: 'borrar',
+      recurso: { tipo: 'parada', id: parseo.data },
+      antes: { nombre: antes.nombre, direccion: antes.direccion, lat: antes.lat, lng: antes.lng },
+    });
+  });
+
+  revalidatePath('/paradas');
+  revalidatePath('/rutas');
+  return { ok: true, data: { id: parseo.data } };
 }

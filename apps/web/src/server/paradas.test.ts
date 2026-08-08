@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { paradaCrearSchema, paradaEditarSchema } from '@rutas/shared';
-import { describe, expect, it } from 'vitest';
-import { editarParada } from './paradas.ts';
+import { parada as paradaTabla, db } from '@rutas/shared/db';
+import { eq } from 'drizzle-orm';
+import { afterAll, describe, expect, it } from 'vitest';
+import { borrarParada, editarParada, listarParadas } from './paradas.ts';
 
 function datosParada(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -63,5 +65,49 @@ describe('editarParada: rechaza entrada invalida antes de tocar sesion o base', 
     if (!resultado.ok) {
       expect(resultado.error.codigo).toBe('validacion');
     }
+  });
+});
+
+describe('borrarParada: rechaza entrada invalida antes de tocar sesion o base', () => {
+  it('responde validacion 422 con id invalido', async () => {
+    const resultado = await borrarParada('no-es-uuid');
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) {
+      expect(resultado.error.codigo).toBe('validacion');
+    }
+  });
+
+  it('responde validacion 422 sin id', async () => {
+    const resultado = await borrarParada(undefined);
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) {
+      expect(resultado.error.codigo).toBe('validacion');
+    }
+  });
+});
+
+describe('listarParadas contra Postgres real: filtra el borrado logico', () => {
+  const idsCreados: string[] = [];
+
+  afterAll(async () => {
+    if (idsCreados.length > 0) {
+      for (const id of idsCreados) {
+        await db.delete(paradaTabla).where(eq(paradaTabla.id, id));
+      }
+    }
+  });
+
+  it('una parada con deleted_at no aparece en listarParadas', async () => {
+    const id = randomUUID();
+    idsCreados.push(id);
+    await db.insert(paradaTabla).values({ id, ...datosParada() });
+
+    const antes = await listarParadas();
+    expect(antes.some((p) => p.id === id)).toBe(true);
+
+    await db.update(paradaTabla).set({ deletedAt: new Date() }).where(eq(paradaTabla.id, id));
+
+    const despues = await listarParadas();
+    expect(despues.some((p) => p.id === id)).toBe(false);
   });
 });

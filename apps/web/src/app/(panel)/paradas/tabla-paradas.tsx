@@ -34,10 +34,11 @@ interface Props {
   paradas: Parada[];
   accionCrear: (input: unknown) => Promise<Resultado<{ id: string }>>;
   accionEditar: (input: unknown) => Promise<Resultado<{ id: string }>>;
+  accionBorrar: (input: unknown) => Promise<Resultado<{ id: string }>>;
   apiKey: string | undefined;
 }
 
-export function TablaParadas({ paradas, accionCrear, accionEditar, apiKey }: Props) {
+export function TablaParadas({ paradas, accionCrear, accionEditar, accionBorrar, apiKey }: Props) {
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [nombre, setNombre] = useState('');
@@ -89,6 +90,17 @@ export function TablaParadas({ paradas, accionCrear, accionEditar, apiKey }: Pro
     });
   }
 
+  function borrar(parada: Parada) {
+    if (
+      !confirm(`¿Borrar la parada "${parada.nombre}"? Deja de estar disponible para rutas nuevas.`)
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      await accionBorrar(parada.id);
+    });
+  }
+
   const botonNuevo = (
     <Button type="button" onClick={abrirCrear}>
       Nueva parada
@@ -122,14 +134,25 @@ export function TablaParadas({ paradas, accionCrear, accionEditar, apiKey }: Pro
                       {parada.lat.toFixed(5)}, {parada.lng.toFixed(5)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => abrirEditar(parada)}
-                      >
-                        Editar
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => abrirEditar(parada)}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={pendiente}
+                          onClick={() => borrar(parada)}
+                        >
+                          Borrar
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -148,14 +171,25 @@ export function TablaParadas({ paradas, accionCrear, accionEditar, apiKey }: Pro
                       {parada.lat.toFixed(5)}, {parada.lng.toFixed(5)}
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => abrirEditar(parada)}
-                  >
-                    Editar
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => abrirEditar(parada)}
+                    >
+                      Editar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={pendiente}
+                      onClick={() => borrar(parada)}
+                    >
+                      Borrar
+                    </Button>
+                  </div>
                 </div>
               </li>
             ))}
