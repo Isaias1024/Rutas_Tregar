@@ -30,5 +30,6 @@ paths:
 - El borrado logico usa `deleted_at`. Toda consulta de catalogo lo filtra.
 - Los scripts de `scripts/` corren con `tsx` y cargan entorno con
   `process.loadEnvFile('.env')` en sus primeras lineas. Nunca asumas que el shell ya lo trae.
-- `pnpm db:check` verifica que exista cada tabla que define la §4 del blueprint. Si agregas una
-  tabla, agregala a la lista de ese script en el mismo commit.
+- `pnpm db:check` verifica que exista cada una de las doce tablas de `TABLAS_ESPERADAS` en
+  `scripts/check-schema.ts`, y que `evento` no tenga politica de UPDATE ni de DELETE. Si agregas una
+  tabla, agregala a esa lista en el mismo commit.

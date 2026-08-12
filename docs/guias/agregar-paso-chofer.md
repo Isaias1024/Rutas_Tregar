@@ -34,9 +34,15 @@ description: Usar al tocar el flujo de cinco hitos de la app del chofer — agre
 ```bash
 pnpm test packages/shared/src/flujo.test.ts     # expect: exit 0, 0 failed, 0 skipped
 pnpm test packages/shared/src/estado.test.ts    # expect: exit 0, 0 failed, 0 skipped
-pnpm test:mobile                                # expect: exit 0
 pnpm typecheck                                  # expect: exit 0
+npx expo export --platform ios                  # expect: exit 0 — el bundle real de la app
 ```
+
+> `pnpm test:mobile` **no** sirve hoy como compuerta de este cambio: 2 de sus 3 suites no arrancan
+> desde la bajada a Expo SDK 54 (`__fbBatchedBridgeConfig is not set` al importar
+> `expo-secure-store` y `expo-sqlite`). La que si corre es `src/lib/credencial.test.ts`. Mientras
+> siga asi, lo que de verdad verifica que la app no quedo rota es el `expo export` de arriba. Ver
+> `apps/mobile/README.md`.
 
 ## No hagas
 

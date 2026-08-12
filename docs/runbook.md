@@ -35,17 +35,18 @@ Root directory del panel en Vercel: `apps/web`. Comando de build:
      ```bash
      DATABASE_URL="<connection string del proyecto restaurado>" pnpm db:check
      ```
-     y confirmar que las doce tablas de la §4 del blueprint existen y tienen filas razonables
-     (`select count(*) from asignacion;`, `select count(*) from evento;`).
+     y confirmar que las doce tablas que lista `TABLAS_ESPERADAS` en `scripts/check-schema.ts`
+     existen y tienen filas razonables (`select count(*) from asignacion;`,
+     `select count(*) from evento;`).
   4. Borrar el proyecto de prueba una vez confirmado — no se deja corriendo, cuesta dinero y expone
      una copia de los datos de produccion.
   5. Repetir esta restauracion de prueba **al menos una vez por trimestre**, y siempre despues de
      cualquier migracion destructiva.
 - Esta restauracion de prueba necesita una cuenta de Supabase pagada y datos reales de produccion:
-  es un paso de la lista de lanzamiento (§20 del blueprint), no algo que una construccion autonoma
-  local pueda ejecutar. Lo que si se hizo en este build: confirmar que `pnpm db:migrate` y
-  `pnpm db:check` son deterministas y reproducen el esquema completo desde cero contra un Postgres
-  local — la mitad reproducible de la garantia.
+  es un paso de la lista de lanzamiento, no algo que una construccion local pueda ejecutar. Lo que
+  si esta verificado: `pnpm db:migrate` y `pnpm db:check` son deterministas y reproducen el esquema
+  completo desde cero contra un Postgres local — la mitad reproducible de la garantia. **La otra
+  mitad sigue pendiente y solo puede hacerse contra produccion.**
 
 ## 3. Rollback
 
@@ -58,9 +59,10 @@ dominio.
 ### Worker (Railway)
 
 Railway conserva las imagenes de deploys anteriores. **Deployments → (deployment anterior) →
-Redeploy**. Uno o dos minutos porque si vuelve a arrancar el contenedor. El scheduler es una sola
-instancia a proposito (§11 del blueprint): nunca hay dos barredores compitiendo por la misma cola de
-`notificacion_programada`, ni durante un rollback.
+Redeploy**. Uno o dos minutos porque si vuelve a arrancar el contenedor. El scheduler corre en una
+sola instancia a proposito (ver `apps/worker/src/`): nunca hay dos barredores compitiendo por la
+misma cola de `notificacion_programada`, ni durante un rollback. **No escales el worker a dos
+replicas** sin resolver antes ese punto.
 
 ### App movil
 

@@ -13,14 +13,25 @@ de personal en Monterrey. Monorepo pnpm + Turborepo.
 | Typecheck | `pnpm typecheck` |
 | Lint / formato | `pnpm lint` · `pnpm format` |
 | Pruebas | `pnpm test` · un archivo: `pnpm test <ruta>` |
-| Pruebas app movil | `pnpm test:mobile` |
-| E2E | `pnpm test:e2e` |
+| Pruebas app movil | `pnpm test:mobile` — **falla hoy, ver abajo** |
+| E2E | `pnpm test:e2e` · un archivo: `pnpm test:e2e <ruta>` |
 | Servicios locales | `pnpm db:up` · `pnpm db:down` · `pnpm db:status` |
-| Migraciones | `pnpm db:generate` → `pnpm db:migrate` · `pnpm db:check` |
+| Generar entorno | `pnpm env:write` |
+| Migraciones | `pnpm db:generate` → `pnpm db:migrate` · a mano: `pnpm db:generate:custom` · `pnpm db:check` |
 | Semilla / reset | `pnpm db:seed` · `pnpm db:reset` |
 | Worker | `pnpm worker:version` · `pnpm worker:dev` |
+| Diagnostico Expo | `pnpm mobile:doctor` |
+| Sesion local de panel | `pnpm panel:sesion [--rol supervisor]` |
 
 **Compuerta:** `pnpm typecheck && pnpm lint && pnpm test` pasa antes de marcar nada hecho.
+
+Dos comandos necesitan el panel levantado en `http://127.0.0.1:3000`: `pnpm test:e2e` (Playwright lo
+arranca solo si no lo esta) y, dentro de `pnpm test`, la prueba del PDF del worker — si esa falla con
+`ERR_CONNECTION_REFUSED`, falta el servidor, no esta roto el codigo.
+
+**Pendiente conocido:** `pnpm test:mobile` falla en 2 de 3 suites desde la bajada a Expo SDK 54
+(`__fbBatchedBridgeConfig is not set` al importar `expo-secure-store` y `expo-sqlite`). No esta en la
+compuerta, asi que no bloquea. Detalle en `apps/mobile/README.md`.
 
 ## No negociable
 
@@ -33,6 +44,8 @@ de personal en Monterrey. Monorepo pnpm + Turborepo.
 6. El estado del semaforo se deriva en `packages/shared/src/estado.ts`; no se guarda en ninguna columna.
 7. Nunca versionar secretos ni editar a mano nada bajo `drizzle/`.
 8. Nunca marcar una tarea hecha con una compuerta en rojo.
+9. Los colores, radios y sombras salen de `packages/shared/src/tokens.ts`. Ningun componente escribe
+   un hex ni un px crudo.
 
 Arquitectura completa, fronteras de import y tokens de diseno: `docs/arquitectura.md`.
 Es la fuente de verdad; este archivo es un puente.

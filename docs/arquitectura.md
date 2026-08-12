@@ -14,7 +14,7 @@ si cada ruta va a tiempo, tarde o adelantada.
 | Typecheck | `pnpm typecheck` |
 | Lint / formato | `pnpm lint` · `pnpm format` |
 | Pruebas | `pnpm test` · un archivo: `pnpm test <ruta>` |
-| Pruebas app movil | `pnpm test:mobile` |
+| Pruebas app movil | `pnpm test:mobile` — **falla hoy**, ver `apps/mobile/README.md` |
 | E2E | `pnpm test:e2e` · un archivo: `pnpm test:e2e <ruta>` |
 | Servicios locales | `pnpm db:up` · `pnpm db:down` · `pnpm db:status` |
 | Generar entorno | `pnpm env:write` |
@@ -26,6 +26,8 @@ si cada ruta va a tiempo, tarde o adelantada.
 | Diagnostico Expo | `pnpm mobile:doctor` |
 
 **Compuerta:** `pnpm typecheck && pnpm lint && pnpm test` pasa antes de marcar cualquier tarea hecha.
+`pnpm test` incluye una prueba que imprime el PDF del cliente contra el panel real: necesita
+`pnpm dev` levantado en `http://127.0.0.1:3000` o falla con `ERR_CONNECTION_REFUSED`.
 
 La version de Node esta fijada en `.nvmrc`. Las versiones de dependencias viven en `pnpm-lock.yaml`
 — leelo, nunca adivines una. La app movil instala **siempre** con `npx expo install`, jamas con
@@ -55,7 +57,7 @@ La frontera de seguridad de ese camino es RLS y nada mas.
 | Capa | Puede importar de | Jamas |
 |---|---|---|
 | `apps/web/src/app/**` | `components`, `server`, `lib`, `@rutas/shared` | importar `@rutas/shared/db` directo |
-| `apps/web/src/components/**` | `lib`, otros componentes, `@rutas/shared` | importar `server/` o `@rutas/shared/db` |
+| `apps/web/src/components/**` | `lib`, otros componentes, `@rutas/shared` | importar `server/`, `@rutas/shared/db`, o cualquier cosa de `app/` — una server action que un componente necesite se le inyecta como prop desde el layout o la pagina |
 | `apps/web/src/server/**` | `lib`, `@rutas/shared` | importar React o `components/` |
 | `apps/mobile/src/**` | `@rutas/shared`, `lib/supabase`, `outbox` | usar la service role key |
 | `apps/worker/src/**` | `@rutas/shared`, `lib` | importar cualquier cosa de `apps/web` |
@@ -74,6 +76,10 @@ La frontera de seguridad de ese camino es RLS y nada mas.
 | Permisos | `apps/web/src/lib/authz/can.ts` — una sola `can(usuario, accion, recurso)` |
 | Bitacora | `apps/web/src/lib/audit/registrar.ts` — se escribe en la MISMA transaccion que la mutacion |
 | Sesion | `apps/web/src/lib/supabase/server.ts` (web) · `apps/mobile/src/lib/supabase.ts` (app) |
+| Cerrar sesion | `apps/web/src/app/(panel)/acciones-sesion.ts` — no es mutacion administrativa: no pasa por `can()` ni por la bitacora |
+| Marco del panel | `apps/web/src/components/shell/` — `marco-panel` (unico cliente, coordina el cajon movil) · `navegacion-panel` · `barra-superior` · `encabezado-pagina` |
+| Superficie de contenido | `apps/web/src/components/ui/card.tsx` — todo bloque del panel vive dentro de una `Card` |
+| Quien ve que | `apps/web/src/proxy.ts` protege las rutas; admin y supervisor tienen acceso identico y `chofer` no entra al panel |
 
 ## Reglas de codigo
 
@@ -137,9 +143,10 @@ La marca es el **verde oliva Tregar**, el mismo del logo y el mismo que pinta la
 
 ## Entorno
 
-Las variables, su proposito y desde que paso son obligatorias estan en `.env.example` y en la §10 del
-blueprint. `.env.example` se versiona (hay una excepcion `!.env.example` en `.gitignore`); cualquier
-`.env` con valores reales, jamas.
+Las variables, su proposito y desde que paso son obligatorias estan en `.env.example`, que es la
+fuente de verdad versionada (hay una excepcion `!.env.example` en `.gitignore`); cualquier `.env`
+con valores reales, jamas. `pnpm env:write` genera el `.env` local a partir de los servicios que
+levanta `pnpm db:up`.
 
 `apps/web/src/lib/env.ts` valida al arranque y **degrada por paso**: una variable es obligatoria solo
 desde el paso que la consume. Esto es lo que impide que el paso 2 rompa la compuerta del paso 1.
@@ -175,5 +182,7 @@ Lee el archivo correspondiente antes de editar esa area:
 7. Nunca editar a mano un archivo generado (`drizzle/**`, `pnpm-lock.yaml`).
 8. Nunca marcar una tarea hecha con una compuerta en rojo.
 
-<!-- Orden de construccion, criterios de aceptacion y comandos de verificacion:
-     ../blueprints/rutas-transporte-personal/tasks.json y epics/. No los repitas aqui. -->
+<!-- El bundle de construccion original (blueprint.md, epics/, tasks.json, workspace/) esta en
+     .gitignore: es un artefacto historico local, NO documentacion del repo. Los 16 pasos que
+     describia ya estan construidos. No cites sus secciones desde un archivo versionado — quien
+     clone el repo no las tiene. Si algo de ahi sigue siendo cierto, escribelo aqui. -->

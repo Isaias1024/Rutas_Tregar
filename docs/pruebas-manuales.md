@@ -385,7 +385,21 @@ Y una ventana de Chrome nueva mostrando el panel.
 > **Usa esa ventana de navegador para toda la prueba.** Si abres el panel en otra ventana o en otro
 > navegador, ahi no hay sesion y te va a mandar al login.
 
-Para probar con el otro rol (un supervisor ve menos opciones en el menu que un administrador):
+**Como se ve el panel, para que sepas que estas viendo lo correcto:**
+
+- Una **barra lateral verde oliva** a la izquierda con el logo de Tregar arriba, los enlaces
+  agrupados en Operacion / Catalogos / Analisis, y el enlace de la pantalla en la que estas
+  resaltado en verde claro.
+- Una **barra blanca arriba** con la fecha de hoy a la izquierda (en hora de Monterrey, sin importar
+  la zona de tu computadora) y tu usuario a la derecha.
+- El contenido sobre fondo gris muy claro, con cada bloque dentro de una **tarjeta blanca**: los
+  filtros en una tarjeta, la tabla en otra.
+
+☐ Presiona tu usuario arriba a la derecha. Se abre un menu con tu nombre, tu credencial, tu rol y
+**Cerrar sesion**. No lo presiones todavia — al final de la prueba sirve para comprobar que la
+sesion se cierra de verdad y te regresa al login.
+
+Para probar con el otro rol:
 
 ```powershell
 pnpm panel:sesion --rol supervisor
@@ -394,7 +408,15 @@ pnpm panel:sesion --rol supervisor
 | Rol | Que ve en el menu |
 |---|---|
 | `admin` | Monitor, Planeador, Clientes, Camiones, Choferes, Rutas, Paradas, Reportes, Bitacora |
-| `supervisor` | Monitor, Planeador, Reportes |
+| `supervisor` | Lo mismo, sin ninguna diferencia |
+
+**Los dos roles ven exactamente el mismo panel.** La unica accion que los distingue es
+`crear_supervisor` (en `apps/web/src/lib/authz/can.ts`), que todavia no tiene ninguna pantalla que
+la consuma. Si esperabas que el supervisor viera menos y ves lo mismo, esta bien: es el
+comportamiento actual, no un defecto de tu instalacion.
+
+El rol `chofer` es el unico que si queda fuera: el middleware le niega toda ruta del panel con
+"No tienes permiso para ver esta seccion."
 
 Para terminar: **cierra la ventana del navegador**; el comando termina solo.
 
@@ -604,13 +626,17 @@ rojo debajo del boton**. Un boton que no hace nada y no dice por que es un defec
 ☐ Entra a **Monitor**.
 
 **Debe pasar:** aparece una fila con tu ruta. Como el chofer todavia no marca nada y la hora
-esperada de inicio ya paso, la pastilla del estado debe decir **`▲ Tarde`** (rojo) o **`○ Pendiente`**
-(gris) si la hora aun no llega.
+esperada de inicio ya paso, la pastilla del estado debe decir **`Tarde`** (relleno rojo) o
+**`Pendiente`** (relleno gris claro) si la hora aun no llega.
 
-☐ Fijate en que **la pastilla siempre trae un icono Y texto**, no solo color. Eso es a proposito:
-tiene que funcionar para alguien daltonico y en una impresion en blanco y negro.
+☐ Fijate en que **la pastilla siempre trae el texto del estado escrito dentro**, no solo un color de
+fondo. Eso es a proposito: alguien daltonico tiene que poder leer el estado.
 
-☐ Deja el monitor abierto: **se refresca solo cada 30 segundos**. No hay que recargar la pagina.
+☐ Arriba de la tabla hay una fila de pastillas de filtro con el conteo de cada estado. Presiona una:
+la tabla se filtra y la pastilla se rellena de color. Presionala de nuevo para quitar el filtro.
+
+☐ Deja el monitor abierto: **se refresca solo cada 30 segundos**. No hay que recargar la pagina. La
+hora de la ultima actualizacion aparece a la derecha del buscador.
 
 ---
 
@@ -663,8 +689,8 @@ lectura.
 ☐ Vuelve al panel, pestana **Monitor**. Espera hasta 30 segundos (se refresca solo).
 
 **Debe pasar:** la fila de tu ruta cambio de estado. Segun a que hora marcaste contra la hora
-esperada, la pastilla dira **`● A tiempo`**, **`▲ Tarde`**, **`▼ Adelantado`** o **`■ En curso`**.
-Los contadores de personas que capturaste aparecen en la fila.
+esperada, la pastilla dira **`A tiempo`** (verde), **`Tarde`** (rojo), **`Adelantado`** (azul) o
+**`En curso`** (ambar). Los contadores de personas que capturaste aparecen en la fila.
 
 ☐ **Captura manual (esto es tambien el camino C):** en la fila, presiona **Registrar**. Se abre
 "Registrar evento a mano": elige un tipo de evento y una hora → guardar.
@@ -697,14 +723,25 @@ ejecucion, con las columnas de app y de supervisor separadas.
 ☐ En **Por cliente**, en la fila de tu cliente, presiona **Descargar** (columna PDF).
 
 **Debe pasar:** el boton dice "Generando..." unos segundos y despues se descarga un PDF. Abrelo:
-debe verse igual que la pantalla del reporte, con las pastillas de estado con icono y texto.
+debe verse igual que la pantalla del reporte, con las pastillas de estado de color pleno y el nombre
+del estado escrito dentro.
 
 > Ese PDF lo genera el **worker**, no el panel: si falla, revisa que la ventana 2 siga corriendo y
 > que hayas hecho el paso 4.7. Verificado en esta computadora: el PDF sale de unos 59 KB.
 
 ☐ **Prueba de impresion en blanco y negro:** abre el PDF y mandalo a imprimir (o vista previa) en
-escala de grises. **Debe pasar:** los estados se siguen distinguiendo, porque cada uno trae icono y
-texto ademas del color.
+escala de grises.
+
+**Que debe pasar:** el estado de cada fila **se sigue leyendo**, porque la pastilla trae el nombre
+escrito dentro (`A tiempo`, `Tarde`, …), no solo un color.
+
+> **Limitacion conocida y aceptada.** Impresos en gris, los cinco rellenos quedan en tonos
+> parecidos: ya **no** se distinguen entre si de un vistazo, solo leyendo la palabra. Hasta el
+> rediseno de agosto 2026 cada pastilla traia ademas un icono (`● A tiempo`, `▲ Tarde`) que si los
+> separaba en gris; se quito al adoptar el diseno del portal Tregar, con la contrapartida sobre la
+> mesa. Si en una junta el cliente se queja de que no distingue los estados en el papel, eso es el
+> sintoma esperado, no un defecto de tu instalacion — el arreglo esta descrito en
+> `docs/reglas/worker-y-reportes.md`.
 
 ---
 
@@ -746,8 +783,23 @@ login.
 **Debe pasar:** siempre se ve claramente **cual elemento esta seleccionado** (un contorno de color
 marca), y se puede llegar a todos los botones.
 
-☐ Confirma que ninguna informacion dependa unicamente del color: los estados siempre traen icono y
-texto.
+☐ Confirma que ninguna informacion dependa unicamente del color: la pastilla de cada estado trae el
+nombre escrito dentro, y las columnas de origen (`app` / `supervisor`) van siempre separadas por
+etiqueta, no por tono.
+
+☐ Achica la ventana hasta el ancho de un telefono. **Debe pasar:** la barra lateral verde desaparece
+y queda un boton de menu (☰) arriba a la izquierda; al presionarlo se desliza el menu sobre la
+pantalla. Ninguna pantalla debe producir barra de desplazamiento horizontal.
+
+---
+
+### Paso 12 — Cerrar sesion
+
+☐ Presiona tu usuario arriba a la derecha → **Cerrar sesion**.
+
+**Debe pasar:** te regresa al login. Si despues escribes a mano una direccion del panel (por ejemplo
+<http://127.0.0.1:3000/monitor>), **debe volver a mandarte al login**: la sesion se borro de verdad,
+no solo de la pantalla.
 
 ---
 
@@ -774,11 +826,11 @@ funciona en local** — ver §13.
 
 Esto no reemplaza la prueba manual, pero es rapido y detecta lo que se rompio sin que se note.
 
-| Comando | Que prueba | Cuanto tarda |
-|---|---|---|
-| `pnpm test` | La logica: semaforo, permisos, aislamiento de datos entre choferes | ~15 s |
-| `pnpm test:e2e` | El panel entero, manejado por un robot en un navegador | 1-3 min |
-| `pnpm test:mobile` | La app del chofer | ~30 s |
+| Comando | Que prueba | Cuanto tarda | Que debe salir hoy |
+|---|---|---|---|
+| `pnpm test` | La logica: semaforo, permisos, aislamiento de datos entre choferes | ~20 s | `Tests 161 passed (161)` |
+| `pnpm test:e2e` | El panel entero, manejado por un robot en un navegador | 1-3 min | `34 passed` |
+| `pnpm test:mobile` | La app del chofer | ~25 s | **falla — ver abajo** |
 
 Las tres, en una terminal, con la base encendida:
 
@@ -790,12 +842,24 @@ pnpm test
 pnpm test:e2e
 ```
 
+`pnpm test:e2e` necesita el panel levantado en <http://127.0.0.1:3000>; si `pnpm dev` no esta
+corriendo, Playwright lo arranca solo. Una prueba de `pnpm test` (la que genera el PDF del cliente)
+tambien necesita ese panel arriba: si ves fallar `pdf.test.ts` con `ERR_CONNECTION_REFUSED`, no esta
+roto el codigo, te falta la ventana 1.
+
 ```powershell
 pnpm test:mobile
 ```
 
-**Que deberias ver:** lineas verdes y un resumen tipo `Tests 143 passed (143)`. Cualquier cosa en
-rojo es un fallo real que vale la pena reportar.
+> **Este ultimo falla hoy, y es un pendiente conocido.** De 3 suites, 2 no arrancan
+> (`outbox.test.ts` y `asignaciones.test.ts`) con el error
+> `Invariant Violation: __fbBatchedBridgeConfig is not set, cannot invoke native modules`. Aparecio
+> al bajar la app de Expo SDK 57 a 54. **No es un problema de tu instalacion y no bloquea nada:**
+> `test:mobile` no forma parte de la comprobacion obligatoria del proyecto. Detalle en
+> `apps/mobile/README.md`.
+
+**Que deberias ver en las otras dos:** lineas verdes y el resumen de la tabla de arriba. Cualquier
+otra cosa en rojo es un fallo real que vale la pena reportar.
 
 Y esta es la comprobacion completa que el proyecto exige antes de dar cualquier cambio por terminado:
 
@@ -885,6 +949,9 @@ persiguiendolas.
 | **Mapa al crear una parada** | No aparece el mapa | Falta la llave de Google Maps. El formulario **degrada a proposito** a captura manual de latitud y longitud, no se rompe |
 | **Correos** | No salen a internet | Quedan atrapados en Mailpit: <http://127.0.0.1:54324> |
 | **Opcion "Mi cuenta" del menu** | Da pagina no encontrada (404) | El enlace existe en el menu pero la pantalla todavia no esta construida. Es un pendiente real del proyecto, no un problema de tu instalacion |
+| **`pnpm test:mobile`** | 2 de 3 suites no arrancan | Pendiente conocido tras bajar a Expo SDK 54; ver §10 y `apps/mobile/README.md`. No forma parte de la comprobacion obligatoria |
+| **El supervisor ve lo mismo que el admin** | No hay diferencia en el menu | Es el comportamiento actual, no un defecto: la unica accion que separa los dos roles todavia no tiene pantalla (§6.2) |
+| **Estados en gris al imprimir el PDF** | Los cinco se ven de tonos parecidos | La pastilla trae el nombre escrito, asi que se lee; el icono que los separaba en gris se quito en el rediseno de agosto 2026 (§8, paso 8) |
 | **Instalar la app como APK** | No aplica | La distribucion real se hace con EAS y Google Play; eso vive en `docs/runbook.md` §5 |
 
 ---
