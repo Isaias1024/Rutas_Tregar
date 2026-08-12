@@ -47,6 +47,7 @@ export function TablaParadas({ paradas, accionCrear, accionEditar, accionBorrar,
   const [pendiente, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
+  const [exitoBorrado, setExitoBorrado] = useState<string | null>(null);
 
   function abrirCrear() {
     setEditandoId(null);
@@ -98,11 +99,14 @@ export function TablaParadas({ paradas, accionCrear, accionEditar, accionBorrar,
       return;
     }
     setErrorBorrado(null);
+    setExitoBorrado(null);
     startTransition(async () => {
       const resultado = await accionBorrar(parada.id);
       if (!resultado.ok) {
         setErrorBorrado(resultado.error.mensaje);
+        return;
       }
+      setExitoBorrado(`Parada "${parada.nombre}" eliminada correctamente.`);
     });
   }
 
@@ -116,6 +120,7 @@ export function TablaParadas({ paradas, accionCrear, accionEditar, accionBorrar,
     <div className="space-y-4">
       <div className="flex justify-end">{botonNuevo}</div>
       {errorBorrado ? <p className="text-sm text-destructive">{errorBorrado}</p> : null}
+      {exitoBorrado ? <p className="text-sm text-success">{exitoBorrado}</p> : null}
 
       {paradas.length === 0 ? (
         <EstadoVacio titulo="Aun no hay paradas. Crea la primera" accion={botonNuevo} />

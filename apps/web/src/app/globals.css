@@ -41,6 +41,8 @@
   --color-card: var(--card);
   --color-primary-hover: var(--primary-hover);
   --color-primary-tint: var(--primary-tint);
+  --color-surface: var(--surface);
+  --color-success: var(--success);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -69,6 +71,8 @@
   --accent: #e8f5ed;
   --accent-foreground: #0e7a3c;
   --destructive: #b91c1c;
+  --surface: #f8faf9;
+  --success: #047857;
   --border: #e2e8e5;
   --input: #e2e8e5;
   --ring: #0e7a3c;

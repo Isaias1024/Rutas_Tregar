@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 import { crearClienteServidor } from '@/lib/supabase/server';
 
 async function iniciarSesionConGoogle() {
@@ -38,12 +39,25 @@ export default async function PaginaLogin({
   const mensaje = error ? (MENSAJES_ERROR[error] ?? MENSAJES_ERROR.oauth) : null;
 
   return (
-    <main>
-      <h1>Rutas</h1>
-      {mensaje ? <p role="alert">{mensaje}</p> : null}
-      <form action={iniciarSesionConGoogle}>
-        <button type="submit">Entrar con Google</button>
-      </form>
+    <main className="flex min-h-full flex-1 items-center justify-center bg-background p-4">
+      <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-card p-6 sm:p-8">
+        <div className="space-y-1 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Rutas</h1>
+          <p className="text-sm text-muted-foreground">
+            Panel de operacion de transporte de personal
+          </p>
+        </div>
+        {mensaje ? (
+          <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            {mensaje}
+          </p>
+        ) : null}
+        <form action={iniciarSesionConGoogle}>
+          <Button type="submit" className="w-full">
+            Entrar con Google
+          </Button>
+        </form>
+      </div>
     </main>
   );
 }

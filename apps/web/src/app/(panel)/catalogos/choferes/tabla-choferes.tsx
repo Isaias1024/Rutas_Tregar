@@ -67,6 +67,8 @@ export function TablaChoferes({
   const [pendiente, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [credencialesNuevas, setCredencialesNuevas] = useState<CredencialesNuevas | null>(null);
+  const [errorBaja, setErrorBaja] = useState<string | null>(null);
+  const [exitoBaja, setExitoBaja] = useState<string | null>(null);
 
   const formCrear = useForm<ChoferCrear>({
     resolver: zodResolver(choferCrearSchema),
@@ -130,8 +132,15 @@ export function TablaChoferes({
     ) {
       return;
     }
+    setErrorBaja(null);
+    setExitoBaja(null);
     startTransition(async () => {
-      await accionBorrar(chofer.id);
+      const resultado = await accionBorrar(chofer.id);
+      if (!resultado.ok) {
+        setErrorBaja(resultado.error.mensaje);
+        return;
+      }
+      setExitoBaja(`Chofer "${chofer.nombre ?? chofer.credencial}" eliminado correctamente.`);
     });
   }
 
@@ -145,8 +154,15 @@ export function TablaChoferes({
     ) {
       return;
     }
+    setErrorBaja(null);
+    setExitoBaja(null);
     startTransition(async () => {
-      await accionDarDeBaja(chofer.id);
+      const resultado = await accionDarDeBaja(chofer.id);
+      if (!resultado.ok) {
+        setErrorBaja(resultado.error.mensaje);
+        return;
+      }
+      setExitoBaja(`Chofer "${chofer.nombre ?? chofer.credencial}" dado de baja correctamente.`);
     });
   }
 
@@ -159,6 +175,8 @@ export function TablaChoferes({
   return (
     <div className="space-y-4">
       <div className="flex justify-end">{botonNuevo}</div>
+      {errorBaja ? <p className="text-sm text-destructive">{errorBaja}</p> : null}
+      {exitoBaja ? <p className="text-sm text-success">{exitoBaja}</p> : null}
 
       {choferes.length === 0 ? (
         <EstadoVacio titulo="Aun no hay choferes. Crea el primero" accion={botonNuevo} />
@@ -199,6 +217,7 @@ export function TablaChoferes({
                         type="button"
                         variant="outline"
                         size="sm"
+                        disabled={pendiente}
                         onClick={() => borrar(chofer)}
                       >
                         Borrar
@@ -207,6 +226,7 @@ export function TablaChoferes({
                         type="button"
                         variant="destructive"
                         size="sm"
+                        disabled={pendiente}
                         onClick={() => darDeBaja(chofer)}
                       >
                         Dar de baja
@@ -241,13 +261,20 @@ export function TablaChoferes({
                   >
                     Editar
                   </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => borrar(chofer)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={pendiente}
+                    onClick={() => borrar(chofer)}
+                  >
                     Borrar
                   </Button>
                   <Button
                     type="button"
                     variant="destructive"
                     size="sm"
+                    disabled={pendiente}
                     onClick={() => darDeBaja(chofer)}
                   >
                     Dar de baja
