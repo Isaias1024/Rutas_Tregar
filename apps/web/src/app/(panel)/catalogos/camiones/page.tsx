@@ -7,14 +7,13 @@ export default async function PaginaCamiones() {
   const camiones = await listarCamiones();
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-foreground">Camiones</h1>
-      <TablaCamiones
-        camiones={camiones}
-        accionCrear={crearCamion}
-        accionEditar={editarCamion}
-        accionBorrar={borrarCamion}
-      />
-    </div>
+    <TablaCamiones
+      titulo="Camiones"
+      descripcion="Flota disponible para asignar a una ruta."
+      camiones={camiones}
+      accionCrear={crearCamion}
+      accionEditar={editarCamion}
+      accionBorrar={borrarCamion}
+    />
   );
 }

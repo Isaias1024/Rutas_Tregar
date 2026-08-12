@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import { colores } from '@rutas/shared/tokens';
 import { EstadoVacio } from '@/components/estado-vacio';
+import { Card } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -53,14 +54,19 @@ export function OcupacionCliente() {
           <div className="h-full w-1/3 animate-pulse bg-primary" />
         </div>
       ) : isError ? (
-        <p className="text-sm text-destructive">
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+        >
           No se pudo consultar el rango {rango.desde} a {rango.hasta}.
         </p>
       ) : !data || data.length === 0 ? (
-        <EstadoVacio titulo="Sin ejecuciones en este rango" />
+        <Card>
+          <EstadoVacio titulo="Sin ejecuciones en este rango" />
+        </Card>
       ) : (
         <>
-          <div className="h-80 rounded-lg border border-border bg-surface p-3">
+          <Card className="h-80 p-3">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" stroke={colores.border} />
@@ -73,38 +79,40 @@ export function OcupacionCliente() {
                 <Bar dataKey="retornaronPromedio" name="Retornaron" fill={colores.success} />
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          </Card>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Ruta</TableHead>
-                <TableHead className="text-right">Asignaciones</TableHead>
-                <TableHead className="text-right">Esperados (prom.)</TableHead>
-                <TableHead className="text-right">Abordaron (prom.)</TableHead>
-                <TableHead className="text-right">Retornaron (prom.)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.map((fila) => (
-                <TableRow key={fila.rutaId}>
-                  <TableCell>{fila.rutaNombre}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {fila.totalAsignaciones}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {redondear(fila.esperadosPromedio)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {redondear(fila.abordaronPromedio) ?? 'Sin datos'}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {redondear(fila.retornaronPromedio) ?? 'Sin datos'}
-                  </TableCell>
+          <Card className="overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Ruta</TableHead>
+                  <TableHead className="text-right">Asignaciones</TableHead>
+                  <TableHead className="text-right">Esperados (prom.)</TableHead>
+                  <TableHead className="text-right">Abordaron (prom.)</TableHead>
+                  <TableHead className="text-right">Retornaron (prom.)</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {data.map((fila) => (
+                  <TableRow key={fila.rutaId}>
+                    <TableCell>{fila.rutaNombre}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {fila.totalAsignaciones}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {redondear(fila.esperadosPromedio)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {redondear(fila.abordaronPromedio) ?? 'Sin datos'}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {redondear(fila.retornaronPromedio) ?? 'Sin datos'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
         </>
       )}
     </div>

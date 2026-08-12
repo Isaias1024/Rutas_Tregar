@@ -2,6 +2,7 @@
 
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
 export interface RangoFechas {
@@ -18,24 +19,25 @@ export function FiltroRango({ desde, hasta, onBuscar }: Props) {
   const form = useForm<RangoFechas>({ values: { desde, hasta } });
 
   return (
-    <form
-      onSubmit={form.handleSubmit(onBuscar)}
-      className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface p-3"
-    >
-      <div className="space-y-1">
-        <label htmlFor="reportes-desde" className="text-sm font-medium">
-          Desde
-        </label>
-        <Input id="reportes-desde" type="date" {...form.register('desde')} />
-      </div>
-      <div className="space-y-1">
-        <label htmlFor="reportes-hasta" className="text-sm font-medium">
-          Hasta
-        </label>
-        <Input id="reportes-hasta" type="date" {...form.register('hasta')} />
-      </div>
-      <Button type="submit">Buscar</Button>
-    </form>
+    <Card>
+      <CardContent className="p-4">
+        <form onSubmit={form.handleSubmit(onBuscar)} className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <label htmlFor="reportes-desde" className="text-sm font-medium">
+              Desde
+            </label>
+            <Input id="reportes-desde" type="date" {...form.register('desde')} />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="reportes-hasta" className="text-sm font-medium">
+              Hasta
+            </label>
+            <Input id="reportes-hasta" type="date" {...form.register('hasta')} />
+          </div>
+          <Button type="submit">Buscar</Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 

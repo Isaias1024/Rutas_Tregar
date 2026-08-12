@@ -150,6 +150,14 @@ export async function proxy(request: NextRequest) {
   return respuesta;
 }
 
+// Los archivos estaticos de `public/` quedan fuera a proposito, ademas de las
+// rutas internas de Next. El optimizador de imagenes se pide a si mismo el
+// archivo original desde el servidor, sin la cookie de sesion: si el proxy lo
+// contesta con el redirect a /login, `next/image` recibe HTML donde esperaba un
+// JPEG y el logo de la barra lateral sale roto. Ninguno de estos archivos
+// contiene datos de la operacion.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon\\.ico).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:jpg|jpeg|png|gif|webp|avif|svg|ico)$).*)',
+  ],
 };

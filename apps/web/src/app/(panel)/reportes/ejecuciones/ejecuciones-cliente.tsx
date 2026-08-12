@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { EstadoVacio } from '@/components/estado-vacio';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -45,7 +46,7 @@ export function EjecucionesCliente() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 [&>*:first-child]:flex-1">
         <FiltroRango {...rango} onBuscar={setRango} />
         <Button asChild variant="outline">
           <a href={urlCsv}>Descargar CSV</a>
@@ -61,53 +62,60 @@ export function EjecucionesCliente() {
           <div className="h-full w-1/3 animate-pulse bg-primary" />
         </div>
       ) : isError ? (
-        <p className="text-sm text-destructive">
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+        >
           No se pudo consultar el rango {rango.desde} a {rango.hasta}.
         </p>
       ) : filas.length === 0 ? (
-        <EstadoVacio titulo="Sin ejecuciones en este rango" />
+        <Card>
+          <EstadoVacio titulo="Sin ejecuciones en este rango" />
+        </Card>
       ) : (
         <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Ruta</TableHead>
-                <TableHead>Chofer</TableHead>
-                <TableHead>Camion</TableHead>
-                <TableHead>Inicio de ruta</TableHead>
-                <TableHead>Origen</TableHead>
-                <TableHead className="text-right">Abordaron</TableHead>
-                <TableHead className="text-right">Retornaron</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filas.map((fila) => (
-                <TableRow key={fila.id}>
-                  <TableCell>{fila.fecha}</TableCell>
-                  <TableCell>{fila.rutaNombre}</TableCell>
-                  <TableCell>{fila.choferNombre ?? 'Sin nombre'}</TableCell>
-                  <TableCell className="tabular-nums">{fila.camionCodigo}</TableCell>
-                  <TableCell className="tabular-nums">{formatoHora(fila.inicioRutaEn)}</TableCell>
-                  <TableCell>
-                    {fila.inicioRutaOrigen ? (
-                      <Badge variant="outline">
-                        {ETIQUETA_ORIGEN[fila.inicioRutaOrigen] ?? fila.inicioRutaOrigen}
-                      </Badge>
-                    ) : (
-                      '—'
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {fila.cntAbordaron ?? 'Sin datos'}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {fila.cntRetornaron ?? 'Sin datos'}
-                  </TableCell>
+          <Card className="overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Ruta</TableHead>
+                  <TableHead>Chofer</TableHead>
+                  <TableHead>Camion</TableHead>
+                  <TableHead>Inicio de ruta</TableHead>
+                  <TableHead>Origen</TableHead>
+                  <TableHead className="text-right">Abordaron</TableHead>
+                  <TableHead className="text-right">Retornaron</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filas.map((fila) => (
+                  <TableRow key={fila.id}>
+                    <TableCell>{fila.fecha}</TableCell>
+                    <TableCell>{fila.rutaNombre}</TableCell>
+                    <TableCell>{fila.choferNombre ?? 'Sin nombre'}</TableCell>
+                    <TableCell className="tabular-nums">{fila.camionCodigo}</TableCell>
+                    <TableCell className="tabular-nums">{formatoHora(fila.inicioRutaEn)}</TableCell>
+                    <TableCell>
+                      {fila.inicioRutaOrigen ? (
+                        <Badge variant="outline">
+                          {ETIQUETA_ORIGEN[fila.inicioRutaOrigen] ?? fila.inicioRutaOrigen}
+                        </Badge>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {fila.cntAbordaron ?? 'Sin datos'}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {fila.cntRetornaron ?? 'Sin datos'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
 
           {hasNextPage ? (
             <div className="flex justify-center">

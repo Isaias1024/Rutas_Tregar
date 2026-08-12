@@ -43,6 +43,14 @@
   --color-primary-tint: var(--primary-tint);
   --color-surface: var(--surface);
   --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --shadow-tarjeta: var(--sombra-tarjeta);
+  --shadow-menu: var(--sombra-menu);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -55,41 +63,50 @@
 :root {
   /* Valores tomados literal de packages/shared/src/tokens.ts (§7) — no adivinar. */
   --background: #ffffff;
-  --foreground: #111827;
+  --foreground: #0a0e1a;
   --card: #ffffff;
-  --card-foreground: #111827;
+  --card-foreground: #0a0e1a;
   --popover: #ffffff;
-  --popover-foreground: #111827;
-  --primary: #0e7a3c;
-  --primary-hover: #0a5e2e;
-  --primary-tint: #e8f5ed;
+  --popover-foreground: #0a0e1a;
+  --primary: #547f37;
+  --primary-hover: #456b2d;
+  --primary-tint: #eef4e9;
   --primary-foreground: #ffffff;
-  --secondary: #f8faf9;
-  --secondary-foreground: #111827;
-  --muted: #f8faf9;
-  --muted-foreground: #6b7280;
-  --accent: #e8f5ed;
-  --accent-foreground: #0e7a3c;
-  --destructive: #b91c1c;
-  --surface: #f8faf9;
-  --success: #047857;
-  --border: #e2e8e5;
-  --input: #e2e8e5;
-  --ring: #0e7a3c;
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.375rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0a0e1a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #0a0e1a;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --surface: #f8fafc;
+  --success: #6dab3c;
+  --success-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --info: #2563eb;
+  --info-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #547f37;
+  --chart-1: #547f37;
+  --chart-2: #6dab3c;
+  --chart-3: #d97706;
+  --chart-4: #2563eb;
+  --chart-5: #64748b;
+  --radius: 0.625rem;
+  --sombra-tarjeta: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --sombra-menu: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  /* La barra lateral es un bloque solido de marca, no una superficie clara. */
+  --sidebar: #547f37;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #547f37;
+  --sidebar-accent: #6dab3c;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 0.1);
+  --sidebar-ring: #f8fafc;
 }
 
 .dark {
@@ -131,9 +148,25 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
   html {
     @apply font-sans;
+  }
+
+  /* Barra de desplazamiento discreta: el panel vive en pantalla ocho horas. */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
   }
 }

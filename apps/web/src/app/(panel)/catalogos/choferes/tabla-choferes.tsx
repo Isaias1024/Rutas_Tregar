@@ -29,6 +29,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { EstadoVacio } from '@/components/estado-vacio';
+import { EncabezadoPagina } from '@/components/shell/encabezado-pagina';
+import { Card } from '@/components/ui/card';
 
 interface Chofer {
   id: string;
@@ -46,6 +48,8 @@ interface CredencialesNuevas {
 }
 
 interface Props {
+  titulo: string;
+  descripcion: string;
   choferes: Chofer[];
   accionCrear: (
     input: unknown,
@@ -56,6 +60,8 @@ interface Props {
 }
 
 export function TablaChoferes({
+  titulo,
+  descripcion,
   choferes,
   accionCrear,
   accionEditar,
@@ -173,16 +179,32 @@ export function TablaChoferes({
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">{botonNuevo}</div>
-      {errorBaja ? <p className="text-sm text-destructive">{errorBaja}</p> : null}
-      {exitoBaja ? <p className="text-sm text-success">{exitoBaja}</p> : null}
+    <div className="flex flex-col gap-6">
+      <EncabezadoPagina titulo={titulo} descripcion={descripcion} acciones={botonNuevo} />
+      {errorBaja ? (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+        >
+          {errorBaja}
+        </p>
+      ) : null}
+      {exitoBaja ? (
+        <p
+          role="status"
+          className="rounded-md border border-primary/30 bg-primary-tint p-3 text-sm text-primary"
+        >
+          {exitoBaja}
+        </p>
+      ) : null}
 
       {choferes.length === 0 ? (
-        <EstadoVacio titulo="Aun no hay choferes. Crea el primero" accion={botonNuevo} />
+        <Card>
+          <EstadoVacio titulo="Aun no hay choferes. Crea el primero" accion={botonNuevo} />
+        </Card>
       ) : (
         <>
-          <div className="hidden md:block">
+          <Card className="hidden overflow-hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -215,8 +237,9 @@ export function TablaChoferes({
                       </Button>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                         disabled={pendiente}
                         onClick={() => borrar(chofer)}
                       >
@@ -224,8 +247,9 @@ export function TablaChoferes({
                       </Button>
                       <Button
                         type="button"
-                        variant="destructive"
+                        variant="ghost"
                         size="sm"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                         disabled={pendiente}
                         onClick={() => darDeBaja(chofer)}
                       >
@@ -236,11 +260,14 @@ export function TablaChoferes({
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </Card>
 
-          <ul className="space-y-3 md:hidden">
+          <ul className="flex flex-col gap-3 md:hidden">
             {choferes.map((chofer) => (
-              <li key={chofer.id} className="rounded-lg border border-border p-4">
+              <li
+                key={chofer.id}
+                className="rounded-lg border border-border bg-card p-4 shadow-tarjeta"
+              >
                 <div className="flex items-center justify-between">
                   <p className="font-medium text-foreground">
                     {chofer.nombre ?? chofer.credencial}
@@ -263,8 +290,9 @@ export function TablaChoferes({
                   </Button>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     disabled={pendiente}
                     onClick={() => borrar(chofer)}
                   >
@@ -272,8 +300,9 @@ export function TablaChoferes({
                   </Button>
                   <Button
                     type="button"
-                    variant="destructive"
+                    variant="ghost"
                     size="sm"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     disabled={pendiente}
                     onClick={() => darDeBaja(chofer)}
                   >
@@ -371,7 +400,7 @@ export function TablaChoferes({
             Comparte estos datos con el chofer ahora: no se van a volver a mostrar. Va a tener que
             cambiar la contrasena en su primer ingreso.
           </p>
-          <dl className="space-y-2 rounded-lg border border-border p-4 text-sm">
+          <dl className="space-y-2 rounded-lg border border-border bg-surface p-4 text-sm">
             <div className="flex justify-between gap-4">
               <dt className="font-medium">Credencial</dt>
               <dd className="font-mono">{credencialesNuevas?.credencial}</dd>

@@ -17,6 +17,8 @@ function Table({ className, ...props }: React.ComponentProps<'table'>) {
 }
 
 function TableHeader({ className, ...props }: React.ComponentProps<'thead'>) {
+  // Sin fondo propio: la tabla ya vive dentro de una tarjeta blanca y quien
+  // separa el encabezado del cuerpo es la linea inferior, no un relleno gris.
   return <thead data-slot="table-header" className={cn('[&_tr]:border-b', className)} {...props} />;
 }
 
@@ -58,7 +60,7 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
     <th
       data-slot="table-head"
       className={cn(
-        'h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0',
+        'h-12 px-4 text-left align-middle font-medium whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0',
         className,
       )}
       {...props}
@@ -70,7 +72,7 @@ function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
   return (
     <td
       data-slot="table-cell"
-      className={cn('p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0', className)}
+      className={cn('p-4 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0', className)}
       {...props}
     />
   );

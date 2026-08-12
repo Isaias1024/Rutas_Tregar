@@ -8,6 +8,7 @@ import {
   reasignar,
 } from '@/server/planeador';
 import { PlaneadorSemana } from './planeador-semana';
+import { EncabezadoPagina } from '@/components/shell/encabezado-pagina';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,8 +50,11 @@ export default async function PaginaPlaneador({
   ]);
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-foreground">Planeador semanal</h1>
+    <div className="space-y-6">
+      <EncabezadoPagina
+        titulo="Planeador semanal"
+        descripcion="Asigna chofer y camion a cada horario de la semana."
+      />
       <PlaneadorSemana
         fechas={fechas}
         horarios={horarios}

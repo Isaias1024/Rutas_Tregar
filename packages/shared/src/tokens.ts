@@ -6,24 +6,33 @@
  */
 
 export const colores = {
-  primary: '#0E7A3C',
-  primaryHover: '#0A5E2E',
+  // Verde oliva Tregar: el mismo de la marca y el mismo que pinta la app del chofer.
+  primary: '#547F37',
+  primaryHover: '#456B2D',
   primaryFg: '#FFFFFF',
-  primaryTint: '#E8F5ED',
+  primaryTint: '#EEF4E9',
   background: '#FFFFFF',
-  surface: '#F8FAF9',
-  border: '#E2E8E5',
-  fg: '#111827',
-  fgMuted: '#6B7280',
-  destructive: '#B91C1C',
-  success: '#047857',
+  /** Fondo del area de contenido y de las superficies hundidas (slate-50). */
+  surface: '#F8FAFC',
+  border: '#E2E8F0',
+  fg: '#0A0E1A',
+  fgMuted: '#64748B',
+  destructive: '#DC2626',
+  success: '#6DAB3C',
+  warning: '#D97706',
+  info: '#2563EB',
+  /** La barra lateral es un bloque solido de marca, no una superficie clara. */
+  sidebar: '#547F37',
+  sidebarFg: '#F8FAFC',
+  sidebarAccent: '#6DAB3C',
+  sidebarAccentFg: '#FFFFFF',
 } as const;
 
 /** Escala de espaciado en px, base 4. Sin valores arbitrarios. */
 export const espaciado = [4, 8, 12, 16, 24, 32, 48, 64] as const;
 
 export const radio = {
-  panel: 6,
+  panel: 10,
   app: 12,
   avatar: 9999,
 } as const;
@@ -44,16 +53,28 @@ export const movimiento = {
   confirmacionPaso: { duracionMs: 200, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
 } as const;
 
-/** Los cinco estados del semaforo. El estado nunca depende solo del color. */
+/** Sombra de tarjeta. Unica elevacion del sistema; no hay una segunda. */
+export const sombra = {
+  tarjeta: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+  menu: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+} as const;
+
+/**
+ * Los cinco estados del semaforo, como pastilla solida de color pleno.
+ *
+ * `bg` es el relleno y `fg` el texto encima; el par ya viene contrastado, no se
+ * mezclan con otro. `icono` se conserva como parte del vocabulario compartido y
+ * lo usa la app del chofer; el panel pinta solo texto sobre el relleno.
+ */
 export type EstadoSemaforo = 'pendiente' | 'en_curso' | 'a_tiempo' | 'tarde' | 'adelantado';
 
 export const semaforo: Record<
   EstadoSemaforo,
   { texto: string; icono: string; fg: string; bg: string }
 > = {
-  pendiente: { texto: 'Pendiente', icono: '○', fg: '#6B7280', bg: '#F3F4F6' },
-  en_curso: { texto: 'En curso', icono: '■', fg: '#B45309', bg: '#FEF3C7' },
-  a_tiempo: { texto: 'A tiempo', icono: '●', fg: '#047857', bg: '#D1FAE5' },
-  tarde: { texto: 'Tarde', icono: '▲', fg: '#B91C1C', bg: '#FEE2E2' },
-  adelantado: { texto: 'Adelantado', icono: '▼', fg: '#1D4ED8', bg: '#DBEAFE' },
+  pendiente: { texto: 'Pendiente', icono: '○', fg: '#0A0E1A', bg: '#F1F5F9' },
+  en_curso: { texto: 'En curso', icono: '■', fg: '#FFFFFF', bg: '#D97706' },
+  a_tiempo: { texto: 'A tiempo', icono: '●', fg: '#FFFFFF', bg: '#6DAB3C' },
+  tarde: { texto: 'Tarde', icono: '▲', fg: '#FFFFFF', bg: '#DC2626' },
+  adelantado: { texto: 'Adelantado', icono: '▼', fg: '#FFFFFF', bg: '#2563EB' },
 };

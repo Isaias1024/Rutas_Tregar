@@ -22,13 +22,19 @@ paths:
 - Todo el panel lleva `noindex`: no hay VPN ni Cloudflare Access delante.
 - **Mobile-first de verdad.** El monitor en vivo se disena a 375px y despues se expande. Bajo 768px
   las tablas colapsan a tarjetas — nunca scroll horizontal.
-- **El semaforo se pinta con la pastilla de `@rutas/shared`**, que siempre lleva icono + texto
-  (`● A tiempo`, `▲ Tarde`, `▼ Adelantado`, `■ En curso`, `○ Pendiente`). Prohibido pintar el estado
-  solo con color de fondo.
+- **El semaforo se pinta con `PastillaEstado`**, que rellena de color pleno y **siempre escribe el
+  texto del estado dentro** (`A tiempo`, `Tarde`, `Adelantado`, `En curso`, `Pendiente`). Prohibido
+  pintar el estado solo con color de fondo: el texto tiene que estar en el DOM.
 - El estado no se consulta de ninguna columna: se calcula con `derivarEstado()` de
   `@rutas/shared/src/estado.ts`.
 - Toda hora y todo contador lleva numerales tabulares. Sin eso, una columna de horas baila.
-- Filas de tabla de 40px, sin animacion decorativa: alguien mira esta pantalla ocho horas al dia.
+- Filas de tabla de 52px, sin animacion decorativa: alguien mira esta pantalla ocho horas al dia.
+- **Cada bloque de contenido va dentro de una `Card`**: filtros en la suya, tabla en la suya (con la
+  `Card` en `overflow-hidden` para que la tabla respete la esquina redondeada). El fondo `surface`
+  entre tarjetas es lo que separa las secciones — nada de divisores sueltos.
+- **El boton primario de la pantalla se pasa como `acciones` a `EncabezadoPagina`.** Cuando ese
+  boton abre un dialogo que vive en el componente cliente, el `page.tsx` le pasa `titulo` y
+  `descripcion` como props y es el cliente quien renderiza el encabezado.
 - Toda lista tiene sus tres estados especificados: cargando, vacia y con error. Una lista sin estado
   vacio no esta terminada.
 - Los reportes separan `origen = 'app'` de `origen = 'supervisor'`. Nunca los sumes en una sola cifra:

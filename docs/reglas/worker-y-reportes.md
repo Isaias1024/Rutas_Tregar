@@ -17,8 +17,11 @@ paths:
   documento aparte. Un solo diseno que mantener: lo que el cliente ve en el PDF es exactamente lo
   que el supervisor ve en pantalla. Si te descubres escribiendo HTML de reporte dentro del worker,
   para: la pagina ya existe en `apps/web`.
-- Ese diseno tiene que funcionar **impreso en blanco y negro**. Por eso el semaforo lleva icono y
-  texto ademas de color.
+- Ese diseno tiene que funcionar **impreso en blanco y negro**. Hoy la pastilla del semaforo es
+  relleno de color pleno con el texto del estado dentro: el texto sobrevive a la impresion en B/N,
+  pero los cinco rellenos se aplanan a grises parecidos. Si el cliente empieza a quejarse de que no
+  distingue los estados en el papel, el arreglo es devolver `semaforo[estado].icono` a
+  `PastillaEstado` — sigue exportado desde `@rutas/shared/tokens` justo para eso.
 - **El CSV grande se transmite, no se acumula.** Cursor de Postgres → `ReadableStream` → respuesta.
   Nunca `await` sobre el arreglo completo de filas: 60 rutas x 3 turnos x un ano no cabe comodo en
   memoria y el contenedor de Railway es chico.

@@ -29,6 +29,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { EstadoVacio } from '@/components/estado-vacio';
+import { EncabezadoPagina } from '@/components/shell/encabezado-pagina';
+import { Card } from '@/components/ui/card';
 
 interface Cliente {
   id: string;
@@ -39,17 +41,28 @@ interface Cliente {
 }
 
 interface Props {
+  titulo: string;
+  descripcion: string;
   clientes: Cliente[];
   accionCrear: (input: unknown) => Promise<Resultado<{ id: string }>>;
   accionEditar: (input: unknown) => Promise<Resultado<{ id: string }>>;
   accionBorrar: (input: unknown) => Promise<Resultado<{ id: string }>>;
 }
 
-export function TablaClientes({ clientes, accionCrear, accionEditar, accionBorrar }: Props) {
+export function TablaClientes({
+  titulo,
+  descripcion,
+  clientes,
+  accionCrear,
+  accionEditar,
+  accionBorrar,
+}: Props) {
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [editando, setEditando] = useState<Cliente | null>(null);
   const [pendiente, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
+  const [exitoBorrado, setExitoBorrado] = useState<string | null>(null);
 
   const formCrear = useForm<ClienteCrear>({
     resolver: zodResolver(clienteCrearSchema),
@@ -99,8 +112,18 @@ export function TablaClientes({ clientes, accionCrear, accionEditar, accionBorra
     if (!confirm(`¿Borrar a "${cliente.nombre}"? Sigue disponible en el historico.`)) {
       return;
     }
+    setErrorBorrado(null);
+    setExitoBorrado(null);
     startTransition(async () => {
-      await accionBorrar(cliente.id);
+      // El resultado se ignoraba: un borrado rechazado (sin permiso, o la fila
+      // ya borrada desde otra pestana) dejaba la fila en pantalla sin decir por
+      // que, y se leia como "el boton no hace nada".
+      const resultado = await accionBorrar(cliente.id);
+      if (!resultado.ok) {
+        setErrorBorrado(resultado.error.mensaje);
+        return;
+      }
+      setExitoBorrado(`Cliente "${cliente.nombre}" eliminado correctamente.`);
     });
   }
 
@@ -111,14 +134,32 @@ export function TablaClientes({ clientes, accionCrear, accionEditar, accionBorra
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">{botonNuevo}</div>
+    <div className="flex flex-col gap-6">
+      <EncabezadoPagina titulo={titulo} descripcion={descripcion} acciones={botonNuevo} />
+      {errorBorrado ? (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+        >
+          {errorBorrado}
+        </p>
+      ) : null}
+      {exitoBorrado ? (
+        <p
+          role="status"
+          className="rounded-md border border-primary/30 bg-primary-tint p-3 text-sm text-primary"
+        >
+          {exitoBorrado}
+        </p>
+      ) : null}
 
       {clientes.length === 0 ? (
-        <EstadoVacio titulo="Aun no hay clientes. Crea el primero" accion={botonNuevo} />
+        <Card>
+          <EstadoVacio titulo="Aun no hay clientes. Crea el primero" accion={botonNuevo} />
+        </Card>
       ) : (
         <>
-          <div className="hidden md:block">
+          <Card className="hidden overflow-hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -147,8 +188,9 @@ export function TablaClientes({ clientes, accionCrear, accionEditar, accionBorra
                       </Button>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => borrar(cliente)}
                       >
                         Borrar
@@ -158,11 +200,14 @@ export function TablaClientes({ clientes, accionCrear, accionEditar, accionBorra
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </Card>
 
-          <ul className="space-y-3 md:hidden">
+          <ul className="flex flex-col gap-3 md:hidden">
             {clientes.map((cliente) => (
-              <li key={cliente.id} className="rounded-lg border border-border p-4">
+              <li
+                key={cliente.id}
+                className="rounded-lg border border-border bg-card p-4 shadow-tarjeta"
+              >
                 <div className="flex items-center justify-between">
                   <p className="font-medium text-foreground">{cliente.nombre}</p>
                   <Badge variant={cliente.activo ? 'default' : 'secondary'}>
@@ -178,7 +223,13 @@ export function TablaClientes({ clientes, accionCrear, accionEditar, accionBorra
                   >
                     Editar
                   </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => borrar(cliente)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => borrar(cliente)}
+                  >
                     Borrar
                   </Button>
                 </div>

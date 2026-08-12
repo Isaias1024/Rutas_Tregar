@@ -31,6 +31,14 @@ test.describe('Catalogos', () => {
     page.once('dialog', (dialogo) => dialogo.accept());
     await filaEditada.getByRole('button', { name: 'Borrar' }).click();
 
+    // El boton tiene que ACUSAR el borrado, no solo hacerlo. Sin esto la
+    // pantalla solo "deja de mostrar la fila", que es indistinguible de un
+    // borrado rechazado en silencio — el sintoma que se reportaba como "el
+    // boton de eliminar no funciona".
+    await expect(
+      page.getByText(`Cliente "${nombreEditado}" eliminado correctamente.`),
+    ).toBeVisible();
+
     // Borrado logico: desaparece de la lista, pero la fila sigue en la base
     // (`borrarCliente` solo fija `deleted_at`, nunca hace DELETE). La tabla
     // de escritorio y las tarjetas de movil coexisten siempre en el DOM —

@@ -37,6 +37,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { EstadoVacio } from '@/components/estado-vacio';
+import { EncabezadoPagina } from '@/components/shell/encabezado-pagina';
+import { Card } from '@/components/ui/card';
 
 interface Camion {
   id: string;
@@ -49,6 +51,8 @@ interface Camion {
 }
 
 interface Props {
+  titulo: string;
+  descripcion: string;
   camiones: Camion[];
   accionCrear: (input: unknown) => Promise<Resultado<{ id: string }>>;
   accionEditar: (input: unknown) => Promise<Resultado<{ id: string }>>;
@@ -67,11 +71,20 @@ function BadgeEstado({ estado }: { estado: (typeof ESTADOS_CAMION)[number] }) {
   return <Badge variant={variante}>{ETIQUETA_ESTADO[estado]}</Badge>;
 }
 
-export function TablaCamiones({ camiones, accionCrear, accionEditar, accionBorrar }: Props) {
+export function TablaCamiones({
+  titulo,
+  descripcion,
+  camiones,
+  accionCrear,
+  accionEditar,
+  accionBorrar,
+}: Props) {
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [editando, setEditando] = useState<Camion | null>(null);
   const [pendiente, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
+  const [exitoBorrado, setExitoBorrado] = useState<string | null>(null);
 
   const formCrear = useForm<CamionCrear>({
     resolver: zodResolver(camionCrearSchema),
@@ -128,8 +141,18 @@ export function TablaCamiones({ camiones, accionCrear, accionEditar, accionBorra
     if (!confirm(`¿Borrar el camion "${camion.codigo}"? Sigue disponible en el historico.`)) {
       return;
     }
+    setErrorBorrado(null);
+    setExitoBorrado(null);
     startTransition(async () => {
-      await accionBorrar(camion.id);
+      // El resultado se ignoraba: un borrado rechazado (sin permiso, o la fila
+      // ya borrada desde otra pestana) dejaba la fila en pantalla sin decir por
+      // que, y se leia como "el boton no hace nada".
+      const resultado = await accionBorrar(camion.id);
+      if (!resultado.ok) {
+        setErrorBorrado(resultado.error.mensaje);
+        return;
+      }
+      setExitoBorrado(`Camion "${camion.codigo}" eliminado correctamente.`);
     });
   }
 
@@ -140,14 +163,32 @@ export function TablaCamiones({ camiones, accionCrear, accionEditar, accionBorra
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">{botonNuevo}</div>
+    <div className="flex flex-col gap-6">
+      <EncabezadoPagina titulo={titulo} descripcion={descripcion} acciones={botonNuevo} />
+      {errorBorrado ? (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+        >
+          {errorBorrado}
+        </p>
+      ) : null}
+      {exitoBorrado ? (
+        <p
+          role="status"
+          className="rounded-md border border-primary/30 bg-primary-tint p-3 text-sm text-primary"
+        >
+          {exitoBorrado}
+        </p>
+      ) : null}
 
       {camiones.length === 0 ? (
-        <EstadoVacio titulo="Aun no hay camiones. Crea el primero" accion={botonNuevo} />
+        <Card>
+          <EstadoVacio titulo="Aun no hay camiones. Crea el primero" accion={botonNuevo} />
+        </Card>
       ) : (
         <>
-          <div className="hidden md:block">
+          <Card className="hidden overflow-hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -180,8 +221,9 @@ export function TablaCamiones({ camiones, accionCrear, accionEditar, accionBorra
                       </Button>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => borrar(camion)}
                       >
                         Borrar
@@ -191,11 +233,14 @@ export function TablaCamiones({ camiones, accionCrear, accionEditar, accionBorra
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </Card>
 
-          <ul className="space-y-3 md:hidden">
+          <ul className="flex flex-col gap-3 md:hidden">
             {camiones.map((camion) => (
-              <li key={camion.id} className="rounded-lg border border-border p-4">
+              <li
+                key={camion.id}
+                className="rounded-lg border border-border bg-card p-4 shadow-tarjeta"
+              >
                 <div className="flex items-center justify-between">
                   <p className="font-medium text-foreground">{camion.codigo}</p>
                   <BadgeEstado estado={camion.estado} />
@@ -212,7 +257,13 @@ export function TablaCamiones({ camiones, accionCrear, accionEditar, accionBorra
                   >
                     Editar
                   </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => borrar(camion)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => borrar(camion)}
+                  >
                     Borrar
                   </Button>
                 </div>

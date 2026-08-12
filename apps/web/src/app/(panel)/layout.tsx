@@ -1,10 +1,20 @@
+import { TZDate } from '@date-fns/tz';
 import { redirect } from 'next/navigation';
-import { NavegacionPanel } from '@/components/shell/navegacion-panel';
+import { MarcoPanel } from '@/components/shell/marco-panel';
 import { obtenerUsuarioActual } from '@/server/sesion';
+import { cerrarSesion } from './acciones-sesion';
 
 // Cada pagina bajo (panel) depende de la sesion y del dia operativo: nada
 // aqui vale la pena cachear estaticamente.
 export const dynamic = 'force-dynamic';
+
+const FORMATO_FECHA_LARGA = new Intl.DateTimeFormat('es-MX', {
+  timeZone: 'America/Mexico_City',
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
 
 export default async function LayoutPanel({ children }: { children: React.ReactNode }) {
   const usuario = await obtenerUsuarioActual();
@@ -15,10 +25,19 @@ export default async function LayoutPanel({ children }: { children: React.ReactN
     redirect('/login');
   }
 
+  // La fecha se formatea aqui y no en el cliente: el navegador del supervisor
+  // podria estar en otra zona, y el dia operativo es siempre el de Monterrey.
+  const fechaLarga = FORMATO_FECHA_LARGA.format(TZDate.tz('America/Mexico_City'));
+
   return (
-    <div className="flex min-h-full flex-col md:flex-row">
-      <NavegacionPanel nombre={usuario.nombre ?? usuario.credencial} rol={usuario.rol} />
-      <main className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
-    </div>
+    <MarcoPanel
+      nombre={usuario.nombre ?? usuario.credencial}
+      credencial={usuario.credencial}
+      rol={usuario.rol}
+      fechaLarga={fechaLarga}
+      accionCerrarSesion={cerrarSesion}
+    >
+      {children}
+    </MarcoPanel>
   );
 }

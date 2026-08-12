@@ -15,8 +15,10 @@ import { useEffect, useState, useTransition } from 'react';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { type Coordenadas, SelectorParada } from '@/components/mapa/selector-parada';
 import { EstadoVacio } from '@/components/estado-vacio';
+import { EncabezadoPagina } from '@/components/shell/encabezado-pagina';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -71,6 +73,8 @@ interface Parada {
 type AccionRuta = (input: unknown) => Promise<Resultado<{ id: string }>>;
 
 interface Props {
+  titulo: string;
+  descripcion: string;
   rutas: Ruta[];
   clientes: Cliente[];
   paradas: Parada[];
@@ -94,6 +98,8 @@ function recortarHora(hora: string): string {
 }
 
 export function TablaRutas({
+  titulo,
+  descripcion,
   rutas,
   clientes,
   paradas: paradasIniciales,
@@ -109,6 +115,8 @@ export function TablaRutas({
   const [dialogoCrearAbierto, setDialogoCrearAbierto] = useState(false);
   const [rutaEditando, setRutaEditando] = useState<Ruta | null>(null);
   const [pendiente, startTransition] = useTransition();
+  const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
+  const [exitoBorrado, setExitoBorrado] = useState<string | null>(null);
 
   const botonNuevo = (
     <Button type="button" onClick={() => setDialogoCrearAbierto(true)}>
@@ -120,8 +128,18 @@ export function TablaRutas({
     if (!confirm(`¿Borrar la ruta "${ruta.nombre}"? Sigue disponible en el historico.`)) {
       return;
     }
+    setErrorBorrado(null);
+    setExitoBorrado(null);
     startTransition(async () => {
-      await accionBorrarRuta(ruta.id);
+      // El resultado se ignoraba: un borrado rechazado (sin permiso, o la ruta
+      // ya borrada desde otra pestana) dejaba la fila en pantalla sin decir por
+      // que, y se leia como "el boton no hace nada".
+      const resultado = await accionBorrarRuta(ruta.id);
+      if (!resultado.ok) {
+        setErrorBorrado(resultado.error.mensaje);
+        return;
+      }
+      setExitoBorrado(`Ruta "${ruta.nombre}" eliminada correctamente.`);
     });
   }
 
@@ -136,15 +154,36 @@ export function TablaRutas({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">{botonNuevo}</div>
+    <div className="flex flex-col gap-6">
+      <EncabezadoPagina titulo={titulo} descripcion={descripcion} acciones={botonNuevo} />
+      {errorBorrado ? (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+        >
+          {errorBorrado}
+        </p>
+      ) : null}
+      {exitoBorrado ? (
+        <p
+          role="status"
+          className="rounded-md border border-primary/30 bg-primary-tint p-3 text-sm text-primary"
+        >
+          {exitoBorrado}
+        </p>
+      ) : null}
 
       {rutas.length === 0 ? (
-        <EstadoVacio titulo="Aun no hay rutas. Crea la primera" accion={botonNuevo} />
+        <Card>
+          <EstadoVacio titulo="Aun no hay rutas. Crea la primera" accion={botonNuevo} />
+        </Card>
       ) : (
-        <ul className="space-y-4">
+        <ul className="flex flex-col gap-4">
           {rutas.map((ruta) => (
-            <li key={ruta.id} className="rounded-lg border border-border p-4">
+            <li
+              key={ruta.id}
+              className="rounded-lg border border-border bg-card p-4 shadow-tarjeta"
+            >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-medium text-foreground">{ruta.nombre}</p>
@@ -164,8 +203,9 @@ export function TablaRutas({
                   </Button>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     disabled={pendiente}
                     onClick={() => borrar(ruta)}
                   >
@@ -228,6 +268,7 @@ function ListaHorarios({
   const [horaFin, setHoraFin] = useState('06:30');
   const [personas, setPersonas] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [errorHorario, setErrorHorario] = useState<string | null>(null);
   const [pendiente, startTransition] = useTransition();
 
   function agregar() {
@@ -252,13 +293,20 @@ function ListaHorarios({
     if (!confirm('¿Desactivar este horario? Deja de planearse, pero se conserva.')) {
       return;
     }
+    setErrorHorario(null);
     startTransition(async () => {
-      await accionDesactivarHorario(horarioId);
+      // Mismo caso que "Borrar ruta": sin esto, un rechazo dejaba el horario en
+      // pantalla sin explicacion y se leia como un boton muerto.
+      const resultado = await accionDesactivarHorario(horarioId);
+      if (!resultado.ok) {
+        setErrorHorario(resultado.error.mensaje);
+      }
     });
   }
 
   return (
     <div className="mt-3 space-y-2 border-t border-border pt-3">
+      {errorHorario ? <p className="text-sm text-destructive">{errorHorario}</p> : null}
       {ruta.horarios.length === 0 ? (
         <p className="text-sm text-muted-foreground">Sin horarios activos.</p>
       ) : (
@@ -292,7 +340,7 @@ function ListaHorarios({
       )}
 
       {formularioAbierto ? (
-        <div className="space-y-2 rounded-md border border-border p-3">
+        <div className="space-y-2 rounded-md border border-border bg-surface p-3">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Select value={turno} onValueChange={(v) => setTurno(v as Horario['turno'])}>
               <SelectTrigger className="w-full" aria-label="Turno">

@@ -8,15 +8,14 @@ export default async function PaginaParadas() {
   const paradas = await listarParadas();
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-foreground">Paradas</h1>
-      <TablaParadas
-        paradas={paradas}
-        accionCrear={crearParada}
-        accionEditar={editarParada}
-        accionBorrar={borrarParada}
-        apiKey={env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
-      />
-    </div>
+    <TablaParadas
+      titulo="Paradas"
+      descripcion="Puntos de ascenso y descenso con su ubicacion."
+      paradas={paradas}
+      accionCrear={crearParada}
+      accionEditar={editarParada}
+      accionBorrar={borrarParada}
+      apiKey={env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+    />
   );
 }

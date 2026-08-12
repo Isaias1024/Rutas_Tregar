@@ -1,37 +1,26 @@
 'use client';
 
 import { TZDate } from '@date-fns/tz';
-import {
-  derivarEstado,
-  ORDEN_PASOS,
-  type EstadoSemaforo,
-  type Resultado,
-  type TipoEvento,
-} from '@rutas/shared';
+import { derivarEstado, type EstadoSemaforo } from '@rutas/shared';
 import { colores, semaforo } from '@rutas/shared/tokens';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { SearchIcon, TruckIcon, UserRoundIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { EstadoVacio } from '@/components/estado-vacio';
-import { Input } from '@/components/ui/input';
 import { PastillaEstado } from '@/components/pastilla-estado';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { listarMonitorDelDia, registrarEventoManual } from '@/server/monitor';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { listarMonitorDelDia } from '@/server/monitor';
+import { DialogoCapturaManual } from './dialogo-captura-manual';
 
 const REFRESH_MS = 30_000;
 const ORDEN_ESTADOS: EstadoSemaforo[] = [
@@ -43,19 +32,6 @@ const ORDEN_ESTADOS: EstadoSemaforo[] = [
 ];
 
 const ETIQUETA_TURNO: Record<string, string> = { manana: 'Manana', tarde: 'Tarde', noche: 'Noche' };
-const ETIQUETA_PASO: Record<TipoEvento, string> = {
-  vio_ruta: 'Vio la ruta',
-  listo_inicio: 'Listo para iniciar',
-  inicio_ruta: 'Inicio la ruta',
-  fin_ruta: 'Llego al final',
-  retorno: 'Regreso',
-};
-
-function ahoraLocalTexto(): string {
-  const ahora = TZDate.tz('America/Mexico_City');
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${ahora.getFullYear()}-${pad(ahora.getMonth() + 1)}-${pad(ahora.getDate())}T${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`;
-}
 
 function horaTexto(ms: number): string | null {
   if (!ms) return null;
@@ -82,22 +58,39 @@ function ChipEstado({
   activo: boolean;
   onClick: () => void;
 }) {
-  const { texto, icono, fg, bg } = semaforo[estado];
+  const { texto, fg, bg } = semaforo[estado];
+  // Activo: la pastilla se rellena con el color pleno del estado, igual que la
+  // pastilla de la fila. Inactivo: tarjeta blanca con un punto del color, para
+  // que el filtro no compita visualmente con los datos.
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={activo}
-      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="inline-flex h-8 items-center gap-2 rounded-full border px-3 text-xs font-semibold transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       style={{
-        color: fg,
+        color: activo ? fg : colores.fg,
         backgroundColor: activo ? bg : colores.background,
         borderColor: activo ? bg : colores.border,
       }}
     >
-      <span aria-hidden="true">{icono}</span>
+      {activo ? null : (
+        <span
+          aria-hidden="true"
+          className="size-2 shrink-0 rounded-full"
+          style={{ backgroundColor: bg }}
+        />
+      )}
       {texto}
-      <span className="tabular-nums font-semibold">{cantidad}</span>
+      <span
+        className="rounded-full px-1.5 py-0.5 text-[0.6875rem] font-semibold tabular-nums"
+        style={{
+          backgroundColor: activo ? 'rgb(255 255 255 / 0.25)' : colores.surface,
+          color: activo ? fg : colores.fgMuted,
+        }}
+      >
+        {cantidad}
+      </span>
     </button>
   );
 }
@@ -112,7 +105,7 @@ export function MonitorTabla({ fecha }: Props) {
     queryFn: () => listarMonitorDelDia(fecha),
     refetchInterval: REFRESH_MS,
   });
-  const [asignacionParaCaptura, setAsignacionParaCaptura] = useState<string | null>(null);
+  const [capturaPara, setCapturaPara] = useState<{ id: string; rutaNombre: string } | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstados, setFiltroEstados] = useState<Set<EstadoSemaforo>>(new Set());
 
@@ -177,110 +170,141 @@ export function MonitorTabla({ fecha }: Props) {
   }
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Cargando el monitor...</p>;
+    return (
+      <Card>
+        <p className="p-10 text-center text-sm text-muted-foreground">Cargando el monitor...</p>
+      </Card>
+    );
   }
 
   if (filas.length === 0) {
-    return <EstadoVacio titulo="No hay rutas programadas hoy" />;
+    return (
+      <Card>
+        <EstadoVacio titulo="No hay rutas programadas hoy" />
+      </Card>
+    );
   }
 
   const actualizado = horaTexto(dataUpdatedAt);
+  const hayFiltro = filtroEstados.size > 0 || terminoBusqueda !== '';
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          {ORDEN_ESTADOS.map((estado) => (
-            <ChipEstado
-              key={estado}
-              estado={estado}
-              cantidad={conteos[estado]}
-              activo={filtroEstados.has(estado)}
-              onClick={() => alternarFiltro(estado)}
-            />
-          ))}
-        </div>
-        {actualizado ? (
-          <p className="text-xs tabular-nums text-muted-foreground">Actualizado {actualizado}</p>
-        ) : null}
-      </div>
+    <div className="flex flex-col gap-6">
+      <Card>
+        <CardContent className="flex flex-col gap-3 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {ORDEN_ESTADOS.map((estado) => (
+              <ChipEstado
+                key={estado}
+                estado={estado}
+                cantidad={conteos[estado]}
+                activo={filtroEstados.has(estado)}
+                onClick={() => alternarFiltro(estado)}
+              />
+            ))}
+          </div>
 
-      <div className="relative max-w-sm">
-        <SearchIcon
-          aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
-        />
-        <Input
-          type="search"
-          value={busqueda}
-          onChange={(evento) => setBusqueda(evento.target.value)}
-          placeholder="Buscar ruta, chofer o camion"
-          className="pl-8"
-          aria-label="Buscar en el monitor"
-        />
-      </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="relative w-full max-w-sm">
+              <SearchIcon
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                type="search"
+                value={busqueda}
+                onChange={(evento) => setBusqueda(evento.target.value)}
+                placeholder="Buscar ruta, chofer o camion"
+                className="pl-9"
+                aria-label="Buscar en el monitor"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              {hayFiltro ? (
+                <Button type="button" variant="ghost" size="sm" onClick={limpiarFiltros}>
+                  Limpiar filtros
+                </Button>
+              ) : null}
+              {actualizado ? (
+                <p className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
+                  <span
+                    aria-hidden="true"
+                    className="size-1.5 rounded-full"
+                    style={{ backgroundColor: colores.success }}
+                  />
+                  Actualizado {actualizado}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {filasFiltradas.length === 0 ? (
-        <EstadoVacio
-          titulo="No hay resultados para tu busqueda"
-          accion={
-            <Button type="button" variant="outline" size="sm" onClick={limpiarFiltros}>
-              Limpiar filtros
-            </Button>
-          }
-        />
+        <Card>
+          <EstadoVacio
+            titulo="No hay resultados para tu busqueda"
+            accion={
+              <Button type="button" variant="outline" size="sm" onClick={limpiarFiltros}>
+                Limpiar filtros
+              </Button>
+            }
+          />
+        </Card>
       ) : (
         <>
-          <div className="hidden md:block">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 z-10 bg-background">
-                <tr className="border-b border-border text-left text-muted-foreground">
-                  <th className="h-10 font-medium">Ruta</th>
-                  <th className="h-10 font-medium">Turno</th>
-                  <th className="h-10 font-medium">Chofer</th>
-                  <th className="h-10 font-medium">Camion</th>
-                  <th className="h-10 font-medium">Estado</th>
-                  <th className="h-10 font-medium text-right">Captura manual</th>
-                </tr>
-              </thead>
-              <tbody>
+          <Card className="hidden overflow-hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Ruta</TableHead>
+                  <TableHead>Turno</TableHead>
+                  <TableHead>Chofer</TableHead>
+                  <TableHead>Camion</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Captura manual</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {filasFiltradas.map((fila) => (
-                  <tr key={fila.id} className="h-10 border-b border-border">
-                    <td>{fila.rutaNombre}</td>
-                    <td>{ETIQUETA_TURNO[fila.turno] ?? fila.turno}</td>
-                    <td>{fila.choferNombre ?? 'Sin nombre'}</td>
-                    <td className="tabular-nums">{fila.camionCodigo}</td>
-                    <td>
+                  <TableRow key={fila.id}>
+                    <TableCell className="font-medium text-foreground">{fila.rutaNombre}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {ETIQUETA_TURNO[fila.turno] ?? fila.turno}
+                    </TableCell>
+                    <TableCell>{fila.choferNombre ?? 'Sin nombre'}</TableCell>
+                    <TableCell className="tabular-nums">{fila.camionCodigo}</TableCell>
+                    <TableCell>
                       <PastillaEstado estado={fila.estado} />
-                    </td>
-                    <td className="text-right">
+                    </TableCell>
+                    <TableCell className="text-right">
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setAsignacionParaCaptura(fila.id)}
+                        onClick={() => setCapturaPara({ id: fila.id, rutaNombre: fila.rutaNombre })}
                       >
                         Registrar
                       </Button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </Card>
 
-          <ul className="space-y-3 md:hidden">
+          <ul className="flex flex-col gap-2.5 md:hidden">
             {filasFiltradas.map((fila) => (
               <li
                 key={fila.id}
-                className="rounded-lg border border-border py-3 pr-4 pl-3"
-                style={{ borderLeft: `3px solid ${semaforo[fila.estado].fg}` }}
+                className="rounded-lg border border-border bg-card p-3 shadow-tarjeta"
+                style={{ borderLeft: `3px solid ${semaforo[fila.estado].bg}` }}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium text-foreground">{fila.rutaNombre}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 font-medium text-foreground">{fila.rutaNombre}</p>
                   <PastillaEstado estado={fila.estado} />
                 </div>
-                <div className="mt-1.5 space-y-0.5 text-sm text-muted-foreground">
+                <div className="mt-2 space-y-1 text-sm text-muted-foreground">
                   <p className="flex items-center gap-1.5">
                     <UserRoundIcon aria-hidden="true" className="size-3.5 shrink-0" />
                     {ETIQUETA_TURNO[fila.turno] ?? fila.turno} · {fila.choferNombre ?? 'Sin nombre'}
@@ -290,16 +314,15 @@ export function MonitorTabla({ fecha }: Props) {
                     {fila.camionCodigo}
                   </p>
                 </div>
-                <div className="mt-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setAsignacionParaCaptura(fila.id)}
-                  >
-                    Registrar evento
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 w-full"
+                  onClick={() => setCapturaPara({ id: fila.id, rutaNombre: fila.rutaNombre })}
+                >
+                  Registrar evento
+                </Button>
               </li>
             ))}
           </ul>
@@ -307,105 +330,12 @@ export function MonitorTabla({ fecha }: Props) {
       )}
 
       <DialogoCapturaManual
-        asignacionId={asignacionParaCaptura}
+        asignacionId={capturaPara?.id ?? null}
+        rutaNombre={capturaPara?.rutaNombre}
         onOpenChange={(abierto) => {
-          if (!abierto) setAsignacionParaCaptura(null);
+          if (!abierto) setCapturaPara(null);
         }}
       />
     </div>
-  );
-}
-
-interface FormularioCaptura {
-  tipo: TipoEvento;
-  ocurrioEnLocal: string;
-}
-
-function DialogoCapturaManual({
-  asignacionId,
-  onOpenChange,
-}: {
-  asignacionId: string | null;
-  onOpenChange: (abierto: boolean) => void;
-}) {
-  const queryClient = useQueryClient();
-  const [pendiente, setPendiente] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const form = useForm<FormularioCaptura>({
-    values: { tipo: 'vio_ruta', ocurrioEnLocal: ahoraLocalTexto() },
-  });
-
-  async function guardar(valores: FormularioCaptura) {
-    if (!asignacionId) {
-      return;
-    }
-    setPendiente(true);
-    setError(null);
-    const resultado: Resultado<{ id: string }> = await registrarEventoManual({
-      asignacionId,
-      tipo: valores.tipo,
-      ocurrioEnLocal: valores.ocurrioEnLocal,
-    });
-    setPendiente(false);
-    if (!resultado.ok) {
-      setError(resultado.error.mensaje);
-      return;
-    }
-    await queryClient.invalidateQueries({ queryKey: ['monitor'] });
-    onOpenChange(false);
-  }
-
-  return (
-    <Dialog open={asignacionId !== null} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Registrar evento a mano</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={form.handleSubmit(guardar)} className="space-y-4">
-          <div className="space-y-1">
-            <label htmlFor="captura-manual-tipo" className="text-sm font-medium">
-              Paso
-            </label>
-            <Controller
-              control={form.control}
-              name="tipo"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="captura-manual-tipo" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ORDEN_PASOS.map((paso) => (
-                      <SelectItem key={paso} value={paso}>
-                        {ETIQUETA_PASO[paso]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label htmlFor="captura-manual-hora" className="text-sm font-medium">
-              Fecha y hora
-            </label>
-            <Input
-              id="captura-manual-hora"
-              type="datetime-local"
-              {...form.register('ocurrioEnLocal')}
-            />
-          </div>
-
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          <DialogFooter>
-            <Button type="submit" disabled={pendiente}>
-              Guardar
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }

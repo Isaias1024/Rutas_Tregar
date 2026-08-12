@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/table';
 import { EstadoVacio } from '@/components/estado-vacio';
 import { type Coordenadas, SelectorParada } from '@/components/mapa/selector-parada';
+import { EncabezadoPagina } from '@/components/shell/encabezado-pagina';
+import { Card } from '@/components/ui/card';
 
 interface Parada {
   id: string;
@@ -31,6 +33,8 @@ interface Parada {
 }
 
 interface Props {
+  titulo: string;
+  descripcion: string;
   paradas: Parada[];
   accionCrear: (input: unknown) => Promise<Resultado<{ id: string }>>;
   accionEditar: (input: unknown) => Promise<Resultado<{ id: string }>>;
@@ -38,7 +42,15 @@ interface Props {
   apiKey: string | undefined;
 }
 
-export function TablaParadas({ paradas, accionCrear, accionEditar, accionBorrar, apiKey }: Props) {
+export function TablaParadas({
+  titulo,
+  descripcion,
+  paradas,
+  accionCrear,
+  accionEditar,
+  accionBorrar,
+  apiKey,
+}: Props) {
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [nombre, setNombre] = useState('');
@@ -117,16 +129,32 @@ export function TablaParadas({ paradas, accionCrear, accionEditar, accionBorrar,
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">{botonNuevo}</div>
-      {errorBorrado ? <p className="text-sm text-destructive">{errorBorrado}</p> : null}
-      {exitoBorrado ? <p className="text-sm text-success">{exitoBorrado}</p> : null}
+    <div className="flex flex-col gap-6">
+      <EncabezadoPagina titulo={titulo} descripcion={descripcion} acciones={botonNuevo} />
+      {errorBorrado ? (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+        >
+          {errorBorrado}
+        </p>
+      ) : null}
+      {exitoBorrado ? (
+        <p
+          role="status"
+          className="rounded-md border border-primary/30 bg-primary-tint p-3 text-sm text-primary"
+        >
+          {exitoBorrado}
+        </p>
+      ) : null}
 
       {paradas.length === 0 ? (
-        <EstadoVacio titulo="Aun no hay paradas. Crea la primera" accion={botonNuevo} />
+        <Card>
+          <EstadoVacio titulo="Aun no hay paradas. Crea la primera" accion={botonNuevo} />
+        </Card>
       ) : (
         <>
-          <div className="hidden md:block">
+          <Card className="hidden overflow-hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -156,8 +184,9 @@ export function TablaParadas({ paradas, accionCrear, accionEditar, accionBorrar,
                         </Button>
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                           disabled={pendiente}
                           onClick={() => borrar(parada)}
                         >
@@ -169,11 +198,14 @@ export function TablaParadas({ paradas, accionCrear, accionEditar, accionBorrar,
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </Card>
 
-          <ul className="space-y-3 md:hidden">
+          <ul className="flex flex-col gap-3 md:hidden">
             {paradas.map((parada) => (
-              <li key={parada.id} className="rounded-lg border border-border p-4">
+              <li
+                key={parada.id}
+                className="rounded-lg border border-border bg-card p-4 shadow-tarjeta"
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="font-medium text-foreground">{parada.nombre}</p>
@@ -193,8 +225,9 @@ export function TablaParadas({ paradas, accionCrear, accionEditar, accionBorrar,
                     </Button>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                       disabled={pendiente}
                       onClick={() => borrar(parada)}
                     >

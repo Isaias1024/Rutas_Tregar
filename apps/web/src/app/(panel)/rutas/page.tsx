@@ -21,20 +21,19 @@ export default async function PaginaRutas() {
   ]);
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-foreground">Rutas</h1>
-      <TablaRutas
-        rutas={rutas}
-        clientes={clientes}
-        paradas={paradas}
-        apiKey={env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
-        accionCrearRuta={crearRuta}
-        accionActualizarRuta={actualizarRuta}
-        accionBorrarRuta={borrarRuta}
-        accionAgregarHorario={agregarHorario}
-        accionDesactivarHorario={desactivarHorario}
-        accionCrearParada={crearParada}
-      />
-    </div>
+    <TablaRutas
+      titulo="Rutas"
+      descripcion="Recorridos y sus horarios por turno."
+      rutas={rutas}
+      clientes={clientes}
+      paradas={paradas}
+      apiKey={env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+      accionCrearRuta={crearRuta}
+      accionActualizarRuta={actualizarRuta}
+      accionBorrarRuta={borrarRuta}
+      accionAgregarHorario={agregarHorario}
+      accionDesactivarHorario={desactivarHorario}
+      accionCrearParada={crearParada}
+    />
   );
 }

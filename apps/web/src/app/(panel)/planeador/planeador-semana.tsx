@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useMemo, useState, useTransition } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -159,29 +160,33 @@ export function PlaneadorSemana({
   }, [dialogo, asignacionesDelDia, horarioPorId]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <Button asChild variant="outline" size="sm">
-          <Link href={semanaAnteriorHref}>Semana anterior</Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link href={semanaSiguienteHref}>Semana siguiente</Link>
-        </Button>
-      </div>
+    <div className="flex flex-col gap-6">
+      <Card>
+        <CardContent className="flex flex-col gap-3 p-4">
+          <div className="flex items-center justify-between">
+            <Button asChild variant="outline" size="sm">
+              <Link href={semanaAnteriorHref}>Semana anterior</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href={semanaSiguienteHref}>Semana siguiente</Link>
+            </Button>
+          </div>
 
-      <div className="flex flex-wrap gap-2">
-        {fechas.map((fecha) => (
-          <Button
-            key={fecha}
-            type="button"
-            size="sm"
-            variant={fecha === diaSeleccionado ? 'default' : 'outline'}
-            onClick={() => setDiaSeleccionado(fecha)}
-          >
-            {nombreDia(fecha)}
-          </Button>
-        ))}
-      </div>
+          <div className="flex flex-wrap gap-2">
+            {fechas.map((fecha) => (
+              <Button
+                key={fecha}
+                type="button"
+                size="sm"
+                variant={fecha === diaSeleccionado ? 'default' : 'outline'}
+                onClick={() => setDiaSeleccionado(fecha)}
+              >
+                {nombreDia(fecha)}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="space-y-6">
         {TURNOS_ORDEN.map((turno) => {
@@ -190,11 +195,18 @@ export function PlaneadorSemana({
             <section key={turno} className="space-y-2">
               <h2 className="text-sm font-semibold text-foreground">{ETIQUETA_TURNO[turno]}</h2>
               {horariosDelTurno.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Sin horarios en este turno.</p>
+                <Card>
+                  <p className="p-6 text-center text-sm text-muted-foreground">
+                    Sin horarios en este turno.
+                  </p>
+                </Card>
               ) : (
-                <ul className="space-y-2">
+                <ul className="flex flex-col gap-2">
                   {horariosDelTurno.map((horario) => (
-                    <li key={horario.id} className="rounded-lg border border-border p-3">
+                    <li
+                      key={horario.id}
+                      className="rounded-lg border border-border bg-card p-3 shadow-tarjeta"
+                    >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
                           <p className="font-medium text-foreground">{horario.rutaNombre}</p>

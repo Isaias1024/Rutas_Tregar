@@ -101,6 +101,9 @@ test.describe('Paradas y rutas', () => {
     page.once('dialog', (dialogo) => dialogo.accept());
     await filaCreada.getByRole('button', { name: 'Borrar' }).click();
 
+    // Acusa el borrado ademas de hacerlo: "la fila ya no esta" por si solo no
+    // distingue un borrado exitoso de uno rechazado en silencio.
+    await expect(page.getByText(`Parada "${nombreParada}" eliminada correctamente.`)).toBeVisible();
     await expect(filaCreada).toBeHidden();
   });
 

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { EstadoVacio } from '@/components/estado-vacio';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -58,7 +59,14 @@ export function ResumenClienteTabla() {
   return (
     <div className="space-y-4">
       <FiltroRango {...rango} onBuscar={setRango} />
-      {errorDescarga ? <p className="text-sm text-destructive">{errorDescarga}</p> : null}
+      {errorDescarga ? (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+        >
+          {errorDescarga}
+        </p>
+      ) : null}
 
       {isLoading ? (
         <div
@@ -69,60 +77,69 @@ export function ResumenClienteTabla() {
           <div className="h-full w-1/3 animate-pulse bg-primary" />
         </div>
       ) : isError ? (
-        <p className="text-sm text-destructive">
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+        >
           No se pudo consultar el rango {rango.desde} a {rango.hasta}.
         </p>
       ) : !data || data.length === 0 ? (
-        <EstadoVacio titulo="Sin ejecuciones en este rango" />
+        <Card>
+          <EstadoVacio titulo="Sin ejecuciones en este rango" />
+        </Card>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Cliente</TableHead>
-              <TableHead className="text-right">Asignaciones</TableHead>
-              <TableHead className="text-right">App — a tiempo</TableHead>
-              <TableHead className="text-right">Supervisor — a tiempo</TableHead>
-              <TableHead className="text-right">Abordaron (prom.)</TableHead>
-              <TableHead className="text-right">Retornaron (prom.)</TableHead>
-              <TableHead className="text-right">PDF</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map((fila) => (
-              <TableRow key={fila.clienteId}>
-                <TableCell>{fila.clienteNombre}</TableCell>
-                <TableCell className="text-right tabular-nums">{fila.totalAsignaciones}</TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {fila.app.aTiempo} / {fila.app.total}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {fila.supervisor.aTiempo} / {fila.supervisor.total}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {fila.abordaronPromedio === null
-                    ? 'Sin datos'
-                    : fila.abordaronPromedio.toFixed(1)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {fila.retornaronPromedio === null
-                    ? 'Sin datos'
-                    : fila.retornaronPromedio.toFixed(1)}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={descargando === fila.clienteId}
-                    onClick={() => descargarPdf(fila.clienteId, fila.clienteNombre)}
-                  >
-                    {descargando === fila.clienteId ? 'Generando...' : 'Descargar'}
-                  </Button>
-                </TableCell>
+        <Card className="overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cliente</TableHead>
+                <TableHead className="text-right">Asignaciones</TableHead>
+                <TableHead className="text-right">App — a tiempo</TableHead>
+                <TableHead className="text-right">Supervisor — a tiempo</TableHead>
+                <TableHead className="text-right">Abordaron (prom.)</TableHead>
+                <TableHead className="text-right">Retornaron (prom.)</TableHead>
+                <TableHead className="text-right">PDF</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {data.map((fila) => (
+                <TableRow key={fila.clienteId}>
+                  <TableCell>{fila.clienteNombre}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {fila.totalAsignaciones}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {fila.app.aTiempo} / {fila.app.total}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {fila.supervisor.aTiempo} / {fila.supervisor.total}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {fila.abordaronPromedio === null
+                      ? 'Sin datos'
+                      : fila.abordaronPromedio.toFixed(1)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {fila.retornaronPromedio === null
+                      ? 'Sin datos'
+                      : fila.retornaronPromedio.toFixed(1)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={descargando === fila.clienteId}
+                      onClick={() => descargarPdf(fila.clienteId, fila.clienteNombre)}
+                    >
+                      {descargando === fila.clienteId ? 'Generando...' : 'Descargar'}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       )}
     </div>
   );

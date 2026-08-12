@@ -97,27 +97,41 @@ La frontera de seguridad de ese camino es RLS y nada mas.
 Los tokens se definen una vez en `packages/shared/src/tokens.ts`. Los componentes usan nombres de
 token, jamas literales.
 
+La marca es el **verde oliva Tregar**, el mismo del logo y el mismo que pinta la app del chofer.
+
 | Rol | Valor | Para |
 |---|---|---|
-| Marca | `#0E7A3C` · hover `#0A5E2E` · tinte `#E8F5ED` | Boton primario, enlaces, foco |
-| Fondo | `#FFFFFF` | Pagina |
-| Superficie | `#F8FAF9` | Tarjetas, paneles |
-| Borde | `#E2E8E5` | Divisores, inputs |
-| Texto | `#111827` primario · `#6B7280` secundario | Cuerpo, leyendas |
-| Semaforo pendiente | `#6B7280` sobre `#F3F4F6` | `○ Pendiente` |
-| Semaforo en curso | `#B45309` sobre `#FEF3C7` | `■ En curso` |
-| Semaforo a tiempo | `#047857` sobre `#D1FAE5` | `● A tiempo` |
-| Semaforo tarde | `#B91C1C` sobre `#FEE2E2` | `▲ Tarde` |
-| Semaforo adelantado | `#1D4ED8` sobre `#DBEAFE` | `▼ Adelantado` |
+| Marca | `#547F37` · hover `#456B2D` · tinte `#EEF4E9` | Boton primario, barra lateral, foco |
+| Acento de marca | `#6DAB3C` | Enlace activo de la barra lateral, badge de exito |
+| Fondo | `#FFFFFF` | Tarjetas, barra superior |
+| Superficie | `#F8FAFC` | Fondo del area de contenido, debajo de las tarjetas |
+| Borde | `#E2E8F0` | Divisores, inputs |
+| Texto | `#0A0E1A` primario · `#64748B` secundario | Cuerpo, leyendas |
+| Alerta | `#DC2626` destructivo · `#D97706` advertencia · `#2563EB` informativo | Badges y confirmaciones |
+| Semaforo pendiente | `#0A0E1A` sobre `#F1F5F9` | `Pendiente` |
+| Semaforo en curso | `#FFFFFF` sobre `#D97706` | `En curso` |
+| Semaforo a tiempo | `#FFFFFF` sobre `#6DAB3C` | `A tiempo` |
+| Semaforo tarde | `#FFFFFF` sobre `#DC2626` | `Tarde` |
+| Semaforo adelantado | `#FFFFFF` sobre `#2563EB` | `Adelantado` |
 
-- **El semaforo nunca depende solo del color.** Cada estado es pastilla con icono Y texto. Funciona
-  para alguien daltonico y funciona impreso en blanco y negro, que es como acaba el reporte del
-  cliente en la junta.
+- **El semaforo es una pastilla de color pleno con su texto dentro.** El texto siempre esta en el
+  DOM, nunca solo el color de fondo. **Contrapartida asumida a proposito:** los cinco rellenos se
+  aplanan a grises parecidos impresos en blanco y negro, que es como acaba el reporte del cliente en
+  la junta — si eso empieza a estorbar, el arreglo es devolver el icono de `semaforo[estado].icono`
+  a `PastillaEstado`, que sigue exportado en los tokens justo para eso.
 - **Tipografia:** Inter con stack de sistema de respaldo. Escala 12/14/16/20/24/32.
   **Numerales tabulares obligatorios en toda hora y todo contador** (`font-variant-numeric: tabular-nums`).
-- **Espaciado** base 4px · **radio** 6px web / 12px app · borde 1px, sin sombras decorativas.
-- **Web:** densa y utilitaria, filas de tabla de 40px, sin animacion decorativa. El monitor en vivo se
-  disena primero a 375px y despues se expande; bajo 768px las tablas colapsan a tarjetas.
+- **Espaciado** base 4px · **radio** 10px web / 12px app · borde 1px.
+- **Una sola elevacion:** `shadow-tarjeta` (`0 1px 2px 0 rgb(0 0 0 / 0.05)`) sobre tarjetas y botones
+  rellenos, y `shadow-menu` para lo que flota (menu de usuario, cajon movil). No hay una tercera.
+- **Web:** el marco es barra lateral verde solida de 256px + barra superior blanca de 64px + area de
+  contenido `surface` que es lo unico que se desplaza. Todo bloque de contenido va dentro de una
+  `Card` blanca: filtros en la suya, tabla en la suya. Filas de tabla de 52px (`h-12` en el
+  encabezado, `p-4` en la celda), sin animacion decorativa. El monitor en vivo se disena primero a
+  375px y despues se expande; bajo 768px las tablas colapsan a tarjetas.
+- **El boton primario de cada pantalla vive en `EncabezadoPagina`**, alineado a la derecha del
+  titulo — no en una fila suelta encima de la tabla. La accion destructiva de una fila es `ghost`
+  con `text-destructive`; el rojo pleno se reserva para el boton que confirma dentro de un dialogo.
 - **App:** fondo blanco, alto contraste (se usa al sol). Boton primario de ancho completo, **72px de
   alto**, texto 20px semibold, **un solo objetivo tactil activo por pantalla**. Sin modo oscuro en v1.
 

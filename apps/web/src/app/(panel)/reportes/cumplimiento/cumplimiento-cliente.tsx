@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { EstadoVacio } from '@/components/estado-vacio';
+import { Card } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -38,34 +39,43 @@ export function CumplimientoCliente() {
           <div className="h-full w-1/3 animate-pulse bg-primary" />
         </div>
       ) : isError ? (
-        <p className="text-sm text-destructive">
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+        >
           No se pudo consultar el rango {rango.desde} a {rango.hasta}.
         </p>
       ) : !data || data.length === 0 ? (
-        <EstadoVacio titulo="Sin ejecuciones en este rango" />
+        <Card>
+          <EstadoVacio titulo="Sin ejecuciones en este rango" />
+        </Card>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Chofer</TableHead>
-              <TableHead className="text-right">App — total</TableHead>
-              <TableHead className="text-right">App — a tiempo</TableHead>
-              <TableHead className="text-right">Supervisor — total</TableHead>
-              <TableHead className="text-right">Supervisor — a tiempo</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map((fila) => (
-              <TableRow key={fila.choferId}>
-                <TableCell>{fila.choferNombre ?? 'Sin nombre'}</TableCell>
-                <TableCell className="text-right tabular-nums">{fila.app.total}</TableCell>
-                <TableCell className="text-right tabular-nums">{fila.app.aTiempo}</TableCell>
-                <TableCell className="text-right tabular-nums">{fila.supervisor.total}</TableCell>
-                <TableCell className="text-right tabular-nums">{fila.supervisor.aTiempo}</TableCell>
+        <Card className="overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Chofer</TableHead>
+                <TableHead className="text-right">App — total</TableHead>
+                <TableHead className="text-right">App — a tiempo</TableHead>
+                <TableHead className="text-right">Supervisor — total</TableHead>
+                <TableHead className="text-right">Supervisor — a tiempo</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {data.map((fila) => (
+                <TableRow key={fila.choferId}>
+                  <TableCell>{fila.choferNombre ?? 'Sin nombre'}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fila.app.total}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fila.app.aTiempo}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fila.supervisor.total}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {fila.supervisor.aTiempo}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       )}
     </div>
   );

@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -39,13 +40,23 @@ export default async function PaginaLogin({
   const mensaje = error ? (MENSAJES_ERROR[error] ?? MENSAJES_ERROR.oauth) : null;
 
   return (
-    <main className="flex min-h-full flex-1 items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-card p-6 sm:p-8">
-        <div className="space-y-1 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Rutas</h1>
-          <p className="text-sm text-muted-foreground">
-            Panel de operacion de transporte de personal
-          </p>
+    <main className="flex min-h-full flex-1 items-center justify-center bg-surface p-4">
+      <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-card p-6 shadow-tarjeta sm:p-8">
+        <div className="space-y-3 text-center">
+          <Image
+            src="/tregar-logo.jpg"
+            alt="Tregar"
+            width={152}
+            height={48}
+            priority
+            className="mx-auto h-10 w-auto"
+          />
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Rutas</h1>
+            <p className="text-sm text-muted-foreground">
+              Panel de operacion de transporte de personal
+            </p>
+          </div>
         </div>
         {mensaje ? (
           <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
