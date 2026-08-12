@@ -20,7 +20,11 @@ const config = getDefaultConfig(__dirname);
 // (paquetes hermanos como @rutas/shared) y saber buscar dependencias tanto
 // en el node_modules local como en el de la raiz (pnpm los deja en los dos
 // niveles segun el hoisting).
-config.watchFolders = [raizMonorepo];
+// Se AGREGA a los defaults, no los reemplaza: `getDefaultConfig` ya trae sus
+// propias carpetas vigiladas y pisarlas es justo lo que reclama
+// `expo-doctor` ("watchFolders does not contain all entries from Expo's
+// defaults").
+config.watchFolders = [...(config.watchFolders ?? []), raizMonorepo];
 config.resolver.nodeModulesPaths = [
   path.resolve(__dirname, 'node_modules'),
   path.resolve(raizMonorepo, 'node_modules'),

@@ -4,23 +4,40 @@ paths:
   - "apps/mobile/**"
 ---
 
-# App del chofer (Expo SDK 57)
+# App del chofer (Expo SDK 54)
+
+Fijado a SDK 54 porque el Expo Go de App Store / Play Store se quedo en esa version — un SDK mas
+nuevo en el proyecto significa que Expo Go ya no puede correrlo (asi se vieron el crash de
+`expo-notifications` y el fallo del wasm de `expo-sqlite` en web antes del downgrade). No subir de
+SDK sin confirmar antes que Expo Go en las tiendas ya soporta la version nueva.
 
 - **Instala SIEMPRE con `npx expo install`, JAMAS con `pnpm add`.** Cuatro paquetes nativos tienen un
-  `latest` en npm mas nuevo que el pin del SDK 57 e instalarlo rompe el build:
+  `latest` en npm mas nuevo que el pin del SDK 54 e instalarlo rompe el build:
 
-  | Paquete | Pin del SDK 57 | `latest` en npm | Que pasa si instalas `latest` |
+  | Paquete | Pin del SDK 54 | `latest` en npm | Que pasa si instalas `latest` |
   |---|---|---|---|
-  | `react-native-reanimated` | `4.5.1` | `4.5.3` | desalineacion con worklets |
-  | `react-native-worklets` | `0.10.1` | `0.11.3` | desalineacion con reanimated |
-  | `react-native-gesture-handler` | `~2.32.0` | `3.1.0` | **API reescrita** — no compila |
+  | `react-native-reanimated` | `4.1.7` | `4.5.3` | desalineacion con worklets |
+  | `react-native-worklets` | `0.5.1` | `0.11.4` | desalineacion con reanimated |
+  | `react-native-gesture-handler` | `~2.28.0` | `3.1.0` | **API reescrita** — no compila |
   | `@react-native-async-storage/async-storage` | `2.2.0` | `3.1.1` | **salto de major** |
 
 - `tailwindcss` aqui es la linea `~3.4.19`, **no** la 4.x del panel: NativeWind 4 no habla Tailwind 4
   y NativeWind 5 sigue en preview. Nunca eleves `tailwindcss` a la raiz del monorepo. Lo unico que
   se comparte con el panel son los tokens como valores planos desde `@rutas/shared/tokens`, jamas el
   archivo de config.
-- `react` aqui es `19.2.3`, distinta de la del panel. Es correcto y es a proposito.
+- `react` aqui es `19.1.0`, distinta de la del panel. Es correcto y es a proposito.
+- **`babel-preset-expo` esta fijado a `~54.0.12` como dependencia DIRECTA de esta app, a proposito.**
+  No es redundante con `expo`: Babel resuelve el preset desde `apps/mobile/babel.config.js` hacia
+  arriba, y con `nodeLinker: hoisted` un `babel-preset-expo` elevado a la raiz del monorepo le gana
+  al que `expo` trae anidado en su propio `node_modules`. Al bajar de SDK 57 a 54 quedo un
+  `babel-preset-expo@57.0.6` huerfano en la raiz; ese preset inyecta `@expo/ui/babel-plugin`, subpath
+  que el `@expo/ui` instalado no exporta, y el bundle moria antes del primer modulo con
+  `SyntaxError: Package subpath './babel-plugin' is not defined by "exports"`. Fijarlo aqui lo mete
+  en `apps/mobile/node_modules` y hace la resolucion determinista. Si cambias de SDK, reinstala en
+  limpio: reescribir los pines no borra lo que ya quedo elevado en la raiz.
+- `@expo/ui` **no** es dependencia de esta app. Estuvo como canary (`0.2.0-canary-2026…`) sin que
+  ningun archivo de `src/` lo importara, y fue la mitad del fallo de arriba. No lo reagregues sin un
+  import real.
 - `targetSdkVersion` y `compileSdkVersion` son **36** (Android 16). Google Play lo exige para apps
   nuevas y para updates a partir del 2026-08-31.
 - **Cada toque escribe primero en SQLite local**, con su `client_event_id` (uuid), la hora del

@@ -8,9 +8,17 @@ packages:
   - "!blueprints/**"
 
 # Expo/Metro no resuelve symlinks anidados de pnpm. `hoisted` es el unico linker
-# con el que un monorepo pnpm + Expo SDK 57 arranca. Las versiones que difieren
-# entre apps (react 19.2.8 web vs 19.2.3 movil, tailwindcss 4.x web vs 3.x movil)
+# con el que un monorepo pnpm + Expo SDK 54 arranca. Las versiones que difieren
+# entre apps (react 19.2.8 web vs 19.1.0 movil, tailwindcss 4.x web vs 3.x movil)
 # siguen quedando anidadas por app: hoisted solo eleva lo que no entra en conflicto.
+#
+# EL FILO DE ESTE LINKER: al elevar a la raiz, un paquete que quedo ahi de una
+# version anterior del stack le GANA la resolucion al que Expo trae anidado.
+# Asi murio el bundle tras bajar de SDK 57 a 54: `babel-preset-expo@57.0.6`
+# sobrevivio en la raiz, `apps/mobile/babel.config.js` lo resolvio antes que el
+# `54.0.12` que `expo` trae en su propio node_modules, y el preset 57 inyecta
+# `@expo/ui/babel-plugin`, subpath que el `@expo/ui` instalado no exporta.
+# Al cambiar de SDK hay que reinstalar en limpio, no solo reescribir los pines.
 nodeLinker: hoisted
 
 # Sin esta clave el primer `pnpm install` sale 1 con ERR_PNPM_IGNORED_BUILDS.
@@ -32,15 +40,7 @@ nodeLinker: hoisted
 allowBuilds:
   esbuild: true
 
-minimumReleaseAgeExclude:
-  - '@expo/cli@57.0.13'
-  - '@expo/config-plugins@57.0.7'
-  - babel-preset-expo@57.0.6
-  - expo-asset@57.0.9
-  - expo-file-system@57.0.2
-  - expo-modules-core@57.0.10
-  - expo-router@57.0.11
-  - expo-symbols@57.0.2
-  - expo@57.0.11
-  - expo-location@57.0.8
-  - expo-notifications@57.0.9
+# Vaciada al bajar a SDK 54: cada entrada nombraba una version 57.x que ya no se
+# instala. Una exclusion que apunta a una version inexistente no excluye nada y
+# solo deja creer que el pin sigue vigente.
+minimumReleaseAgeExclude: []

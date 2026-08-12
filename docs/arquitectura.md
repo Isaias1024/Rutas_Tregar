@@ -30,7 +30,7 @@ si cada ruta va a tiempo, tarde o adelantada.
 La version de Node esta fijada en `.nvmrc`. Las versiones de dependencias viven en `pnpm-lock.yaml`
 — leelo, nunca adivines una. La app movil instala **siempre** con `npx expo install`, jamas con
 `pnpm add`: `pnpm add` trae el `latest` de npm y cuatro paquetes nativos tienen un `latest` mas nuevo
-que el pin del SDK 57 que rompe el build.
+que el pin del SDK 54 que rompe el build.
 
 ## Stack
 
