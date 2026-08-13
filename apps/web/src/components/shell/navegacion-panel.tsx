@@ -16,9 +16,14 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { ComponentType } from 'react';
+import type { ComponentType, KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useRef } from 'react';
 
 type Rol = 'admin' | 'supervisor' | 'chofer';
+
+export const ANCHO_SIDEBAR_DEFECTO = 256;
+export const ANCHO_SIDEBAR_MIN = 208;
+export const ANCHO_SIDEBAR_MAX = 420;
 
 interface Enlace {
   href: string;
@@ -181,14 +186,98 @@ interface Props {
   /** Abre el cajon en movil; en escritorio la barra es fija y siempre visible. */
   abierto: boolean;
   onCerrar: () => void;
+  /** Ancho actual de la barra en escritorio, en px. Ignorado en el cajon movil. */
+  ancho: number;
+  onCambiarAncho: (ancho: number) => void;
 }
 
-export function NavegacionPanel({ rol, abierto, onCerrar }: Props) {
+function acotarAncho(ancho: number): number {
+  return Math.min(ANCHO_SIDEBAR_MAX, Math.max(ANCHO_SIDEBAR_MIN, ancho));
+}
+
+/** Borde derecho arrastrable de la barra lateral de escritorio. */
+function AsaRedimension({
+  ancho,
+  onCambiarAncho,
+}: {
+  ancho: number;
+  onCambiarAncho: (ancho: number) => void;
+}) {
+  const arrastrando = useRef(false);
+
+  const alPresionar = useCallback(
+    (evento: ReactPointerEvent<HTMLDivElement>) => {
+      evento.preventDefault();
+      arrastrando.current = true;
+      const inicioX = evento.clientX;
+      const anchoInicial = ancho;
+      const cursorPrevio = document.body.style.cursor;
+      const seleccionPrevia = document.body.style.userSelect;
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      function alMover(e: PointerEvent) {
+        if (!arrastrando.current) return;
+        onCambiarAncho(acotarAncho(anchoInicial + (e.clientX - inicioX)));
+      }
+      function alSoltar() {
+        arrastrando.current = false;
+        document.removeEventListener('pointermove', alMover);
+        document.removeEventListener('pointerup', alSoltar);
+        document.body.style.cursor = cursorPrevio;
+        document.body.style.userSelect = seleccionPrevia;
+      }
+      document.addEventListener('pointermove', alMover);
+      document.addEventListener('pointerup', alSoltar);
+    },
+    [ancho, onCambiarAncho],
+  );
+
+  function alPresionarTecla(evento: KeyboardEvent<HTMLDivElement>) {
+    const paso = 16;
+    if (evento.key === 'ArrowLeft') {
+      evento.preventDefault();
+      onCambiarAncho(acotarAncho(ancho - paso));
+    } else if (evento.key === 'ArrowRight') {
+      evento.preventDefault();
+      onCambiarAncho(acotarAncho(ancho + paso));
+    } else if (evento.key === 'Home') {
+      evento.preventDefault();
+      onCambiarAncho(ANCHO_SIDEBAR_MIN);
+    } else if (evento.key === 'End') {
+      evento.preventDefault();
+      onCambiarAncho(ANCHO_SIDEBAR_MAX);
+    }
+  }
+
+  return (
+    <div
+      role="separator"
+      aria-label="Ajustar ancho del menu"
+      aria-orientation="vertical"
+      aria-valuenow={ancho}
+      aria-valuemin={ANCHO_SIDEBAR_MIN}
+      aria-valuemax={ANCHO_SIDEBAR_MAX}
+      tabIndex={0}
+      onPointerDown={alPresionar}
+      onKeyDown={alPresionarTecla}
+      onDoubleClick={() => onCambiarAncho(ANCHO_SIDEBAR_DEFECTO)}
+      className="absolute top-0 right-0 z-10 h-full w-1.5 -mr-0.5 cursor-col-resize touch-none select-none bg-transparent transition-colors hover:bg-white/20 focus-visible:bg-white/30 focus-visible:outline-none active:bg-white/30"
+    />
+  );
+}
+
+export function NavegacionPanel({ rol, abierto, onCerrar, ancho, onCambiarAncho }: Props) {
   return (
     <>
-      {/* Escritorio: bloque solido de marca, fijo y de alto completo. */}
-      <aside className="hidden h-dvh w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground md:flex">
+      {/* Escritorio: bloque solido de marca, fijo, de alto completo y ancho
+          arrastrable via AsaRedimension. */}
+      <aside
+        style={{ width: ancho }}
+        className="relative hidden h-dvh shrink-0 flex-col bg-sidebar text-sidebar-foreground md:flex"
+      >
         <ContenidoNav rol={rol} />
+        <AsaRedimension ancho={ancho} onCambiarAncho={onCambiarAncho} />
       </aside>
 
       {/* Movil: cajon superpuesto. Se cierra desde el propio click que navega
