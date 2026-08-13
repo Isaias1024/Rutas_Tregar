@@ -28,9 +28,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { AvisoAccion } from '@/components/aviso-accion';
 import { EstadoVacio } from '@/components/estado-vacio';
 import { EncabezadoPagina } from '@/components/shell/encabezado-pagina';
 import { Card } from '@/components/ui/card';
+import { DialogoConfirmar } from '@/components/ui/dialogo-confirmar';
 
 interface Chofer {
   id: string;
@@ -73,6 +75,13 @@ export function TablaChoferes({
   const [pendiente, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [credencialesNuevas, setCredencialesNuevas] = useState<CredencialesNuevas | null>(null);
+  // Las dos acciones destructivas comparten un solo dialogo: `borrar` es la
+  // baja logica del catalogo y `dar_de_baja` es la de la LFPDPPP, que ademas
+  // borra los datos personales. Se distinguen aqui, no en dos estados sueltos.
+  const [porConfirmar, setPorConfirmar] = useState<{
+    chofer: Chofer;
+    tipo: 'borrar' | 'baja';
+  } | null>(null);
   const [errorBaja, setErrorBaja] = useState<string | null>(null);
   const [exitoBaja, setExitoBaja] = useState<string | null>(null);
 
@@ -130,45 +139,32 @@ export function TablaChoferes({
     });
   }
 
-  function borrar(chofer: Chofer) {
-    if (
-      !confirm(
-        `¿Borrar a "${chofer.nombre ?? chofer.credencial}"? Sigue disponible en el historico.`,
-      )
-    ) {
-      return;
-    }
+  function pedirConfirmacion(chofer: Chofer, tipo: 'borrar' | 'baja') {
     setErrorBaja(null);
     setExitoBaja(null);
-    startTransition(async () => {
-      const resultado = await accionBorrar(chofer.id);
-      if (!resultado.ok) {
-        setErrorBaja(resultado.error.mensaje);
-        return;
-      }
-      setExitoBaja(`Chofer "${chofer.nombre ?? chofer.credencial}" eliminado correctamente.`);
-    });
+    setPorConfirmar({ chofer, tipo });
   }
 
-  function darDeBaja(chofer: Chofer) {
-    if (
-      !confirm(
-        `¿Dar de baja a "${chofer.nombre ?? chofer.credencial}"? Esto borra su nombre, correo y ` +
-          'telefono de forma permanente (LFPDPPP) y revoca su acceso. Sus rutas y eventos historicos ' +
-          'se conservan. No se puede deshacer.',
-      )
-    ) {
+  function confirmar() {
+    if (!porConfirmar) {
       return;
     }
+    const { chofer, tipo } = porConfirmar;
+    const nombre = chofer.nombre ?? chofer.credencial;
     setErrorBaja(null);
-    setExitoBaja(null);
     startTransition(async () => {
-      const resultado = await accionDarDeBaja(chofer.id);
+      const resultado =
+        tipo === 'baja' ? await accionDarDeBaja(chofer.id) : await accionBorrar(chofer.id);
       if (!resultado.ok) {
         setErrorBaja(resultado.error.mensaje);
         return;
       }
-      setExitoBaja(`Chofer "${chofer.nombre ?? chofer.credencial}" dado de baja correctamente.`);
+      setPorConfirmar(null);
+      setExitoBaja(
+        tipo === 'baja'
+          ? `Chofer "${nombre}" dado de baja correctamente.`
+          : `Chofer "${nombre}" eliminado correctamente.`,
+      );
     });
   }
 
@@ -181,22 +177,27 @@ export function TablaChoferes({
   return (
     <div className="flex flex-col gap-6">
       <EncabezadoPagina titulo={titulo} descripcion={descripcion} acciones={botonNuevo} />
-      {errorBaja ? (
-        <p
-          role="alert"
-          className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
-        >
-          {errorBaja}
-        </p>
-      ) : null}
-      {exitoBaja ? (
-        <p
-          role="status"
-          className="rounded-md border border-primary/30 bg-primary-tint p-3 text-sm text-primary"
-        >
-          {exitoBaja}
-        </p>
-      ) : null}
+      {/* El error de una baja se pinta dentro del dialogo, no aqui. */}
+      <AvisoAccion exito={exitoBaja} />
+
+      <DialogoConfirmar
+        abierto={porConfirmar !== null}
+        onOpenChange={(abierto) => {
+          if (!abierto) {
+            setPorConfirmar(null);
+          }
+        }}
+        titulo={porConfirmar?.tipo === 'baja' ? 'Dar de baja al chofer' : 'Borrar chofer'}
+        descripcion={
+          porConfirmar?.tipo === 'baja'
+            ? `Se borran el nombre, el correo y el telefono de "${porConfirmar.chofer.nombre ?? porConfirmar.chofer.credencial}" de forma permanente (LFPDPPP) y se revoca su acceso. Sus rutas y eventos historicos se conservan. No se puede deshacer.`
+            : `"${porConfirmar?.chofer.nombre ?? porConfirmar?.chofer.credencial ?? ''}" deja de aparecer en el catalogo y de poder asignarse. Sigue disponible en el historico.`
+        }
+        etiquetaConfirmar={porConfirmar?.tipo === 'baja' ? 'Dar de baja' : 'Borrar'}
+        error={errorBaja}
+        pendiente={pendiente}
+        onConfirmar={confirmar}
+      />
 
       {choferes.length === 0 ? (
         <Card>
@@ -241,7 +242,7 @@ export function TablaChoferes({
                         size="sm"
                         className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                         disabled={pendiente}
-                        onClick={() => borrar(chofer)}
+                        onClick={() => pedirConfirmacion(chofer, 'borrar')}
                       >
                         Borrar
                       </Button>
@@ -251,7 +252,7 @@ export function TablaChoferes({
                         size="sm"
                         className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                         disabled={pendiente}
-                        onClick={() => darDeBaja(chofer)}
+                        onClick={() => pedirConfirmacion(chofer, 'baja')}
                       >
                         Dar de baja
                       </Button>
@@ -294,7 +295,7 @@ export function TablaChoferes({
                     size="sm"
                     className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     disabled={pendiente}
-                    onClick={() => borrar(chofer)}
+                    onClick={() => pedirConfirmacion(chofer, 'borrar')}
                   >
                     Borrar
                   </Button>
@@ -304,7 +305,7 @@ export function TablaChoferes({
                     size="sm"
                     className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     disabled={pendiente}
-                    onClick={() => darDeBaja(chofer)}
+                    onClick={() => pedirConfirmacion(chofer, 'baja')}
                   >
                     Dar de baja
                   </Button>

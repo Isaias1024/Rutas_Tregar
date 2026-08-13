@@ -13,12 +13,14 @@ import {
 } from '@rutas/shared';
 import { useEffect, useState, useTransition } from 'react';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
+import { AvisoAccion } from '@/components/aviso-accion';
 import { type Coordenadas, SelectorParada } from '@/components/mapa/selector-parada';
 import { EstadoVacio } from '@/components/estado-vacio';
 import { EncabezadoPagina } from '@/components/shell/encabezado-pagina';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { DialogoConfirmar } from '@/components/ui/dialogo-confirmar';
 import {
   Dialog,
   DialogContent,
@@ -115,6 +117,7 @@ export function TablaRutas({
   const [dialogoCrearAbierto, setDialogoCrearAbierto] = useState(false);
   const [rutaEditando, setRutaEditando] = useState<Ruta | null>(null);
   const [pendiente, startTransition] = useTransition();
+  const [porBorrar, setPorBorrar] = useState<Ruta | null>(null);
   const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
   const [exitoBorrado, setExitoBorrado] = useState<string | null>(null);
 
@@ -124,12 +127,18 @@ export function TablaRutas({
     </Button>
   );
 
-  function borrar(ruta: Ruta) {
-    if (!confirm(`¿Borrar la ruta "${ruta.nombre}"? Sigue disponible en el historico.`)) {
+  function pedirBorrado(ruta: Ruta) {
+    setErrorBorrado(null);
+    setExitoBorrado(null);
+    setPorBorrar(ruta);
+  }
+
+  function confirmarBorrado() {
+    const ruta = porBorrar;
+    if (!ruta) {
       return;
     }
     setErrorBorrado(null);
-    setExitoBorrado(null);
     startTransition(async () => {
       // El resultado se ignoraba: un borrado rechazado (sin permiso, o la ruta
       // ya borrada desde otra pestana) dejaba la fila en pantalla sin decir por
@@ -139,6 +148,7 @@ export function TablaRutas({
         setErrorBorrado(resultado.error.mensaje);
         return;
       }
+      setPorBorrar(null);
       setExitoBorrado(`Ruta "${ruta.nombre}" eliminada correctamente.`);
     });
   }
@@ -156,22 +166,23 @@ export function TablaRutas({
   return (
     <div className="flex flex-col gap-6">
       <EncabezadoPagina titulo={titulo} descripcion={descripcion} acciones={botonNuevo} />
-      {errorBorrado ? (
-        <p
-          role="alert"
-          className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
-        >
-          {errorBorrado}
-        </p>
-      ) : null}
-      {exitoBorrado ? (
-        <p
-          role="status"
-          className="rounded-md border border-primary/30 bg-primary-tint p-3 text-sm text-primary"
-        >
-          {exitoBorrado}
-        </p>
-      ) : null}
+      {/* El error de un borrado se pinta dentro del dialogo, no aqui. */}
+      <AvisoAccion exito={exitoBorrado} />
+
+      <DialogoConfirmar
+        abierto={porBorrar !== null}
+        onOpenChange={(abierto) => {
+          if (!abierto) {
+            setPorBorrar(null);
+          }
+        }}
+        titulo="Borrar ruta"
+        descripcion={`La ruta "${porBorrar?.nombre ?? ''}" y sus horarios dejan de planearse. Las asignaciones y los eventos ya registrados se conservan en el historico.`}
+        etiquetaConfirmar="Borrar"
+        error={errorBorrado}
+        pendiente={pendiente}
+        onConfirmar={confirmarBorrado}
+      />
 
       {rutas.length === 0 ? (
         <Card>
@@ -207,7 +218,7 @@ export function TablaRutas({
                     size="sm"
                     className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     disabled={pendiente}
-                    onClick={() => borrar(ruta)}
+                    onClick={() => pedirBorrado(ruta)}
                   >
                     Borrar
                   </Button>
@@ -269,6 +280,7 @@ function ListaHorarios({
   const [personas, setPersonas] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [errorHorario, setErrorHorario] = useState<string | null>(null);
+  const [porDesactivar, setPorDesactivar] = useState<string | null>(null);
   const [pendiente, startTransition] = useTransition();
 
   function agregar() {
@@ -289,8 +301,9 @@ function ListaHorarios({
     });
   }
 
-  function desactivar(horarioId: string) {
-    if (!confirm('¿Desactivar este horario? Deja de planearse, pero se conserva.')) {
+  function confirmarDesactivacion() {
+    const horarioId = porDesactivar;
+    if (!horarioId) {
       return;
     }
     setErrorHorario(null);
@@ -300,13 +313,28 @@ function ListaHorarios({
       const resultado = await accionDesactivarHorario(horarioId);
       if (!resultado.ok) {
         setErrorHorario(resultado.error.mensaje);
+        return;
       }
+      setPorDesactivar(null);
     });
   }
 
   return (
     <div className="mt-3 space-y-2 border-t border-border pt-3">
-      {errorHorario ? <p className="text-sm text-destructive">{errorHorario}</p> : null}
+      <DialogoConfirmar
+        abierto={porDesactivar !== null}
+        onOpenChange={(abierto) => {
+          if (!abierto) {
+            setPorDesactivar(null);
+          }
+        }}
+        titulo="Desactivar horario"
+        descripcion="El horario deja de planearse, pero se conserva junto con las asignaciones y los eventos que ya tiene."
+        etiquetaConfirmar="Desactivar"
+        error={errorHorario}
+        pendiente={pendiente}
+        onConfirmar={confirmarDesactivacion}
+      />
       {ruta.horarios.length === 0 ? (
         <p className="text-sm text-muted-foreground">Sin horarios activos.</p>
       ) : (
@@ -330,7 +358,7 @@ function ListaHorarios({
                 variant="outline"
                 size="sm"
                 disabled={pendiente}
-                onClick={() => desactivar(horario.id)}
+                onClick={() => setPorDesactivar(horario.id)}
               >
                 Desactivar
               </Button>

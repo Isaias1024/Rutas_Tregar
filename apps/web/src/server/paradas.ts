@@ -6,7 +6,7 @@
 import '@/lib/env';
 import { idSchema, paradaCrearSchema, paradaEditarSchema, type Resultado } from '@rutas/shared';
 import { db, parada } from '@rutas/shared/db';
-import { eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { can } from '@/lib/authz/can';
 import { registrarAuditoria } from '@/lib/audit/registrar';
@@ -87,7 +87,14 @@ export async function editarParada(input: unknown): Promise<Resultado<{ id: stri
     return SIN_PERMISO;
   }
 
-  const [antes] = await db.select().from(parada).where(eq(parada.id, parseo.data.id)).limit(1);
+  // `isNull(deleted_at)`, igual que borrarParada abajo: editar una parada ya
+  // borrada respondia `ok` y la revivia a medias en la bitacora, sobre una
+  // fila que ninguna pantalla vuelve a mostrar.
+  const [antes] = await db
+    .select()
+    .from(parada)
+    .where(and(eq(parada.id, parseo.data.id), isNull(parada.deletedAt)))
+    .limit(1);
   if (!antes) {
     return NO_ENCONTRADA;
   }
@@ -120,8 +127,12 @@ export async function borrarParada(input: unknown): Promise<Resultado<{ id: stri
     return SIN_PERMISO;
   }
 
-  const [antes] = await db.select().from(parada).where(eq(parada.id, parseo.data)).limit(1);
-  if (!antes || antes.deletedAt) {
+  const [antes] = await db
+    .select()
+    .from(parada)
+    .where(and(eq(parada.id, parseo.data), isNull(parada.deletedAt)))
+    .limit(1);
+  if (!antes) {
     return NO_ENCONTRADA;
   }
 

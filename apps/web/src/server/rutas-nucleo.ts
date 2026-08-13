@@ -132,10 +132,15 @@ export async function desactivarHorarioNucleo(
   actorId: string,
   id: string,
 ): Promise<Resultado<{ id: string }>> {
+  // `activo = true` y `deleted_at is null` en la busqueda, no solo el id: sin
+  // eso, desactivar dos veces el mismo horario respondia `ok` la segunda y
+  // dejaba una fila de bitacora por una desactivacion que no ocurrio. El panel
+  // solo ofrece el boton sobre horarios activos (listarRutas los filtra), asi
+  // que un segundo intento siempre viene de una pantalla vieja.
   const [antes] = await db
     .select({ turno: horario.turno })
     .from(horario)
-    .where(eq(horario.id, id))
+    .where(and(eq(horario.id, id), eq(horario.activo, true), isNull(horario.deletedAt)))
     .limit(1);
   if (!antes) {
     return NO_ENCONTRADO;

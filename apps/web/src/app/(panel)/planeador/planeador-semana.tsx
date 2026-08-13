@@ -10,6 +10,7 @@ import {
 import Link from 'next/link';
 import { useMemo, useState, useTransition } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { AvisoAccion } from '@/components/aviso-accion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -19,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { DialogoConfirmar } from '@/components/ui/dialogo-confirmar';
 import {
   Select,
   SelectContent,
@@ -106,6 +108,7 @@ export function PlaneadorSemana({
 }: Props) {
   const [diaSeleccionado, setDiaSeleccionado] = useState(fechas[0] ?? '');
   const [dialogo, setDialogo] = useState<DialogoState | null>(null);
+  const [exitoCancelacion, setExitoCancelacion] = useState<string | null>(null);
 
   const horariosPorTurno = useMemo(() => {
     const mapa = new Map<Turno, Horario[]>();
@@ -161,6 +164,8 @@ export function PlaneadorSemana({
 
   return (
     <div className="flex flex-col gap-6">
+      <AvisoAccion exito={exitoCancelacion} />
+
       <Card>
         <CardContent className="flex flex-col gap-3 p-4">
           <div className="flex items-center justify-between">
@@ -252,6 +257,11 @@ export function PlaneadorSemana({
                                 <BotonCancelar
                                   asignacionId={a.id}
                                   accionCancelar={accionCancelar}
+                                  onCancelada={() =>
+                                    setExitoCancelacion(
+                                      `${a.choferNombre ?? 'El chofer'} ya no esta asignado a ${horario.rutaNombre}.`,
+                                    )
+                                  }
                                 />
                               </span>
                             </li>
@@ -289,21 +299,17 @@ export function PlaneadorSemana({
 function BotonCancelar({
   asignacionId,
   accionCancelar,
+  onCancelada,
 }: {
   asignacionId: string;
   accionCancelar: Props['accionCancelar'];
+  onCancelada: () => void;
 }) {
   const [pendiente, startTransition] = useTransition();
+  const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function cancelar() {
-    if (
-      !confirm(
-        '¿Quitar al chofer de esta ruta? La ruta, el horario y las paradas se conservan; solo se libera la asignacion.',
-      )
-    ) {
-      return;
-    }
     setError(null);
     startTransition(async () => {
       // El resultado se ignoraba: una cancelacion rechazada (sin permiso, o
@@ -312,17 +318,44 @@ function BotonCancelar({
       const resultado = await accionCancelar({ asignacionId });
       if (!resultado.ok) {
         setError(resultado.error.mensaje);
+        return;
       }
+      setConfirmando(false);
+      onCancelada();
     });
   }
 
   return (
-    <span className="flex flex-col items-end gap-1">
-      <Button type="button" size="sm" variant="outline" disabled={pendiente} onClick={cancelar}>
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+        disabled={pendiente}
+        onClick={() => {
+          setError(null);
+          setConfirmando(true);
+        }}
+      >
         Cancelar
       </Button>
-      {error ? <span className="text-xs text-destructive">{error}</span> : null}
-    </span>
+      <DialogoConfirmar
+        abierto={confirmando}
+        onOpenChange={(abierto) => {
+          if (!abierto) {
+            setConfirmando(false);
+          }
+        }}
+        titulo="Quitar al chofer de esta ruta"
+        descripcion="La ruta, el horario y las paradas se conservan; solo se libera la asignacion. El horario queda disponible para otro chofer."
+        etiquetaConfirmar="Quitar chofer"
+        etiquetaVolver="Volver"
+        error={error}
+        pendiente={pendiente}
+        onConfirmar={cancelar}
+      />
+    </>
   );
 }
 

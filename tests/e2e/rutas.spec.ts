@@ -95,11 +95,15 @@ test.describe('Paradas y rutas', () => {
     const filaCreada = page.locator('tr:visible, li:visible').filter({ hasText: nombreParada });
     await expect(filaCreada).toBeVisible();
 
-    // El borrado es logico (`deleted_at`): la confirmacion del navegador es la
+    // El borrado es logico (`deleted_at`): la confirmacion del panel es la
     // unica friccion antes de que desaparezca del listado (y por tanto del
     // selector de "nueva ruta"), tal como ya pasa con clientes y camiones.
-    page.once('dialog', (dialogo) => dialogo.accept());
+    // `dismiss()` sobre cualquier dialogo NATIVO: si quedara un `confirm()`, el
+    // navegador puede suprimirlo y el borrado no ocurriria nunca.
+    page.on('dialog', (dialogo) => dialogo.dismiss());
     await filaCreada.getByRole('button', { name: 'Borrar' }).click();
+    await expect(page.getByRole('dialog')).toContainText('Borrar parada');
+    await page.getByRole('dialog').getByRole('button', { name: 'Borrar' }).click();
 
     // Acusa el borrado ademas de hacerlo: "la fila ya no esta" por si solo no
     // distingue un borrado exitoso de uno rechazado en silencio.

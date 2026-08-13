@@ -28,9 +28,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { AvisoAccion } from '@/components/aviso-accion';
 import { EstadoVacio } from '@/components/estado-vacio';
 import { EncabezadoPagina } from '@/components/shell/encabezado-pagina';
 import { Card } from '@/components/ui/card';
+import { DialogoConfirmar } from '@/components/ui/dialogo-confirmar';
 
 interface Cliente {
   id: string;
@@ -61,6 +63,7 @@ export function TablaClientes({
   const [editando, setEditando] = useState<Cliente | null>(null);
   const [pendiente, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [porBorrar, setPorBorrar] = useState<Cliente | null>(null);
   const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
   const [exitoBorrado, setExitoBorrado] = useState<string | null>(null);
 
@@ -108,12 +111,18 @@ export function TablaClientes({
     });
   }
 
-  function borrar(cliente: Cliente) {
-    if (!confirm(`¿Borrar a "${cliente.nombre}"? Sigue disponible en el historico.`)) {
+  function pedirBorrado(cliente: Cliente) {
+    setErrorBorrado(null);
+    setExitoBorrado(null);
+    setPorBorrar(cliente);
+  }
+
+  function confirmarBorrado() {
+    const cliente = porBorrar;
+    if (!cliente) {
       return;
     }
     setErrorBorrado(null);
-    setExitoBorrado(null);
     startTransition(async () => {
       // El resultado se ignoraba: un borrado rechazado (sin permiso, o la fila
       // ya borrada desde otra pestana) dejaba la fila en pantalla sin decir por
@@ -123,6 +132,7 @@ export function TablaClientes({
         setErrorBorrado(resultado.error.mensaje);
         return;
       }
+      setPorBorrar(null);
       setExitoBorrado(`Cliente "${cliente.nombre}" eliminado correctamente.`);
     });
   }
@@ -136,22 +146,23 @@ export function TablaClientes({
   return (
     <div className="flex flex-col gap-6">
       <EncabezadoPagina titulo={titulo} descripcion={descripcion} acciones={botonNuevo} />
-      {errorBorrado ? (
-        <p
-          role="alert"
-          className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
-        >
-          {errorBorrado}
-        </p>
-      ) : null}
-      {exitoBorrado ? (
-        <p
-          role="status"
-          className="rounded-md border border-primary/30 bg-primary-tint p-3 text-sm text-primary"
-        >
-          {exitoBorrado}
-        </p>
-      ) : null}
+      {/* El error de un borrado se pinta dentro del dialogo, no aqui. */}
+      <AvisoAccion exito={exitoBorrado} />
+
+      <DialogoConfirmar
+        abierto={porBorrar !== null}
+        onOpenChange={(abierto) => {
+          if (!abierto) {
+            setPorBorrar(null);
+          }
+        }}
+        titulo="Borrar cliente"
+        descripcion={`"${porBorrar?.nombre ?? ''}" deja de estar disponible para rutas nuevas. Sigue disponible en el historico.`}
+        etiquetaConfirmar="Borrar"
+        error={errorBorrado}
+        pendiente={pendiente}
+        onConfirmar={confirmarBorrado}
+      />
 
       {clientes.length === 0 ? (
         <Card>
@@ -191,7 +202,7 @@ export function TablaClientes({
                         variant="ghost"
                         size="sm"
                         className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => borrar(cliente)}
+                        onClick={() => pedirBorrado(cliente)}
                       >
                         Borrar
                       </Button>
@@ -228,7 +239,7 @@ export function TablaClientes({
                     variant="ghost"
                     size="sm"
                     className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => borrar(cliente)}
+                    onClick={() => pedirBorrado(cliente)}
                   >
                     Borrar
                   </Button>

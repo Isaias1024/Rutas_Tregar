@@ -91,7 +91,11 @@ export async function editarCliente(input: unknown): Promise<Resultado<{ id: str
     return SIN_PERMISO;
   }
 
-  const [antes] = await db.select().from(cliente).where(eq(cliente.id, parseo.data.id)).limit(1);
+  const [antes] = await db
+    .select()
+    .from(cliente)
+    .where(and(eq(cliente.id, parseo.data.id), isNull(cliente.deletedAt)))
+    .limit(1);
   if (!antes) {
     return NO_ENCONTRADO;
   }
@@ -125,7 +129,16 @@ export async function borrarCliente(input: unknown): Promise<Resultado<{ id: str
     return SIN_PERMISO;
   }
 
-  const [antes] = await db.select().from(cliente).where(eq(cliente.id, parseo.data)).limit(1);
+  // `isNull(deleted_at)` no es decorativo: sin el, borrar dos veces la misma
+  // fila respondia `ok` la segunda vez y el panel acusaba "eliminado
+  // correctamente" sobre algo que ya no existia — justo lo contrario de lo que
+  // promete el mensaje de NO_ENCONTRADO ("no existe o ya fue borrado"). Pasa
+  // de verdad: dos pestanas abiertas, o una lista que quedo vieja.
+  const [antes] = await db
+    .select()
+    .from(cliente)
+    .where(and(eq(cliente.id, parseo.data), isNull(cliente.deletedAt)))
+    .limit(1);
   if (!antes) {
     return NO_ENCONTRADO;
   }
@@ -187,7 +200,11 @@ export async function editarCamion(input: unknown): Promise<Resultado<{ id: stri
     return SIN_PERMISO;
   }
 
-  const [antes] = await db.select().from(camion).where(eq(camion.id, parseo.data.id)).limit(1);
+  const [antes] = await db
+    .select()
+    .from(camion)
+    .where(and(eq(camion.id, parseo.data.id), isNull(camion.deletedAt)))
+    .limit(1);
   if (!antes) {
     return NO_ENCONTRADO;
   }
@@ -225,7 +242,12 @@ export async function borrarCamion(input: unknown): Promise<Resultado<{ id: stri
     return SIN_PERMISO;
   }
 
-  const [antes] = await db.select().from(camion).where(eq(camion.id, parseo.data)).limit(1);
+  // Mismo `isNull(deleted_at)` que en borrarCliente, por la misma razon.
+  const [antes] = await db
+    .select()
+    .from(camion)
+    .where(and(eq(camion.id, parseo.data), isNull(camion.deletedAt)))
+    .limit(1);
   if (!antes) {
     return NO_ENCONTRADO;
   }
@@ -393,7 +415,9 @@ export async function editarChofer(input: unknown): Promise<Resultado<{ id: stri
     .select({ activo: usuario.activo, nombre: perfilPersonal.nombre })
     .from(usuario)
     .leftJoin(perfilPersonal, eq(perfilPersonal.usuarioId, usuario.id))
-    .where(and(eq(usuario.id, parseo.data.id), eq(usuario.rol, 'chofer')))
+    .where(
+      and(eq(usuario.id, parseo.data.id), eq(usuario.rol, 'chofer'), isNull(usuario.deletedAt)),
+    )
     .limit(1);
   if (!antes) {
     return NO_ENCONTRADO;
@@ -433,10 +457,13 @@ export async function borrarChofer(input: unknown): Promise<Resultado<{ id: stri
     return SIN_PERMISO;
   }
 
+  // Mismo `isNull(deleted_at)` que en borrarCliente. Aqui ademas evita que un
+  // borrado repetido pise el `deleted_at` original con una fecha nueva, que es
+  // lo que sostiene el plazo de conservacion del historico.
   const [antes] = await db
     .select({ credencial: usuario.credencial })
     .from(usuario)
-    .where(and(eq(usuario.id, parseo.data), eq(usuario.rol, 'chofer')))
+    .where(and(eq(usuario.id, parseo.data), eq(usuario.rol, 'chofer'), isNull(usuario.deletedAt)))
     .limit(1);
   if (!antes) {
     return NO_ENCONTRADO;

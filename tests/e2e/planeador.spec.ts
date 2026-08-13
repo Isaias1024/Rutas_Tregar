@@ -1,6 +1,6 @@
 import { asignacion, db, horario, ruta } from '@rutas/shared/db';
 import { expect, test } from '@playwright/test';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { iniciarSesionComo } from './ayuda-sesion.ts';
 
 // Usa la semilla del paso 5/6: la ruta "Centro - Planta Norte" trae DOS
@@ -21,30 +21,14 @@ function aISO(fecha: Date): string {
   return fecha.toISOString().slice(0, 10);
 }
 
-// Limpia cualquier asignacion que una corrida anterior haya dejado para esta
-// ruta en el lunes de la semana actual, para que la prueba sea repetible sin
-// importar cuantas veces haya corrido antes en la misma semana real.
+// Limpia TODAS las asignaciones del lunes de la semana actual, no solo las de
+// "Centro - Planta Norte": el traslape se evalua por chofer y por hora, asi que
+// una asignacion que otra corrida dejo en CUALQUIER ruta a las 06:00 apaga a
+// Juan Perez en el selector y esta suite se cae sin haber probado nada. La
+// semilla no crea asignaciones, asi que borrar el dia entero no destruye datos
+// de referencia.
 test.beforeEach(async () => {
-  const fechaLunes = aISO(lunesDeSemana(new Date()));
-  const [rutaFila] = await db
-    .select({ id: ruta.id })
-    .from(ruta)
-    .where(eq(ruta.nombre, 'Centro - Planta Norte'))
-    .limit(1);
-  if (!rutaFila) {
-    return;
-  }
-  const horarios = await db
-    .select({ id: horario.id })
-    .from(horario)
-    .where(eq(horario.rutaId, rutaFila.id));
-  const horarioIds = horarios.map((h) => h.id);
-  if (horarioIds.length === 0) {
-    return;
-  }
-  await db
-    .delete(asignacion)
-    .where(and(inArray(asignacion.horarioId, horarioIds), eq(asignacion.fecha, fechaLunes)));
+  await db.delete(asignacion).where(eq(asignacion.fecha, aISO(lunesDeSemana(new Date()))));
 });
 
 test('arma un dia completo con una ruta de dos horarios y reasigna', async ({
@@ -158,14 +142,24 @@ test('Cancelar desasigna al chofer y deja la ruta y el horario en pie', async ({
   await page.getByRole('button', { name: 'Guardar' }).click();
   await expect(horarioTemprano.getByText('#1 · Juan Perez · T23')).toBeVisible();
 
-  // Playwright DESCARTA los dialogos nativos por default: sin este manejador
-  // el `confirm()` de BotonCancelar se cancelaria solo y la prueba pasaria
-  // sin haber cancelado nada.
-  page.once('dialog', (dialogo) => dialogo.accept());
+  // El `confirm()` nativo ya no existe, y esta linea es la que lo garantiza:
+  // descarta CUALQUIER dialogo del navegador, que es lo mismo que le pasa a
+  // quien marca "impedir que esta pagina cree mas dialogos" en Chrome. Con un
+  // `confirm()` de por medio, la cancelacion nunca llegaba al servidor y el
+  // boton se leia como muerto — el defecto que se reporto. La confirmacion es
+  // ahora un dialogo del propio panel, que el navegador no puede suprimir.
+  page.on('dialog', (dialogo) => dialogo.dismiss());
   await horarioTemprano.getByRole('button', { name: 'Cancelar' }).click();
+
+  const confirmacion = page.getByRole('dialog');
+  await expect(confirmacion).toContainText('Quitar al chofer de esta ruta');
+  await confirmacion.getByRole('button', { name: 'Quitar chofer' }).click();
 
   // La interfaz refleja de inmediato que la ruta ya no tiene chofer...
   await expect(horarioTemprano.getByText('#1 · Juan Perez · T23')).toBeHidden();
+  // ...lo dice con todas sus letras, no solo quitando la fila: "la fila ya no
+  // esta" es indistinguible de un rechazo silencioso.
+  await expect(page.getByRole('status')).toContainText('Juan Perez ya no esta asignado');
   // ...la ruta y su horario siguen ahi, listos para otro chofer...
   await expect(horarioTemprano).toBeVisible();
   await expect(horarioTemprano.getByRole('button', { name: 'Asignar', exact: true })).toBeVisible();

@@ -329,4 +329,53 @@ describe('rutas-nucleo contra Postgres real', () => {
     expect(filaHorario).toBeDefined();
     expect(filaHorario?.activo).toBe(false);
   });
+
+  it('borrar una ruta ya borrada responde no_encontrado, no un exito falso', async () => {
+    const creada = await crearRutaNucleo(
+      actorId,
+      datosRuta({ clienteId, paradaInicioId, paradaFinId }),
+    );
+    expect(creada.ok).toBe(true);
+    if (!creada.ok) return;
+
+    expect((await borrarRutaNucleo(actorId, creada.data.id)).ok).toBe(true);
+
+    // Segundo intento: la pantalla que lo dispara quedo vieja (otra pestana ya
+    // borro la fila). Responder `ok` aqui hacia que el panel acusara "eliminada
+    // correctamente" sobre algo inexistente y pisara el `deleted_at` original.
+    const repetido = await borrarRutaNucleo(actorId, creada.data.id);
+    expect(repetido.ok).toBe(false);
+    if (repetido.ok) return;
+    expect(repetido.error.codigo).toBe('no_encontrado');
+  });
+
+  it('desactivar un horario ya desactivado responde no_encontrado y no vuelve a auditar', async () => {
+    const creada = await crearRutaNucleo(
+      actorId,
+      datosRuta({ clienteId, paradaInicioId, paradaFinId }),
+    );
+    expect(creada.ok).toBe(true);
+    if (!creada.ok) return;
+
+    const [horarioCreado] = await db
+      .select()
+      .from(horario)
+      .where(eq(horario.rutaId, creada.data.id))
+      .limit(1);
+    if (!horarioCreado) throw new Error('setup: horario no encontrado');
+
+    expect((await desactivarHorarioNucleo(actorId, horarioCreado.id)).ok).toBe(true);
+
+    const repetido = await desactivarHorarioNucleo(actorId, horarioCreado.id);
+    expect(repetido.ok).toBe(false);
+    if (repetido.ok) return;
+    expect(repetido.error.codigo).toBe('no_encontrado');
+
+    // Y la bitacora tiene UNA sola entrada: la desactivacion que si ocurrio.
+    const entradas = await db.execute(
+      sql`select count(*)::int as total from audit_log
+          where recurso_tipo = 'horario' and recurso_id = ${horarioCreado.id}`,
+    );
+    expect(entradas[0]?.total).toBe(1);
+  });
 });

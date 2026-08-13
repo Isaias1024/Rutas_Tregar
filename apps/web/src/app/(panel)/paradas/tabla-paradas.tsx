@@ -19,10 +19,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { AvisoAccion } from '@/components/aviso-accion';
 import { EstadoVacio } from '@/components/estado-vacio';
 import { type Coordenadas, SelectorParada } from '@/components/mapa/selector-parada';
 import { EncabezadoPagina } from '@/components/shell/encabezado-pagina';
 import { Card } from '@/components/ui/card';
+import { DialogoConfirmar } from '@/components/ui/dialogo-confirmar';
 
 interface Parada {
   id: string;
@@ -58,6 +60,7 @@ export function TablaParadas({
   const [coordenadas, setCoordenadas] = useState<Coordenadas | null>(null);
   const [pendiente, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [porBorrar, setPorBorrar] = useState<Parada | null>(null);
   const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
   const [exitoBorrado, setExitoBorrado] = useState<string | null>(null);
 
@@ -104,20 +107,25 @@ export function TablaParadas({
     });
   }
 
-  function borrar(parada: Parada) {
-    if (
-      !confirm(`¿Borrar la parada "${parada.nombre}"? Deja de estar disponible para rutas nuevas.`)
-    ) {
+  function pedirBorrado(parada: Parada) {
+    setErrorBorrado(null);
+    setExitoBorrado(null);
+    setPorBorrar(parada);
+  }
+
+  function confirmarBorrado() {
+    const parada = porBorrar;
+    if (!parada) {
       return;
     }
     setErrorBorrado(null);
-    setExitoBorrado(null);
     startTransition(async () => {
       const resultado = await accionBorrar(parada.id);
       if (!resultado.ok) {
         setErrorBorrado(resultado.error.mensaje);
         return;
       }
+      setPorBorrar(null);
       setExitoBorrado(`Parada "${parada.nombre}" eliminada correctamente.`);
     });
   }
@@ -131,22 +139,23 @@ export function TablaParadas({
   return (
     <div className="flex flex-col gap-6">
       <EncabezadoPagina titulo={titulo} descripcion={descripcion} acciones={botonNuevo} />
-      {errorBorrado ? (
-        <p
-          role="alert"
-          className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
-        >
-          {errorBorrado}
-        </p>
-      ) : null}
-      {exitoBorrado ? (
-        <p
-          role="status"
-          className="rounded-md border border-primary/30 bg-primary-tint p-3 text-sm text-primary"
-        >
-          {exitoBorrado}
-        </p>
-      ) : null}
+      {/* El error de un borrado se pinta dentro del dialogo, no aqui. */}
+      <AvisoAccion exito={exitoBorrado} />
+
+      <DialogoConfirmar
+        abierto={porBorrar !== null}
+        onOpenChange={(abierto) => {
+          if (!abierto) {
+            setPorBorrar(null);
+          }
+        }}
+        titulo="Borrar parada"
+        descripcion={`La parada "${porBorrar?.nombre ?? ''}" deja de estar disponible para rutas nuevas. Las rutas que ya la usan no cambian.`}
+        etiquetaConfirmar="Borrar"
+        error={errorBorrado}
+        pendiente={pendiente}
+        onConfirmar={confirmarBorrado}
+      />
 
       {paradas.length === 0 ? (
         <Card>
@@ -188,7 +197,7 @@ export function TablaParadas({
                           size="sm"
                           className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                           disabled={pendiente}
-                          onClick={() => borrar(parada)}
+                          onClick={() => pedirBorrado(parada)}
                         >
                           Borrar
                         </Button>
@@ -229,7 +238,7 @@ export function TablaParadas({
                       size="sm"
                       className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                       disabled={pendiente}
-                      onClick={() => borrar(parada)}
+                      onClick={() => pedirBorrado(parada)}
                     >
                       Borrar
                     </Button>
