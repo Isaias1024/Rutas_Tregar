@@ -1,9 +1,9 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BarraSuperior } from '@/components/shell/barra-superior';
-import { NavegacionPanel } from '@/components/shell/navegacion-panel';
+import { ANCHO_SIDEBAR_DEFECTO, NavegacionPanel } from '@/components/shell/navegacion-panel';
 
 type Rol = 'admin' | 'supervisor' | 'chofer';
 
@@ -16,10 +16,13 @@ interface Props {
   children: ReactNode;
 }
 
+const CLAVE_ANCHO_SIDEBAR = 'rutas:ancho-sidebar';
+
 /**
- * El unico trozo de cliente del marco: existe solo para que la barra lateral y
- * el boton de menu de la barra superior compartan el estado del cajon movil.
- * `children` llega ya renderizado desde el servidor y solo se coloca aqui.
+ * El unico trozo de cliente del marco: existe para que la barra lateral y el
+ * boton de menu de la barra superior compartan el estado del cajon movil, y
+ * para que el ancho de la barra lateral (arrastrable en escritorio) sobreviva
+ * a la navegacion entre paginas del panel.
  */
 export function MarcoPanel({
   nombre,
@@ -32,11 +35,34 @@ export function MarcoPanel({
   const [menuAbierto, setMenuAbierto] = useState(false);
   const cerrarMenu = useCallback(() => setMenuAbierto(false), []);
 
+  const [anchoSidebar, setAnchoSidebar] = useState(ANCHO_SIDEBAR_DEFECTO);
+
+  // El ancho preferido se lee del navegador, no del servidor: evita el
+  // desajuste de hidratacion entre lo que Next renderizo en el servidor y lo
+  // que localStorage tiene guardado en esta maquina.
+  useEffect(() => {
+    const guardado = Number(window.localStorage.getItem(CLAVE_ANCHO_SIDEBAR));
+    if (Number.isFinite(guardado) && guardado > 0) {
+      setAnchoSidebar(guardado);
+    }
+  }, []);
+
+  const cambiarAnchoSidebar = useCallback((ancho: number) => {
+    setAnchoSidebar(ancho);
+    window.localStorage.setItem(CLAVE_ANCHO_SIDEBAR, String(ancho));
+  }, []);
+
   // `h-dvh` + `overflow-hidden`: la barra lateral y la superior quedan fijas y
   // el unico que se desplaza es el area de contenido.
   return (
     <div className="flex h-dvh w-full overflow-hidden">
-      <NavegacionPanel rol={rol} abierto={menuAbierto} onCerrar={cerrarMenu} />
+      <NavegacionPanel
+        rol={rol}
+        abierto={menuAbierto}
+        onCerrar={cerrarMenu}
+        ancho={anchoSidebar}
+        onCambiarAncho={cambiarAnchoSidebar}
+      />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <BarraSuperior
           nombre={nombre}
@@ -46,8 +72,10 @@ export function MarcoPanel({
           accionCerrarSesion={accionCerrarSesion}
           onAbrirMenu={() => setMenuAbierto(true)}
         />
-        <main className="min-w-0 flex-1 overflow-y-auto bg-surface p-4 sm:p-6">
-          <div className="mx-auto w-full max-w-[1400px]">{children}</div>
+        {/* Sin contenedor de ancho maximo: el area de contenido usa todo el
+            espacio que la barra lateral le deja, de un telefono a una TV 4K. */}
+        <main className="min-w-0 flex-1 overflow-y-auto bg-surface p-4 sm:p-6 xl:p-8 2xl:p-10">
+          {children}
         </main>
       </div>
     </div>
