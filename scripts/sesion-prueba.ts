@@ -155,9 +155,19 @@ async function principal() {
     throw new Error(`No se pudo iniciar sesion como ${rol}: ${error?.message}`);
   }
 
-  const navegador = await chromium.launch({ headless: false });
+  // `chromium.launch` sin `--start-maximized` abre una ventana de 1280x720 en
+  // la mayoria de gestores de ventanas; el usuario la maximiza a mano despues.
+  // `viewport: null` es lo que deja que la pagina responda a ese cambio de
+  // tamano real de la ventana en vez de quedar fija al tamano de lanzamiento
+  // — con un viewport fijo, maximizar la ventana deja una franja sin pintar
+  // (el "canvas" de la pagina no crece) y cualquier lista larga se corta ahi,
+  // como si el panel no fuera responsive.
+  const navegador = await chromium.launch({
+    headless: false,
+    args: ['--start-maximized'],
+  });
   const contexto = await navegador.newContext({
-    viewport: { width: 1440, height: 900 },
+    viewport: null,
     locale: 'es-MX',
     timezoneId: 'America/Mexico_City',
   });
