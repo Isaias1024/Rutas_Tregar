@@ -251,6 +251,7 @@ function AsaRedimension({
   }
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: patron "window splitter" de WAI-ARIA APG (separador enfocable y ajustable con teclado) — <hr> no puede recibir foco ni aria-valuenow.
     <div
       role="separator"
       aria-label="Ajustar ancho del menu"

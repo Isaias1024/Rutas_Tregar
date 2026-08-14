@@ -7,6 +7,7 @@ import { db, dispositivo, perfilPersonal, usuario } from '@rutas/shared/db';
 import { and, eq, isNull } from 'drizzle-orm';
 import { registrarAuditoria } from '@/lib/audit/registrar';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { liberarYAuditar } from '@/server/choferes-nucleo';
 
 const NO_ENCONTRADO: Resultado<never> = {
   ok: false,
@@ -42,6 +43,12 @@ export async function bajaEmpleadoNucleo(
     .limit(1);
 
   await db.transaction(async (tx) => {
+    // Antes que nada, soltar sus rutas de hoy en adelante: un chofer dado de
+    // baja no puede seguir apareciendo como responsable de una ruta que ya no
+    // va a manejar, y esos horarios tienen que quedar libres para otro. Va
+    // DENTRO de esta transaccion: si la baja se revierte, las asignaciones
+    // vuelven a ser suyas. Las pasadas no se tocan — son el historial.
+    await liberarYAuditar(tx, actorId, usuarioId);
     // "Vacia perfil_personal" es literal: DELETE de la fila completa, no un
     // UPDATE a columnas nulas — §4 documenta la tabla como "una fila por
     // usuario, o ninguna si ya se dio de baja".

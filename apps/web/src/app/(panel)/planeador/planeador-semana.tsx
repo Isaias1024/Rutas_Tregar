@@ -52,23 +52,22 @@ interface AsignacionFila {
   camionCodigo: string;
 }
 
+// El camion viene con el chofer, no aparte: es una propiedad suya
+// (`usuario.camion_id`) y el planeador solo lo muestra.
 interface Chofer {
   id: string;
   nombre: string | null;
-}
-
-interface Camion {
-  id: string;
-  codigo: string;
-  estado: string;
+  camionCodigo: string | null;
+  camionEnMantenimiento: boolean;
 }
 
 interface Props {
   fechas: string[];
+  /** Fecha de hoy (YYYY-MM-DD) segun `fechaOperativa` — dia inicial y frontera de solo-lectura. */
+  hoy: string;
   horarios: Horario[];
   asignaciones: AsignacionFila[];
   choferes: Chofer[];
-  camiones: Camion[];
   semanaAnteriorHref: string;
   semanaSiguienteHref: string;
   accionAsignar: (input: Asignar) => Promise<Resultado<{ id: string }>>;
@@ -96,19 +95,28 @@ interface DialogoState {
 
 export function PlaneadorSemana({
   fechas,
+  hoy,
   horarios,
   asignaciones,
   choferes,
-  camiones,
   semanaAnteriorHref,
   semanaSiguienteHref,
   accionAsignar,
   accionReasignar,
   accionCancelar,
 }: Props) {
-  const [diaSeleccionado, setDiaSeleccionado] = useState(fechas[0] ?? '');
+  // Se abre en el dia de hoy cuando la semana en pantalla lo incluye; si no
+  // (semana anterior/siguiente), cae al primer dia de esa semana — ya no hay
+  // "hoy" que mostrar ahi.
+  const [diaSeleccionado, setDiaSeleccionado] = useState(
+    fechas.includes(hoy) ? hoy : (fechas[0] ?? ''),
+  );
   const [dialogo, setDialogo] = useState<DialogoState | null>(null);
   const [exitoCancelacion, setExitoCancelacion] = useState<string | null>(null);
+
+  // Un dia estrictamente anterior a hoy es solo consulta (§ Planeador — dias
+  // pasados): ni crear, reasignar ni cancelar. Hoy mismo sigue siendo editable.
+  const diaEsPasado = diaSeleccionado !== '' && diaSeleccionado < hoy;
 
   const horariosPorTurno = useMemo(() => {
     const mapa = new Map<Turno, Horario[]>();
@@ -190,6 +198,12 @@ export function PlaneadorSemana({
               </Button>
             ))}
           </div>
+
+          {diaEsPasado ? (
+            <p className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted-foreground">
+              Este dia ya paso y la planeacion es de solo lectura.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -221,16 +235,18 @@ export function PlaneadorSemana({
                             personas
                           </p>
                         </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            setDialogo({ horarioId: horario.id, asignacionExistente: null })
-                          }
-                        >
-                          Asignar
-                        </Button>
+                        {diaEsPasado ? null : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              setDialogo({ horarioId: horario.id, asignacionExistente: null })
+                            }
+                          >
+                            Asignar
+                          </Button>
+                        )}
                       </div>
 
                       {asignacionesDe(horario.id).length > 0 ? (
@@ -243,27 +259,29 @@ export function PlaneadorSemana({
                               <span>
                                 #{a.secuencia} · {a.choferNombre ?? 'Sin nombre'} · {a.camionCodigo}
                               </span>
-                              <span className="flex gap-2">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() =>
-                                    setDialogo({ horarioId: horario.id, asignacionExistente: a })
-                                  }
-                                >
-                                  Reasignar
-                                </Button>
-                                <BotonCancelar
-                                  asignacionId={a.id}
-                                  accionCancelar={accionCancelar}
-                                  onCancelada={() =>
-                                    setExitoCancelacion(
-                                      `${a.choferNombre ?? 'El chofer'} ya no esta asignado a ${horario.rutaNombre}.`,
-                                    )
-                                  }
-                                />
-                              </span>
+                              {diaEsPasado ? null : (
+                                <span className="flex gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      setDialogo({ horarioId: horario.id, asignacionExistente: a })
+                                    }
+                                  >
+                                    Reasignar
+                                  </Button>
+                                  <BotonCancelar
+                                    asignacionId={a.id}
+                                    accionCancelar={accionCancelar}
+                                    onCancelada={() =>
+                                      setExitoCancelacion(
+                                        `${a.choferNombre ?? 'El chofer'} ya no esta asignado a ${horario.rutaNombre}.`,
+                                      )
+                                    }
+                                  />
+                                </span>
+                              )}
                             </li>
                           ))}
                         </ul>
@@ -287,7 +305,6 @@ export function PlaneadorSemana({
         fecha={diaSeleccionado}
         choferes={choferes}
         choferesConTraslape={choferesConTraslape}
-        camiones={camiones}
         accionAsignar={accionAsignar}
         accionReasignar={accionReasignar}
         onCerrar={() => setDialogo(null)}
@@ -361,7 +378,6 @@ function BotonCancelar({
 
 interface FormularioAsignacion {
   choferId: string;
-  camionId: string;
 }
 
 function DialogoAsignar({
@@ -372,7 +388,6 @@ function DialogoAsignar({
   fecha,
   choferes,
   choferesConTraslape,
-  camiones,
   accionAsignar,
   accionReasignar,
   onCerrar,
@@ -384,7 +399,6 @@ function DialogoAsignar({
   fecha: string;
   choferes: Chofer[];
   choferesConTraslape: Set<string>;
-  camiones: Camion[];
   accionAsignar: Props['accionAsignar'];
   accionReasignar: Props['accionReasignar'];
   onCerrar: () => void;
@@ -393,15 +407,14 @@ function DialogoAsignar({
   const [error, setError] = useState<string | null>(null);
 
   const form = useForm<FormularioAsignacion>({
-    defaultValues: {
-      choferId: asignacionExistente?.choferId ?? '',
-      camionId: asignacionExistente?.camionId ?? '',
-    },
-    values: {
-      choferId: asignacionExistente?.choferId ?? '',
-      camionId: asignacionExistente?.camionId ?? '',
-    },
+    defaultValues: { choferId: asignacionExistente?.choferId ?? '' },
+    values: { choferId: asignacionExistente?.choferId ?? '' },
   });
+
+  // El camion que va a quedar en la asignacion, mostrado en vivo conforme se
+  // elige el chofer. Es lectura, no entrada: el servidor lo vuelve a resolver
+  // al guardar y su respuesta es la que manda.
+  const choferElegido = choferes.find((c) => c.id === form.watch('choferId')) ?? null;
 
   function guardar(valores: FormularioAsignacion) {
     setError(null);
@@ -411,13 +424,11 @@ function DialogoAsignar({
           ? await accionReasignar({
               asignacionId: asignacionExistente.id,
               choferId: valores.choferId,
-              camionId: valores.camionId,
             })
           : await accionAsignar({
               horarioId: horarioId as string,
               fecha,
               choferId: valores.choferId,
-              camionId: valores.camionId,
             });
       if (!resultado.ok) {
         setError(resultado.error.mensaje);
@@ -450,10 +461,25 @@ function DialogoAsignar({
                   <SelectContent>
                     {choferes.map((chofer) => {
                       const traslapa = choferesConTraslape.has(chofer.id);
+                      // Un chofer sin camion, o con el camion en el taller, no
+                      // se puede planear: se apaga aqui y se dice por que, en
+                      // vez de dejar que el servidor lo rechace al guardar.
+                      const sinCamion = chofer.camionCodigo === null;
+                      const motivo = traslapa
+                        ? ' (horario encimado)'
+                        : sinCamion
+                          ? ' (sin camion asignado)'
+                          : chofer.camionEnMantenimiento
+                            ? ' (camion en mantenimiento)'
+                            : ` · ${chofer.camionCodigo}`;
                       return (
-                        <SelectItem key={chofer.id} value={chofer.id} disabled={traslapa}>
+                        <SelectItem
+                          key={chofer.id}
+                          value={chofer.id}
+                          disabled={traslapa || sinCamion || chofer.camionEnMantenimiento}
+                        >
                           {chofer.nombre ?? chofer.id}
-                          {traslapa ? ' (horario encimado)' : ''}
+                          {motivo}
                         </SelectItem>
                       );
                     })}
@@ -463,34 +489,16 @@ function DialogoAsignar({
             />
           </div>
 
+          {/* El camion no se elige: se deriva del chofer (§8). Se muestra
+              para que quien planea vea con que va a quedar la asignacion. */}
           <div className="space-y-1">
-            <label htmlFor="planeador-camion" className="text-sm font-medium">
-              Camion
-            </label>
-            <Controller
-              control={form.control}
-              name="camionId"
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="planeador-camion" className="w-full">
-                    <SelectValue placeholder="Selecciona un camion" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {camiones.map((camion) => (
-                      <SelectItem
-                        key={camion.id}
-                        value={camion.id}
-                        disabled={camion.estado === 'mantenimiento'}
-                      >
-                        {camion.codigo}
-                        {camion.estado === 'mantenimiento' ? ' (mantenimiento)' : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
+            <p className="text-sm font-medium">Camion</p>
+            <p className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted-foreground">
+              {choferElegido === null
+                ? 'Selecciona un chofer para ver su camion.'
+                : (choferElegido.camionCodigo ??
+                  'Este chofer no tiene camion asignado. Asignaselo en Catalogos > Choferes.')}
+            </p>
           </div>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}

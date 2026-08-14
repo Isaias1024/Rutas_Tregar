@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -31,6 +32,7 @@ export function DialogoConfirmar({
   onOpenChange,
   titulo,
   descripcion,
+  detalle,
   etiquetaConfirmar,
   etiquetaVolver = 'Cancelar',
   error,
@@ -41,6 +43,13 @@ export function DialogoConfirmar({
   onOpenChange: (abierto: boolean) => void;
   titulo: string;
   descripcion: string;
+  /**
+   * Lo que la accion va a arrastrar consigo, cuando hace falta enumerarlo: las
+   * rutas que pierde un chofer al darlo de baja, las rutas que usan una parada.
+   * `descripcion` es texto plano a proposito (va en un `DialogDescription`, que
+   * no admite bloques), asi que una lista se pasa por aqui.
+   */
+  detalle?: ReactNode;
   etiquetaConfirmar: string;
   /** El planeador lo cambia a "Volver": ahi la accion destructiva ya se llama "Cancelar". */
   etiquetaVolver?: string;
@@ -56,6 +65,7 @@ export function DialogoConfirmar({
           <DialogTitle>{titulo}</DialogTitle>
           <DialogDescription>{descripcion}</DialogDescription>
         </DialogHeader>
+        {detalle}
         {error ? (
           <p role="alert" className="text-sm text-destructive">
             {error}

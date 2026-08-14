@@ -36,12 +36,21 @@ export const choferCrearSchema = z.object({
   correo: z.union([z.email('Correo invalido'), z.literal('')]).optional(),
   telefono: z.string().trim().optional(),
 });
+// `camionId` vive aqui y NO en el planeador: el camion es del chofer, y este
+// formulario es el unico lugar donde se elige cual le toca. `null` es un
+// estado legitimo (un chofer recien dado de alta todavia no tiene camion),
+// pero un chofer sin camion no se puede asignar a una ruta — eso lo valida
+// `asignarNucleo`, no este esquema.
 export const choferEditarSchema = z.object({
   id: idSchema,
   nombre: z.string().trim().min(1, 'El nombre es obligatorio'),
   correo: z.union([z.email('Correo invalido'), z.literal('')]).optional(),
   telefono: z.string().trim().optional(),
   activo: z.boolean(),
+  camionId: z
+    .union([idSchema, z.literal('')])
+    .nullable()
+    .optional(),
 });
 
 export type ClienteCrear = z.infer<typeof clienteCrearSchema>;

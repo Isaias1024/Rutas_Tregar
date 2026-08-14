@@ -34,6 +34,11 @@ interface Parada {
   lng: number;
 }
 
+interface RutaQueUsa {
+  id: string;
+  nombre: string;
+}
+
 interface Props {
   titulo: string;
   descripcion: string;
@@ -41,6 +46,7 @@ interface Props {
   accionCrear: (input: unknown) => Promise<Resultado<{ id: string }>>;
   accionEditar: (input: unknown) => Promise<Resultado<{ id: string }>>;
   accionBorrar: (input: unknown) => Promise<Resultado<{ id: string }>>;
+  accionConsultarRutas: (input: unknown) => Promise<Resultado<RutaQueUsa[]>>;
   apiKey: string | undefined;
 }
 
@@ -51,6 +57,7 @@ export function TablaParadas({
   accionCrear,
   accionEditar,
   accionBorrar,
+  accionConsultarRutas,
   apiKey,
 }: Props) {
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
@@ -63,6 +70,7 @@ export function TablaParadas({
   const [porBorrar, setPorBorrar] = useState<Parada | null>(null);
   const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
   const [exitoBorrado, setExitoBorrado] = useState<string | null>(null);
+  const [rutasAfectadas, setRutasAfectadas] = useState<RutaQueUsa[] | null>(null);
 
   function abrirCrear() {
     setEditandoId(null);
@@ -82,7 +90,7 @@ export function TablaParadas({
     setDialogoAbierto(true);
   }
 
-  function guardar() {
+  function aplicarGuardado() {
     setError(null);
     startTransition(async () => {
       const resultado = editandoId
@@ -101,9 +109,37 @@ export function TablaParadas({
           });
       if (!resultado.ok) {
         setError(resultado.error.mensaje);
+        setRutasAfectadas(null);
         return;
       }
+      setRutasAfectadas(null);
       setDialogoAbierto(false);
+    });
+  }
+
+  /**
+   * Editar una parada cambia la direccion y las coordenadas de TODAS las rutas
+   * que la usan de golpe — las rutas la referencian, no guardan copia. Por eso
+   * el guardado de una edicion pasa antes por una confirmacion que enumera esas
+   * rutas; crear una parada nueva no afecta a nadie y guarda directo.
+   */
+  function guardar() {
+    setError(null);
+    if (!editandoId) {
+      aplicarGuardado();
+      return;
+    }
+    startTransition(async () => {
+      const consulta = await accionConsultarRutas(editandoId);
+      if (!consulta.ok) {
+        setError(consulta.error.mensaje);
+        return;
+      }
+      if (consulta.data.length === 0) {
+        aplicarGuardado();
+        return;
+      }
+      setRutasAfectadas(consulta.data);
     });
   }
 
@@ -150,11 +186,37 @@ export function TablaParadas({
           }
         }}
         titulo="Borrar parada"
-        descripcion={`La parada "${porBorrar?.nombre ?? ''}" deja de estar disponible para rutas nuevas. Las rutas que ya la usan no cambian.`}
+        descripcion={`La parada "${porBorrar?.nombre ?? ''}" deja de estar disponible para rutas nuevas. Si alguna ruta la usa hoy, el borrado se rechaza y te decimos cuales.`}
         etiquetaConfirmar="Borrar"
         error={errorBorrado}
         pendiente={pendiente}
         onConfirmar={confirmarBorrado}
+      />
+
+      {/* Editar una parada en uso cambia todas sus rutas a la vez: se enumera
+          antes de aplicar, y quien confirma sabe exactamente que toca. */}
+      <DialogoConfirmar
+        abierto={rutasAfectadas !== null}
+        onOpenChange={(abierto) => {
+          if (!abierto) {
+            setRutasAfectadas(null);
+          }
+        }}
+        titulo="Esta parada esta en uso"
+        descripcion={`Si modificas "${nombre}", el cambio afecta a todas las rutas que la utilizan. Las rutas no guardan una copia: toman la direccion y las coordenadas de esta parada.`}
+        detalle={
+          <ul className="space-y-1 rounded-lg border border-warning/30 bg-warning/5 p-3">
+            {(rutasAfectadas ?? []).map((ruta) => (
+              <li key={ruta.id} className="text-sm text-foreground">
+                {ruta.nombre}
+              </li>
+            ))}
+          </ul>
+        }
+        etiquetaConfirmar="Modificar de todas formas"
+        error={error}
+        pendiente={pendiente}
+        onConfirmar={aplicarGuardado}
       />
 
       {paradas.length === 0 ? (

@@ -1,26 +1,20 @@
 'use client';
 
-import { TZDate } from '@date-fns/tz';
 import { derivarEstado, type EstadoSemaforo } from '@rutas/shared';
 import { colores, semaforo } from '@rutas/shared/tokens';
 import { useQuery } from '@tanstack/react-query';
-import { SearchIcon, TruckIcon, UserRoundIcon } from 'lucide-react';
+import { SearchIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EstadoVacio } from '@/components/estado-vacio';
-import { PastillaEstado } from '@/components/pastilla-estado';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { listarMonitorDelDia } from '@/server/monitor';
 import { DialogoCapturaManual } from './dialogo-captura-manual';
+import { horaTexto } from './formato';
+import { ResumenDia } from './resumen-dia';
+import { TarjetaRuta } from './tarjeta-ruta';
+import type { FilaMonitor } from './tipos';
 
 const REFRESH_MS = 30_000;
 const ORDEN_ESTADOS: EstadoSemaforo[] = [
@@ -30,15 +24,6 @@ const ORDEN_ESTADOS: EstadoSemaforo[] = [
   'adelantado',
   'pendiente',
 ];
-
-const ETIQUETA_TURNO: Record<string, string> = { manana: 'Manana', tarde: 'Tarde', noche: 'Noche' };
-
-function horaTexto(ms: number): string | null {
-  if (!ms) return null;
-  const ahora = new TZDate(ms, 'America/Mexico_City');
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`;
-}
 
 function normalizar(texto: string): string {
   return texto
@@ -105,7 +90,7 @@ export function MonitorTabla({ fecha }: Props) {
     queryFn: () => listarMonitorDelDia(fecha),
     refetchInterval: REFRESH_MS,
   });
-  const [capturaPara, setCapturaPara] = useState<{ id: string; rutaNombre: string } | null>(null);
+  const [capturaPara, setCapturaPara] = useState<FilaMonitor | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstados, setFiltroEstados] = useState<Set<EstadoSemaforo>>(new Set());
 
@@ -139,6 +124,23 @@ export function MonitorTabla({ fecha }: Props) {
     }
     return base;
   }, [filas]);
+
+  const resumenDia = useMemo(() => {
+    let pendientes = 0;
+    let enEjecucion = 0;
+    let finalizadas = 0;
+    for (const fila of filas) {
+      const tiposRegistrados = new Set(fila.eventos.map((evento) => evento.tipo));
+      if (tiposRegistrados.size === 0) {
+        pendientes += 1;
+      } else if (tiposRegistrados.has('retorno')) {
+        finalizadas += 1;
+      } else if (tiposRegistrados.has('inicio_ruta')) {
+        enEjecucion += 1;
+      }
+    }
+    return { total: filas.length, pendientes, enEjecucion, finalizadas, tarde: conteos.tarde };
+  }, [filas, conteos.tarde]);
 
   const terminoBusqueda = normalizar(busqueda.trim());
   const filasFiltradas = filas.filter((fila) => {
@@ -190,6 +192,8 @@ export function MonitorTabla({ fecha }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
+      <ResumenDia {...resumenDia} />
+
       <Card>
         <CardContent className="flex flex-col gap-3 p-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -252,86 +256,15 @@ export function MonitorTabla({ fecha }: Props) {
           />
         </Card>
       ) : (
-        <>
-          <Card className="hidden overflow-hidden md:block">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Ruta</TableHead>
-                  <TableHead>Turno</TableHead>
-                  <TableHead>Chofer</TableHead>
-                  <TableHead>Camion</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Captura manual</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filasFiltradas.map((fila) => (
-                  <TableRow key={fila.id}>
-                    <TableCell className="font-medium text-foreground">{fila.rutaNombre}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {ETIQUETA_TURNO[fila.turno] ?? fila.turno}
-                    </TableCell>
-                    <TableCell>{fila.choferNombre ?? 'Sin nombre'}</TableCell>
-                    <TableCell className="tabular-nums">{fila.camionCodigo}</TableCell>
-                    <TableCell>
-                      <PastillaEstado estado={fila.estado} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCapturaPara({ id: fila.id, rutaNombre: fila.rutaNombre })}
-                      >
-                        Registrar
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-
-          <ul className="flex flex-col gap-2.5 md:hidden">
-            {filasFiltradas.map((fila) => (
-              <li
-                key={fila.id}
-                className="rounded-lg border border-border bg-card p-3 shadow-tarjeta"
-                style={{ borderLeft: `3px solid ${semaforo[fila.estado].bg}` }}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="min-w-0 font-medium text-foreground">{fila.rutaNombre}</p>
-                  <PastillaEstado estado={fila.estado} />
-                </div>
-                <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                  <p className="flex items-center gap-1.5">
-                    <UserRoundIcon aria-hidden="true" className="size-3.5 shrink-0" />
-                    {ETIQUETA_TURNO[fila.turno] ?? fila.turno} · {fila.choferNombre ?? 'Sin nombre'}
-                  </p>
-                  <p className="flex items-center gap-1.5 tabular-nums">
-                    <TruckIcon aria-hidden="true" className="size-3.5 shrink-0" />
-                    {fila.camionCodigo}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-3 w-full"
-                  onClick={() => setCapturaPara({ id: fila.id, rutaNombre: fila.rutaNombre })}
-                >
-                  Registrar evento
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </>
+        <ul className="flex flex-col gap-3">
+          {filasFiltradas.map((fila) => (
+            <TarjetaRuta key={fila.id} fila={fila} onRegistrar={() => setCapturaPara(fila)} />
+          ))}
+        </ul>
       )}
 
       <DialogoCapturaManual
-        asignacionId={capturaPara?.id ?? null}
-        rutaNombre={capturaPara?.rutaNombre}
+        fila={capturaPara}
         onOpenChange={(abierto) => {
           if (!abierto) setCapturaPara(null);
         }}

@@ -6,7 +6,7 @@
 import '@/lib/env';
 import { asignarSchema, cancelarSchema, type Resultado, reasignarSchema } from '@rutas/shared';
 import { asignacion, camion, db, horario, perfilPersonal, ruta, usuario } from '@rutas/shared/db';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { can } from '@/lib/authz/can';
 import { asignarNucleo, cancelarNucleo, reasignarNucleo } from '@/server/planeador-nucleo';
@@ -73,21 +73,28 @@ export async function listarAsignacionesSemana(fechas: string[]) {
     .where(and(inArray(asignacion.fecha, fechas), isNull(asignacion.canceladaEn)));
 }
 
+/**
+ * Los choferes que se pueden planear, cada uno con el camion que trae HOY.
+ *
+ * El camion viaja junto al chofer porque el planeador ya no lo elige: lo
+ * muestra. Un chofer sin camion (o con el camion en mantenimiento) llega con
+ * `camionCodigo` nulo / `camionEnMantenimiento` en true para que la pantalla
+ * lo pueda apagar antes de que el servidor lo rechace — la decision real
+ * sigue siendo la de `asignarNucleo`.
+ */
 export async function listarChoferesElegibles() {
   return db
-    .select({ id: usuario.id, nombre: perfilPersonal.nombre })
+    .select({
+      id: usuario.id,
+      nombre: perfilPersonal.nombre,
+      camionCodigo: camion.codigo,
+      camionEnMantenimiento: sql<boolean>`coalesce(${camion.estado} = 'mantenimiento', false)`,
+    })
     .from(usuario)
     .leftJoin(perfilPersonal, eq(perfilPersonal.usuarioId, usuario.id))
+    .leftJoin(camion, and(eq(camion.id, usuario.camionId), isNull(camion.deletedAt)))
     .where(and(eq(usuario.rol, 'chofer'), eq(usuario.activo, true), isNull(usuario.deletedAt)))
     .orderBy(perfilPersonal.nombre);
-}
-
-export async function listarCamionesElegibles() {
-  return db
-    .select({ id: camion.id, codigo: camion.codigo, estado: camion.estado })
-    .from(camion)
-    .where(isNull(camion.deletedAt))
-    .orderBy(camion.codigo);
 }
 
 // === mutaciones =====================================================================

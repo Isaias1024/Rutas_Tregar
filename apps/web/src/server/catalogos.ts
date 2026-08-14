@@ -21,6 +21,13 @@ import { revalidatePath } from 'next/cache';
 import { can } from '@/lib/authz/can';
 import { registrarAuditoria } from '@/lib/audit/registrar';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { borrarClienteNucleo } from '@/server/clientes-nucleo';
+import {
+  liberarYAuditar,
+  listarChoferesConCamion,
+  type RutaActivaDeChofer,
+  rutasActivasDeChofer,
+} from '@/server/choferes-nucleo';
 import { obtenerUsuarioActual } from '@/server/sesion';
 
 // Cada mutacion sigue el orden obligatorio: parsear con zod -> can() ->
@@ -129,32 +136,11 @@ export async function borrarCliente(input: unknown): Promise<Resultado<{ id: str
     return SIN_PERMISO;
   }
 
-  // `isNull(deleted_at)` no es decorativo: sin el, borrar dos veces la misma
-  // fila respondia `ok` la segunda vez y el panel acusaba "eliminado
-  // correctamente" sobre algo que ya no existia — justo lo contrario de lo que
-  // promete el mensaje de NO_ENCONTRADO ("no existe o ya fue borrado"). Pasa
-  // de verdad: dos pestanas abiertas, o una lista que quedo vieja.
-  const [antes] = await db
-    .select()
-    .from(cliente)
-    .where(and(eq(cliente.id, parseo.data), isNull(cliente.deletedAt)))
-    .limit(1);
-  if (!antes) {
-    return NO_ENCONTRADO;
+  const resultado = await borrarClienteNucleo(actor.id, parseo.data);
+  if (resultado.ok) {
+    revalidatePath('/catalogos/clientes');
   }
-
-  await db.transaction(async (tx) => {
-    await tx.update(cliente).set({ deletedAt: new Date() }).where(eq(cliente.id, parseo.data));
-    await registrarAuditoria(tx, {
-      actor: actor.id,
-      accion: 'borrar',
-      recurso: { tipo: 'cliente', id: parseo.data },
-      antes: { nombre: antes.nombre },
-    });
-  });
-
-  revalidatePath('/catalogos/clientes');
-  return { ok: true, data: { id: parseo.data } };
+  return resultado;
 }
 
 // === camion =========================================================================
@@ -268,21 +254,33 @@ export async function borrarCamion(input: unknown): Promise<Resultado<{ id: stri
 
 // === chofer (usuario + perfil_personal) ============================================
 
+// Delega en choferes-nucleo.ts, que resuelve tambien el codigo del camion:
+// el catalogo tiene que mostrar que camion trae cada chofer, porque desde el
+// paso 8 de las reglas es aqui —y solo aqui— donde ese vinculo se elige.
 export async function listarChoferes() {
-  return db
-    .select({
-      id: usuario.id,
-      credencial: usuario.credencial,
-      activo: usuario.activo,
-      camionId: usuario.camionId,
-      nombre: perfilPersonal.nombre,
-      correo: perfilPersonal.correo,
-      telefono: perfilPersonal.telefono,
-    })
-    .from(usuario)
-    .leftJoin(perfilPersonal, eq(perfilPersonal.usuarioId, usuario.id))
-    .where(and(eq(usuario.rol, 'chofer'), isNull(usuario.deletedAt)))
-    .orderBy(perfilPersonal.nombre);
+  return listarChoferesConCamion();
+}
+
+/**
+ * Las rutas de hoy en adelante de un chofer, para la advertencia previa a la
+ * baja o al borrado. Este archivo es `'use server'`, asi que cada export es
+ * un endpoint RPC invocable desde el navegador — por eso lleva su propio
+ * `can()` aunque solo lea: son nombres de ruta y horarios de personal.
+ */
+export async function consultarRutasActivasDeChofer(
+  input: unknown,
+): Promise<Resultado<RutaActivaDeChofer[]>> {
+  const parseo = idSchema.safeParse(input);
+  if (!parseo.success) {
+    return errorValidacion('Id invalido');
+  }
+
+  const actor = await actorAutorizado();
+  if (!actor) {
+    return SIN_PERMISO;
+  }
+
+  return { ok: true, data: await rutasActivasDeChofer(parseo.data) };
 }
 
 function normalizar(texto: string): string {
@@ -412,7 +410,11 @@ export async function editarChofer(input: unknown): Promise<Resultado<{ id: stri
   }
 
   const [antes] = await db
-    .select({ activo: usuario.activo, nombre: perfilPersonal.nombre })
+    .select({
+      activo: usuario.activo,
+      camionId: usuario.camionId,
+      nombre: perfilPersonal.nombre,
+    })
     .from(usuario)
     .leftJoin(perfilPersonal, eq(perfilPersonal.usuarioId, usuario.id))
     .where(
@@ -426,9 +428,27 @@ export async function editarChofer(input: unknown): Promise<Resultado<{ id: stri
   const { id, nombre, activo } = parseo.data;
   const correo = parseo.data.correo || null;
   const telefono = parseo.data.telefono || null;
+  // `''` (el "sin camion" del `<select>`) y `null` significan lo mismo aqui:
+  // soltar el camion. Se normalizan a `null` antes de tocar la columna.
+  const camionId = parseo.data.camionId ? parseo.data.camionId : null;
+
+  // El camion tiene que existir y no estar borrado. Sin esto, el planeador
+  // resolveria mas tarde un `camion_id` colgado y respondia "este chofer no
+  // tiene camion" sin explicar por que — el error pertenece a este formulario,
+  // que es donde de verdad se eligio.
+  if (camionId) {
+    const [camionFila] = await db
+      .select({ id: camion.id })
+      .from(camion)
+      .where(and(eq(camion.id, camionId), isNull(camion.deletedAt)))
+      .limit(1);
+    if (!camionFila) {
+      return errorValidacion('El camion seleccionado no existe o fue borrado.', 'camionId');
+    }
+  }
 
   await db.transaction(async (tx) => {
-    await tx.update(usuario).set({ activo }).where(eq(usuario.id, id));
+    await tx.update(usuario).set({ activo, camionId }).where(eq(usuario.id, id));
     await tx
       .update(perfilPersonal)
       .set({ nombre, correo, telefono, actualizadoEn: new Date() })
@@ -437,8 +457,8 @@ export async function editarChofer(input: unknown): Promise<Resultado<{ id: stri
       actor: actor.id,
       accion: 'editar',
       recurso: { tipo: 'usuario', id },
-      antes: { nombre: antes.nombre, activo: antes.activo },
-      despues: { nombre, activo },
+      antes: { nombre: antes.nombre, activo: antes.activo, camionId: antes.camionId },
+      despues: { nombre, activo, camionId },
     });
   });
 
@@ -470,6 +490,11 @@ export async function borrarChofer(input: unknown): Promise<Resultado<{ id: stri
   }
 
   await db.transaction(async (tx) => {
+    // Igual que la baja (baja-nucleo.ts): un chofer que sale del catalogo
+    // suelta sus rutas de hoy en adelante en la MISMA transaccion, para que
+    // esos horarios queden libres y ninguna ruta quede apuntando a alguien
+    // que ya no existe para el planeador. Las pasadas se conservan.
+    await liberarYAuditar(tx, actor.id, parseo.data);
     await tx
       .update(usuario)
       .set({ activo: false, deletedAt: new Date() })

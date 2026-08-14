@@ -88,18 +88,22 @@ export function siguienteSecuencia(secuenciasExistentes: number[]): number {
 
 const fechaSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha invalida (YYYY-MM-DD)');
 
+// Sin `camionId` A PROPOSITO: el camion es una propiedad del chofer
+// (`usuario.camion_id`), no una eleccion del planeador. Quien asigna elige
+// UNICAMENTE el chofer y el servidor resuelve que camion le toca — es lo que
+// impide una asignacion "Juan + CAM-005" cuando Juan trae CAM-001. Aceptar
+// aqui un `camionId` del cliente seria justo la puerta por la que entra esa
+// inconsistencia, asi que el campo no existe en la entrada.
 export const asignarSchema = z.object({
   horarioId: idSchema,
   fecha: fechaSchema,
   choferId: idSchema,
-  camionId: idSchema,
 });
 export type Asignar = z.infer<typeof asignarSchema>;
 
 export const reasignarSchema = z.object({
   asignacionId: idSchema,
   choferId: idSchema,
-  camionId: idSchema,
 });
 export type Reasignar = z.infer<typeof reasignarSchema>;
 

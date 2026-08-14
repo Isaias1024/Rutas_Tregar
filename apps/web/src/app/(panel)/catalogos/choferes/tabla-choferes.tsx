@@ -32,16 +32,23 @@ import { AvisoAccion } from '@/components/aviso-accion';
 import { EstadoVacio } from '@/components/estado-vacio';
 import { EncabezadoPagina } from '@/components/shell/encabezado-pagina';
 import { Card } from '@/components/ui/card';
-import { DialogoConfirmar } from '@/components/ui/dialogo-confirmar';
+import { DialogoSalidaChofer, type RutaActiva } from './dialogo-salida-chofer';
 
 interface Chofer {
   id: string;
   credencial: string;
   activo: boolean;
   camionId: string | null;
+  camionCodigo: string | null;
   nombre: string | null;
   correo: string | null;
   telefono: string | null;
+}
+
+interface Camion {
+  id: string;
+  codigo: string;
+  estado: string;
 }
 
 interface CredencialesNuevas {
@@ -53,22 +60,26 @@ interface Props {
   titulo: string;
   descripcion: string;
   choferes: Chofer[];
+  camiones: Camion[];
   accionCrear: (
     input: unknown,
   ) => Promise<Resultado<{ id: string; credencial: string; passwordTemporal: string }>>;
   accionEditar: (input: unknown) => Promise<Resultado<{ id: string }>>;
   accionBorrar: (input: unknown) => Promise<Resultado<{ id: string }>>;
   accionDarDeBaja: (input: unknown) => Promise<Resultado<{ id: string }>>;
+  accionConsultarRutas: (input: unknown) => Promise<Resultado<RutaActiva[]>>;
 }
 
 export function TablaChoferes({
   titulo,
   descripcion,
   choferes,
+  camiones,
   accionCrear,
   accionEditar,
   accionBorrar,
   accionDarDeBaja,
+  accionConsultarRutas,
 }: Props) {
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [editando, setEditando] = useState<Chofer | null>(null);
@@ -106,6 +117,8 @@ export function TablaChoferes({
       correo: chofer.correo ?? '',
       telefono: chofer.telefono ?? '',
       activo: chofer.activo,
+      // `''` es el "Sin camion" del `<select>`; el servidor lo normaliza a null.
+      camionId: chofer.camionId ?? '',
     });
     setError(null);
     setDialogoAbierto(true);
@@ -180,23 +193,21 @@ export function TablaChoferes({
       {/* El error de una baja se pinta dentro del dialogo, no aqui. */}
       <AvisoAccion exito={exitoBaja} />
 
-      <DialogoConfirmar
-        abierto={porConfirmar !== null}
-        onOpenChange={(abierto) => {
-          if (!abierto) {
-            setPorConfirmar(null);
-          }
-        }}
-        titulo={porConfirmar?.tipo === 'baja' ? 'Dar de baja al chofer' : 'Borrar chofer'}
-        descripcion={
-          porConfirmar?.tipo === 'baja'
-            ? `Se borran el nombre, el correo y el telefono de "${porConfirmar.chofer.nombre ?? porConfirmar.chofer.credencial}" de forma permanente (LFPDPPP) y se revoca su acceso. Sus rutas y eventos historicos se conservan. No se puede deshacer.`
-            : `"${porConfirmar?.chofer.nombre ?? porConfirmar?.chofer.credencial ?? ''}" deja de aparecer en el catalogo y de poder asignarse. Sigue disponible en el historico.`
+      <DialogoSalidaChofer
+        chofer={
+          porConfirmar
+            ? {
+                id: porConfirmar.chofer.id,
+                nombre: porConfirmar.chofer.nombre ?? porConfirmar.chofer.credencial,
+              }
+            : null
         }
-        etiquetaConfirmar={porConfirmar?.tipo === 'baja' ? 'Dar de baja' : 'Borrar'}
-        error={errorBaja}
+        tipo={porConfirmar?.tipo ?? 'borrar'}
         pendiente={pendiente}
+        error={errorBaja}
+        onCerrar={() => setPorConfirmar(null)}
         onConfirmar={confirmar}
+        accionConsultarRutas={accionConsultarRutas}
       />
 
       {choferes.length === 0 ? (
@@ -211,6 +222,7 @@ export function TablaChoferes({
                 <TableRow>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Credencial</TableHead>
+                  <TableHead>Camion</TableHead>
                   <TableHead>Telefono</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
@@ -221,6 +233,11 @@ export function TablaChoferes({
                   <TableRow key={chofer.id}>
                     <TableCell>{chofer.nombre ?? '—'}</TableCell>
                     <TableCell className="font-mono text-sm">{chofer.credencial}</TableCell>
+                    <TableCell>
+                      {chofer.camionCodigo ?? (
+                        <span className="text-sm text-muted-foreground">Sin camion</span>
+                      )}
+                    </TableCell>
                     <TableCell>{chofer.telefono ?? '—'}</TableCell>
                     <TableCell>
                       <Badge variant={chofer.activo ? 'default' : 'secondary'}>
@@ -278,7 +295,8 @@ export function TablaChoferes({
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {chofer.credencial} · {chofer.telefono ?? 'sin telefono'}
+                  {chofer.credencial} · {chofer.camionCodigo ?? 'sin camion'} ·{' '}
+                  {chofer.telefono ?? 'sin telefono'}
                 </p>
                 <div className="mt-3 flex gap-2">
                   <Button
@@ -340,6 +358,29 @@ export function TablaChoferes({
                   Telefono (opcional)
                 </label>
                 <Input id="chofer-telefono-editar" {...formEditar.register('telefono')} />
+              </div>
+              {/* El unico lugar del panel donde se elige el camion de un
+                  chofer: el planeador ya no lo pregunta, lo deriva de aqui. */}
+              <div className="space-y-1">
+                <label htmlFor="chofer-camion-editar" className="text-sm font-medium">
+                  Camion asignado
+                </label>
+                <select
+                  id="chofer-camion-editar"
+                  className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm"
+                  {...formEditar.register('camionId')}
+                >
+                  <option value="">Sin camion</option>
+                  {camiones.map((camion) => (
+                    <option key={camion.id} value={camion.id}>
+                      {camion.codigo}
+                      {camion.estado === 'mantenimiento' ? ' (en mantenimiento)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-sm text-muted-foreground">
+                  Un chofer sin camion no se puede asignar a una ruta.
+                </p>
               </div>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" {...formEditar.register('activo')} />

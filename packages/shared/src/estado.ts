@@ -6,7 +6,34 @@ import type { EstadoSemaforo } from './tokens.ts';
 // La derivacion del semaforo (paso 12). El estado NUNCA se guarda en
 // ninguna columna: siempre se calcula a partir de los eventos.
 
-const ZONA_OPERATIVA = 'America/Mexico_City';
+export const ZONA_OPERATIVA = 'America/Mexico_City';
+
+/**
+ * El dia de operacion (`YYYY-MM-DD`) que corresponde a `ahora` en la zona
+ * operativa — el mismo formato que la columna `asignacion.fecha`.
+ *
+ * Existe para poder preguntar "que rutas de hoy en adelante trae este chofer"
+ * comparando texto contra `date`, sin convertir la columna. Se calcula por
+ * zona IANA y nunca por offset fijo: a las 23:00 del 1 de enero en Monterrey
+ * ya es dia 2 en UTC, y `new Date().toISOString().slice(0, 10)` devolveria el
+ * dia equivocado justo en el turno de noche, que es cuando esto mas importa.
+ */
+export function fechaOperativa(ahora: Date): string {
+  const local = new TZDate(ahora, ZONA_OPERATIVA);
+  const mes = String(local.getMonth() + 1).padStart(2, '0');
+  const dia = String(local.getDate()).padStart(2, '0');
+  return `${local.getFullYear()}-${mes}-${dia}`;
+}
+
+/**
+ * `true` si `fecha` (YYYY-MM-DD) ya paso segun el dia de operacion actual —
+ * es decir, es estrictamente anterior a hoy en `America/Mexico_City`. Hoy
+ * mismo NO cuenta como pasado: la planeacion sigue siendo editable durante
+ * todo el dia de operacion.
+ */
+export function esFechaPasada(fecha: string, ahora: Date = new Date()): boolean {
+  return fecha < fechaOperativa(ahora);
+}
 
 /** ±10 min alrededor de la hora esperada sigue siendo "a tiempo". */
 export const TOLERANCIA_A_TIEMPO_MIN = 10;

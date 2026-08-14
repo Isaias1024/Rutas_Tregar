@@ -10,6 +10,11 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { can } from '@/lib/authz/can';
 import { registrarAuditoria } from '@/lib/audit/registrar';
+import {
+  borrarParadaNucleo,
+  type RutaQueUsaParada,
+  rutasQueUsanParada,
+} from '@/server/paradas-nucleo';
 import { obtenerUsuarioActual } from '@/server/sesion';
 
 // Igual que catalogos.ts: parsear con zod -> can() -> transaccion -> escribir
@@ -45,6 +50,27 @@ async function actorAutorizado() {
 // que este modulo nunca emite.
 export async function listarParadas() {
   return db.select().from(parada).where(isNull(parada.deletedAt)).orderBy(parada.nombre);
+}
+
+/**
+ * Para la advertencia previa a editar una parada. Como este archivo es
+ * `'use server'`, cada export es un endpoint RPC: lleva su `can()` propio
+ * aunque solo lea.
+ */
+export async function consultarRutasQueUsanParada(
+  input: unknown,
+): Promise<Resultado<RutaQueUsaParada[]>> {
+  const parseo = idSchema.safeParse(input);
+  if (!parseo.success) {
+    return errorValidacion('Id invalido');
+  }
+
+  const actor = await actorAutorizado();
+  if (!actor) {
+    return SIN_PERMISO;
+  }
+
+  return { ok: true, data: await rutasQueUsanParada(parseo.data) };
 }
 
 export async function crearParada(input: unknown): Promise<Resultado<{ id: string }>> {
@@ -127,26 +153,10 @@ export async function borrarParada(input: unknown): Promise<Resultado<{ id: stri
     return SIN_PERMISO;
   }
 
-  const [antes] = await db
-    .select()
-    .from(parada)
-    .where(and(eq(parada.id, parseo.data), isNull(parada.deletedAt)))
-    .limit(1);
-  if (!antes) {
-    return NO_ENCONTRADA;
+  const resultado = await borrarParadaNucleo(actor.id, parseo.data);
+  if (resultado.ok) {
+    revalidatePath('/paradas');
+    revalidatePath('/rutas');
   }
-
-  await db.transaction(async (tx) => {
-    await tx.update(parada).set({ deletedAt: new Date() }).where(eq(parada.id, parseo.data));
-    await registrarAuditoria(tx, {
-      actor: actor.id,
-      accion: 'borrar',
-      recurso: { tipo: 'parada', id: parseo.data },
-      antes: { nombre: antes.nombre, direccion: antes.direccion, lat: antes.lat, lng: antes.lng },
-    });
-  });
-
-  revalidatePath('/paradas');
-  revalidatePath('/rutas');
-  return { ok: true, data: { id: parseo.data } };
+  return resultado;
 }

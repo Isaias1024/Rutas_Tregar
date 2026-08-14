@@ -4,7 +4,12 @@
 // `.env` tiene que correr antes de que `@rutas/shared/db` evalue
 // `process.env.DATABASE_URL` al importarse. Import de solo efecto.
 import '@/lib/env';
-import { eventoManualSchema, type Resultado } from '@rutas/shared';
+import {
+  eventoManualSchema,
+  puedeRegistrar,
+  requiereContador,
+  type Resultado,
+} from '@rutas/shared';
 import { asignacion, camion, db, evento, horario, perfilPersonal, ruta } from '@rutas/shared/db';
 import { TZDate } from '@date-fns/tz';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
@@ -33,6 +38,11 @@ async function actorAutorizado() {
 // === consulta del dia ===============================================================
 
 export async function listarMonitorDelDia(fecha: string) {
+  // Monitor no guarda su propia copia de que ruta esta activa: consulta
+  // `ruta`/`horario` en vivo en cada llamada. Si la ruta se borro o el
+  // horario se desactivo despues de crear esta asignacion, la fila deja de
+  // calificar aqui aunque `asignacion.cancelada_en` siga nulo — es lo que
+  // impide que una ruta eliminada "sobreviva" en el monitor del dia.
   const filasAsignacion = await db
     .select({
       id: asignacion.id,
@@ -40,6 +50,7 @@ export async function listarMonitorDelDia(fecha: string) {
       horarioId: asignacion.horarioId,
       turno: horario.turno,
       horaInicioEsperada: horario.horaInicioEsperada,
+      horaFinEsperada: horario.horaFinEsperada,
       rutaNombre: ruta.nombre,
       choferNombre: perfilPersonal.nombre,
       camionCodigo: asignacion.camionCodigo,
@@ -50,7 +61,15 @@ export async function listarMonitorDelDia(fecha: string) {
     .innerJoin(ruta, eq(ruta.id, horario.rutaId))
     .leftJoin(perfilPersonal, eq(perfilPersonal.usuarioId, asignacion.choferId))
     .innerJoin(camion, eq(camion.id, asignacion.camionId))
-    .where(and(eq(asignacion.fecha, fecha), isNull(asignacion.canceladaEn)))
+    .where(
+      and(
+        eq(asignacion.fecha, fecha),
+        isNull(asignacion.canceladaEn),
+        isNull(horario.deletedAt),
+        eq(horario.activo, true),
+        isNull(ruta.deletedAt),
+      ),
+    )
     .orderBy(horario.horaInicioEsperada);
 
   const asignacionIds = filasAsignacion.map((fila) => fila.id);
@@ -94,7 +113,7 @@ export async function registrarEventoManual(input: unknown): Promise<Resultado<{
     return SIN_PERMISO;
   }
 
-  const { asignacionId, tipo, ocurrioEnLocal } = parseo.data;
+  const { asignacionId, tipo, ocurrioEnLocal, cantidad } = parseo.data;
   const [fechaTexto, horaTexto] = ocurrioEnLocal.split('T');
   const [anio, mes, dia] = (fechaTexto ?? '').split('-').map(Number);
   const [horas, minutos] = (horaTexto ?? '').split(':').map(Number);
@@ -110,8 +129,24 @@ export async function registrarEventoManual(input: unknown): Promise<Resultado<{
   const ocurrioEn = new TZDate(anio, mes - 1, dia, horas, minutos, 0, 'America/Mexico_City');
 
   const id = crypto.randomUUID();
+  let resultado: Resultado<{ id: string }>;
   try {
-    await db.transaction(async (tx) => {
+    resultado = await db.transaction(async (tx) => {
+      // Misma maquina de estados que sigue el chofer en la app (§ flujo.ts,
+      // `puedeRegistrar`): la pantalla del supervisor ya solo ofrece el
+      // siguiente paso, pero esto es lo que de verdad lo impone — nunca hay
+      // que confiar en que el cliente mande el `tipo` correcto.
+      const eventosExistentes = await tx
+        .select({ tipo: evento.tipo })
+        .from(evento)
+        .where(eq(evento.asignacionId, asignacionId));
+      if (!puedeRegistrar(tipo, eventosExistentes)) {
+        return errorValidacion(
+          'Ese no es el siguiente paso de la secuencia para esta ruta.',
+          'tipo',
+        );
+      }
+
       // Sin GPS a proposito: es una captura manual del supervisor, nunca
       // trae coordenadas del dispositivo del chofer.
       await tx.insert(evento).values({
@@ -129,12 +164,31 @@ export async function registrarEventoManual(input: unknown): Promise<Resultado<{
         capturadoPor: actor.id,
         clientEventId: crypto.randomUUID(),
       });
+
+      // Mismos dos pasos que la cola del chofer (apps/mobile/src/outbox/
+      // flusher.ts): el evento vive en `evento` (append-only) y el contador
+      // vive en `asignacion`, nunca en la fila del evento.
+      if (requiereContador(tipo) && cantidad !== undefined) {
+        await tx
+          .update(asignacion)
+          .set(tipo === 'fin_ruta' ? { cntAbordaron: cantidad } : { cntRetornaron: cantidad })
+          .where(eq(asignacion.id, asignacionId));
+      }
+
       await registrarAuditoria(tx, {
         actor: actor.id,
         accion: 'crear',
         recurso: { tipo: 'evento', id },
-        despues: { asignacionId, tipo, ocurrioEn: ocurrioEn.toISOString(), origen: 'supervisor' },
+        despues: {
+          asignacionId,
+          tipo,
+          ocurrioEn: ocurrioEn.toISOString(),
+          origen: 'supervisor',
+          ...(requiereContador(tipo) ? { cantidad } : {}),
+        },
       });
+
+      return { ok: true, data: { id } } satisfies Resultado<{ id: string }>;
     });
   } catch (error) {
     // Unique violation: (asignacion_id, tipo) ya existe (23505) — el evento
@@ -148,6 +202,8 @@ export async function registrarEventoManual(input: unknown): Promise<Resultado<{
     throw error;
   }
 
-  revalidatePath('/monitor');
-  return { ok: true, data: { id } };
+  if (resultado.ok) {
+    revalidatePath('/monitor');
+  }
+  return resultado;
 }

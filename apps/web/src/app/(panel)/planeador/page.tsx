@@ -1,8 +1,8 @@
+import { fechaOperativa } from '@rutas/shared';
 import {
   asignar,
   cancelar,
   listarAsignacionesSemana,
-  listarCamionesElegibles,
   listarChoferesElegibles,
   listarHorariosActivos,
   reasignar,
@@ -37,30 +37,35 @@ export default async function PaginaPlaneador({
   searchParams: Promise<{ semana?: string }>;
 }) {
   const { semana } = await searchParams;
+  // "Hoy" se calcula por zona IANA (America/Mexico_City), no por la hora
+  // local del host: en un servidor en UTC, `new Date()` puede caer del otro
+  // lado de la medianoche justo en el turno de noche.
+  const hoy = fechaOperativa(new Date());
   const base =
-    semana && /^\d{4}-\d{2}-\d{2}$/.test(semana) ? new Date(`${semana}T00:00:00`) : new Date();
+    semana && /^\d{4}-\d{2}-\d{2}$/.test(semana)
+      ? new Date(`${semana}T00:00:00`)
+      : new Date(`${hoy}T00:00:00`);
   const lunes = lunesDeSemana(base);
   const fechas = Array.from({ length: 7 }, (_, indice) => aISO(sumarDias(lunes, indice)));
 
-  const [horarios, asignaciones, choferes, camiones] = await Promise.all([
+  const [horarios, asignaciones, choferes] = await Promise.all([
     listarHorariosActivos(),
     listarAsignacionesSemana(fechas),
     listarChoferesElegibles(),
-    listarCamionesElegibles(),
   ]);
 
   return (
     <div className="space-y-6">
       <EncabezadoPagina
         titulo="Planeador semanal"
-        descripcion="Asigna chofer y camion a cada horario de la semana."
+        descripcion="Asigna un chofer a cada horario de la semana. El camion lo trae el chofer."
       />
       <PlaneadorSemana
         fechas={fechas}
+        hoy={hoy}
         horarios={horarios}
         asignaciones={asignaciones}
         choferes={choferes}
-        camiones={camiones}
         semanaAnteriorHref={`/planeador?semana=${aISO(sumarDias(lunes, -7))}`}
         semanaSiguienteHref={`/planeador?semana=${aISO(sumarDias(lunes, 7))}`}
         accionAsignar={asignar}
