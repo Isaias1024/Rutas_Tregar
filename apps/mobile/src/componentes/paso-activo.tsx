@@ -1,19 +1,27 @@
 import { requiereContador, type TipoEvento } from '@rutas/shared';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Text, TextInput, View } from 'react-native';
+import { BotonPrimario } from './BotonPrimario';
 
-const ETIQUETA_PASO: Record<TipoEvento, string> = {
+/**
+ * Lo que dice el boton en cada hito, en primera persona y en voz de accion.
+ *
+ * `inicio_ruta` y `retorno` son literalmente "Iniciar ruta" y "Finalizar ruta":
+ * son los dos momentos que el chofer nombra asi y los que el resto de la app
+ * (badges, resumen) refleja como EN CURSO y COMPLETADA. Los otros tres siguen
+ * siendo hitos reales del flujo, solo que de preparacion y cierre.
+ */
+export const ETIQUETA_ACCION: Record<TipoEvento, string> = {
   vio_ruta: 'Vi la ruta',
-  listo_inicio: 'Listo para iniciar',
-  inicio_ruta: 'Inicie la ruta',
-  fin_ruta: 'Llegue al final',
-  retorno: 'Regrese',
+  listo_inicio: 'Estoy listo para iniciar',
+  inicio_ruta: 'Iniciar ruta',
+  fin_ruta: 'Llegue al destino',
+  retorno: 'Finalizar ruta',
 };
 
 const PLACEHOLDER_CONTADOR: Partial<Record<TipoEvento, string>> = {
-  fin_ruta: '¿Cuantos abordaron?',
-  retorno: '¿Cuantos regresaron?',
+  fin_ruta: 'Cuantas personas bajaron?',
+  retorno: 'Cuantas personas regresaron?',
 };
 
 interface Props {
@@ -23,59 +31,84 @@ interface Props {
 }
 
 /**
- * Un solo boton activo, de ancho completo y 72px de alto, texto 20px
- * semibold (§ movil-expo.md). Cuando el paso pide contador, el textbox
- * numerico vive DENTRO de este mismo paso — no es una pantalla aparte — y
- * el boton se niega a confirmar sin un numero valido.
+ * Un solo boton activo, de ancho completo y 72px de alto (§ movil-expo.md).
+ *
+ * Cuando el paso pide contador, el textbox numerico vive DENTRO de este mismo
+ * paso — no es una pantalla aparte — pero **en segundo lugar**: primero el
+ * chofer marca el hito ("Llegue al destino"), y solo entonces se le pregunta el
+ * numero. Al reves no funcionaba: el boton nacia apagado esperando un dato que
+ * el chofer todavia no tiene, porque la gente no ha terminado de bajar cuando el
+ * camion apenas se detuvo. Se contaba primero y se marcaba despues, que es justo
+ * lo contrario del orden real.
+ *
+ * Sigue siendo UN evento y UNA escritura: el hito no se registra al primer
+ * toque, solo abre la pregunta. `onConfirmar` se llama una sola vez, con el
+ * contador ya dentro — `evento` es append-only y no se corrige con un UPDATE
+ * posterior.
+ *
+ * Quien lo usa **tiene que montarlo con `key={tipo}`**: este componente guarda
+ * la fase y el numero tecleado, y al avanzar de hito ese estado debe morir con
+ * el paso anterior. Sin la `key` es el mismo componente montado al que solo le
+ * cambia el `tipo`, y el numero de "cuantas bajaron" reaparecia prellenado en
+ * "cuantas regresaron".
  */
 export function PasoActivo({ tipo, registrando, onConfirmar }: Props) {
-  const [contadorTexto, setContadorTexto] = useState('');
   const necesitaContador = requiereContador(tipo);
+  const [pidiendoContador, setPidiendoContador] = useState(false);
+  const [contadorTexto, setContadorTexto] = useState('');
+
   const contadorNumero = Number.parseInt(contadorTexto, 10);
   const contadorValido =
-    !necesitaContador ||
-    (contadorTexto.trim() !== '' && Number.isFinite(contadorNumero) && contadorNumero >= 0);
+    contadorTexto.trim() !== '' && Number.isFinite(contadorNumero) && contadorNumero >= 0;
 
-  const escala = useSharedValue(1);
-  const estiloEscala = useAnimatedStyle(() => ({ transform: [{ scale: escala.value }] }));
-
-  return (
-    <View className="gap-3">
-      {necesitaContador ? (
+  if (necesitaContador && pidiendoContador) {
+    return (
+      <View className="gap-3">
         <View>
           <Text className="mb-1 text-base font-medium text-foreground">
             {PLACEHOLDER_CONTADOR[tipo]}
           </Text>
-          <TextInput
-            className="h-14 rounded-app border border-border px-4 text-lg text-foreground"
-            keyboardType="number-pad"
-            value={contadorTexto}
-            onChangeText={setContadorTexto}
-            editable={!registrando}
-            testID="input-contador"
-          />
-        </View>
-      ) : null}
-      <Animated.View style={estiloEscala}>
-        <Pressable
-          className="h-[72px] items-center justify-center rounded-app bg-primary disabled:opacity-50"
-          disabled={registrando || !contadorValido}
-          onPressIn={() => {
-            escala.value = withTiming(0.97, { duration: 100 });
-          }}
-          onPressOut={() => {
-            escala.value = withTiming(1, { duration: 150 });
-          }}
-          onPress={() => onConfirmar(necesitaContador ? contadorNumero : undefined)}
-          testID="boton-paso-activo"
-        >
-          {registrando ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text className="text-xl font-semibold text-primary-fg">{ETIQUETA_PASO[tipo]}</Text>
+          <View
+            className={`rounded-app border-2 px-4 py-3 ${
+              contadorValido ? 'border-primary bg-primary/5' : 'border-border bg-surface'
+            }`}
+          >
+            <TextInput
+              className="text-2xl font-bold tabular-nums text-foreground"
+              style={{ minHeight: 52 }}
+              keyboardType="decimal-pad"
+              placeholder="0"
+              placeholderTextColor="#94a3b8"
+              value={contadorTexto}
+              onChangeText={setContadorTexto}
+              editable={!registrando}
+              autoFocus
+              testID="input-contador"
+            />
+          </View>
+          {contadorTexto && !contadorValido && (
+            <Text className="mt-1 text-sm text-destructive">
+              Ingresa un número válido (0 o mayor)
+            </Text>
           )}
-        </Pressable>
-      </Animated.View>
-    </View>
+        </View>
+        <BotonPrimario
+          etiqueta="Confirmar"
+          ocupado={registrando}
+          deshabilitado={!contadorValido}
+          onPress={() => onConfirmar(contadorNumero)}
+          testID="boton-paso-activo"
+        />
+      </View>
+    );
+  }
+
+  return (
+    <BotonPrimario
+      etiqueta={ETIQUETA_ACCION[tipo]}
+      ocupado={registrando}
+      onPress={() => (necesitaContador ? setPidiendoContador(true) : onConfirmar())}
+      testID="boton-paso-activo"
+    />
   );
 }
