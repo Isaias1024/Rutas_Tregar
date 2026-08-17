@@ -108,22 +108,22 @@ type Chofer = {
 const CHOFERES: Chofer[] = [
   {
     credencial: 'driver1',
-    nombre: 'Driver',
-    apellido: 'Uno',
+    nombre: 'Isaias',
+    apellido: 'Barajas',
     correoContacto: 'driver1@test.com',
     telefono: '8110000001',
   },
   {
     credencial: 'driver2',
-    nombre: 'Driver',
-    apellido: 'Dos',
+    nombre: 'Karla',
+    apellido: 'Esparza',
     correoContacto: 'driver2@test.com',
     telefono: '8110000002',
   },
   {
     credencial: 'driver3',
-    nombre: 'Driver',
-    apellido: 'Tres',
+    nombre: 'Leonel',
+    apellido: 'De La Garza',
     correoContacto: 'driver3@test.com',
     telefono: '8110000003',
   },
