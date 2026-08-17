@@ -1,5 +1,5 @@
 import { TZDate } from '@date-fns/tz';
-import { estadoRuta, ORDEN_PASOS, requiereContador, siguientePaso } from '@rutas/shared';
+import { estadoRuta, ORDEN_PASOS, puedeRegistrar, requiereContador, siguientePaso, type TipoIncidente } from '@rutas/shared';
 import { format } from 'date-fns';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -7,6 +7,7 @@ import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CabeceraDetalleRuta } from '@/componentes/CabeceraDetalleRuta';
 import { ModalConfirmacion } from '@/componentes/ModalConfirmacion';
+import { ModalIncidente } from '@/componentes/ModalIncidente';
 import { ETIQUETA_ACCION, PasoActivo } from '@/componentes/paso-activo';
 import { PasoStepper, type PasoStepperItem } from '@/componentes/paso-stepper';
 import { type AsignacionDetallada, obtenerAsignacionPorId } from '@/datos/asignaciones';
@@ -63,6 +64,7 @@ export default function PaginaDetalleRuta() {
   const [error, setError] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState<number | undefined>(undefined);
   const [pidiendoConfirmacion, setPidiendoConfirmacion] = useState(false);
+  const [pidiendoIncidente, setPidiendoIncidente] = useState(false);
 
   const cargar = useCallback(async () => {
     const [detalle, respuestaEventos, pendientes] = await Promise.all([
@@ -124,6 +126,29 @@ export default function PaginaDetalleRuta() {
     }
   }
 
+  async function registrarIncidente(razon: TipoIncidente) {
+    if (!usuario) {
+      return;
+    }
+    setRegistrando(true);
+    setError(null);
+    try {
+      await registrarEvento({
+        asignacionId: id,
+        tipo: 'fin_ruta_incidente',
+        capturadoPor: usuario.id,
+        razonIncidente: razon,
+      });
+      await cargar();
+      void vaciarCola();
+    } catch {
+      setError('No se pudo registrar el incidente. Intenta de nuevo.');
+    } finally {
+      setRegistrando(false);
+      setPidiendoIncidente(false);
+    }
+  }
+
   /**
    * Solo `retorno` pregunta antes: es el hito que cierra la ruta y `evento` es
    * append-only — marcarlo por error no se deshace desde la app, hay que ir al
@@ -161,6 +186,7 @@ export default function PaginaDetalleRuta() {
   const inicioReal = horaDelPaso(eventos, 'inicio_ruta');
   const finReal = horaDelPaso(eventos, 'retorno');
   const eventosPorTipo = new Map(eventos.map((evento) => [evento.tipo, evento]));
+  const puedeTerminarConIncidente = puedeRegistrar('fin_ruta_incidente', eventos);
 
   const pasosStepper: PasoStepperItem[] = ORDEN_PASOS.map((tipoPaso) => {
     const cumplido = eventosPorTipo.get(tipoPaso);
@@ -236,6 +262,22 @@ export default function PaginaDetalleRuta() {
           />
         ) : null}
 
+        {puedeTerminarConIncidente && !esSoloLectura ? (
+          <View className="gap-2">
+            <Text className="text-center text-sm text-foreground-muted">
+              Si no puedes completar la ruta normalmente
+            </Text>
+            <View className="rounded-lg border border-destructive bg-destructive/5 p-4">
+              <Text
+                onPress={() => setPidiendoIncidente(true)}
+                className="text-center text-base font-semibold text-destructive underline"
+              >
+                Terminar ruta por incidente
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         {estado === 'cancelada' ? (
           <Text className="text-center text-base text-foreground-muted">
             Esta ruta fue cancelada por el supervisor.
@@ -255,6 +297,13 @@ export default function PaginaDetalleRuta() {
         ocupado={registrando}
         onConfirmar={() => void registrar(confirmando)}
         onCancelar={() => setPidiendoConfirmacion(false)}
+      />
+
+      <ModalIncidente
+        visible={pidiendoIncidente}
+        ocupado={registrando}
+        onSeleccionar={registrarIncidente}
+        onCancelar={() => setPidiendoIncidente(false)}
       />
     </SafeAreaView>
   );

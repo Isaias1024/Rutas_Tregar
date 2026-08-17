@@ -43,6 +43,13 @@
       "when": 1786214426743,
       "tag": "0005_mean_cobalt_man",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786996346498,
+      "tag": "0006_red_wallop",
+      "breakpoints": true
     }
   ]
 }

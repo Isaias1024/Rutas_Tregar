@@ -1,4 +1,4 @@
-import type { TipoEvento } from '@rutas/shared';
+import type { TipoEvento, TipoIncidente } from '@rutas/shared';
 import * as Crypto from 'expo-crypto';
 import { capturarUbicacion, type CoordenadasCapturadas } from '@/ubicacion';
 import { almacenSqlite, type AlmacenPendientes, type PayloadEvento } from './db';
@@ -11,6 +11,7 @@ export interface DatosRegistro {
   tipo: TipoEvento;
   capturadoPor: string;
   contador?: { campo: 'cnt_abordaron' | 'cnt_retornaron'; valor: number };
+  razonIncidente?: TipoIncidente;
 }
 
 /** Puro: separado de registrarEvento para poder probarse sin GPS, SQLite ni expo-crypto. */
@@ -32,6 +33,7 @@ export function construirPayload(
     origen: 'app',
     capturado_por: datos.capturadoPor,
     contador: datos.contador,
+    razon_incidente: datos.razonIncidente ?? null,
   };
 }
 

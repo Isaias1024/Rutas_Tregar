@@ -44,7 +44,14 @@ export const tipoEventoEnum = pgEnum('tipo_evento', [
   'listo_inicio',
   'inicio_ruta',
   'fin_ruta',
+  'fin_ruta_incidente',
   'retorno',
+]);
+export const tipoIncidenteEnum = pgEnum('tipo_incidente', [
+  'emergencia_personal',
+  'choque',
+  'trafico',
+  'otro',
 ]);
 export const origenEventoEnum = pgEnum('origen_evento', ['app', 'supervisor']);
 export const tipoNotificacionEnum = pgEnum('tipo_notificacion', [
@@ -212,6 +219,7 @@ export const evento = pgTable(
       .notNull()
       .references(() => usuario.id),
     clientEventId: uuid('client_event_id').notNull().unique(),
+    razonIncidente: tipoIncidenteEnum('razon_incidente'),
   },
   (t) => [
     unique('evento_asignacion_tipo_key').on(t.asignacionId, t.tipo),

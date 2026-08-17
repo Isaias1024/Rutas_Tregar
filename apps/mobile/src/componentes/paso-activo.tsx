@@ -16,6 +16,7 @@ export const ETIQUETA_ACCION: Record<TipoEvento, string> = {
   listo_inicio: 'Estoy listo para iniciar',
   inicio_ruta: 'Iniciar ruta',
   fin_ruta: 'Llegue al destino',
+  fin_ruta_incidente: 'Terminar ruta por incidente',
   retorno: 'Finalizar ruta',
 };
 

@@ -1,4 +1,4 @@
-import type { TipoEvento } from '@rutas/shared';
+import type { TipoEvento, TipoIncidente } from '@rutas/shared';
 import * as SQLite from 'expo-sqlite';
 
 // Esquema local del outbox (paso 11). "Offline es requisito, no mejora":
@@ -18,6 +18,7 @@ export interface PayloadEvento {
   capturado_por: string;
   /** Se aplica en `asignacion` al subir, no en `evento`. */
   contador?: { campo: 'cnt_abordaron' | 'cnt_retornaron'; valor: number };
+  razon_incidente?: TipoIncidente | null;
 }
 
 export interface FilaPendiente {

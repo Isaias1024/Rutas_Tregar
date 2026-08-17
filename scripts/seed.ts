@@ -138,43 +138,98 @@ function correoDeChofer(credencial: string): string {
 // Coordenadas reales del area metropolitana de Monterrey: el panel las pinta en
 // un mapa y una parada en medio del mar se nota de inmediato.
 const PARADAS = [
-  {
-    nombre: 'Stop 1',
-    direccion: 'Av. Colon 500, Centro, Monterrey, N.L.',
-    lat: 25.6714,
-    lng: -100.3096,
+ {
+    nombre: 'Av. Constitución & Av. Laderas',
+    direccion: 'Av. Constitución & Av. Laderas',
+    lat: 25.8406212,
+    lng: -100.4073241
   },
   {
-    nombre: 'Stop 2',
-    direccion: 'Parque Industrial Stiva, Apodaca, N.L.',
-    lat: 25.7785,
-    lng: -100.1817,
+    nombre: 'Cadereyta Jiménez',
+    direccion: 'HXM7+XH6 Cadereyta Jiménez, Nuevo León, México',
+    lat: 25.584903,
+    lng: -100.036116
   },
   {
-    nombre: 'Stop 3',
-    direccion: 'Av. Eugenio Garza Sada 2501, Monterrey, N.L.',
-    lat: 25.6512,
-    lng: -100.2895,
+    nombre: 'Cdad. Benito Juárez',
+    direccion: 'MW39+VRX Cdad. Benito Juárez, Nuevo León, México',
+    lat: 25.654747,
+    lng: -100.080382
   },
   {
-    nombre: 'Stop 4',
-    direccion: 'Parque Industrial Milimex, Santa Catarina, N.L.',
-    lat: 25.6866,
-    lng: -100.4593,
+    nombre: 'C. San Lucas & Cam. A San Javier',
+    direccion: 'C. San Lucas & Cam. A San Javier',
+    lat: 25.7380904,
+    lng: -100.135478
   },
   {
-    nombre: 'Stop 5',
-    direccion: 'Av. Benito Juarez 1000, Guadalupe, N.L.',
-    lat: 25.6776,
-    lng: -100.2593,
+    nombre: 'Av. Abraham Lincoln PTE - OTE (Parada de autobús)',
+    direccion: 'GAR-0265 Av. Abraham Lincoln PTE - OTE (Parada de autobús)',
+    lat: 25.80596,
+    lng: -100.56027
   },
   {
-    nombre: 'Stop 6',
-    direccion: 'Carretera Miguel Aleman km 15, Ciudad Benito Juarez, N.L.',
-    lat: 25.6488,
-    lng: -100.0947,
+    nombre: 'Fraccionamiento Real Palmas, Nuevo León, México',
+    direccion: 'WR2Q+5FQ Fraccionamiento Real Palmas, Nuevo León, México',
+    lat: 25.900463,
+    lng: -100.161257
+  },
+  {
+    nombre: 'Banorte (Ciénega de Flores)',
+    direccion: 'Banorte (Ciénega de Flores)',
+    lat: 25.9527542,
+    lng: -100.1682797
+  },
+  {
+    nombre: 'S-Mart (Carr. A Reynosa, Guadalupe)',
+    direccion: 'S-Mart (Carr. A Reynosa, Guadalupe',
+    lat: 25.6611818,
+    lng: -100.1493921
+  },
+  {
+    nombre: 'Cedis Michelin',
+    direccion: 'Cedis Michelin',
+    lat: 25.8770089,
+    lng: -100.2340557,
+  },
+  {
+    nombre: 'CEVA Lenovo',
+    direccion: 'CEVA Logistics (Lenovo Stand Alone)',
+    lat: 25.7896213,
+    lng: -100.1676254,
+  },
+  {
+    nombre: 'CEVA Mty',
+    direccion: 'CEVA Logistics Monterrey',
+    lat: 25.7623993,
+    lng: -100.1283012,
+  },
+  {
+    nombre: 'CEVA Apodaca',
+    direccion: 'CEVA Logistics MTY (Apodaca)',
+    lat: 25.7713358,
+    lng: -100.1438705,
+  },
+  {
+    nombre: 'Laboratorios Griffith',
+    direccion: 'Laboratorios Griffith de México',
+    lat: 25.685572,
+    lng: -100.4628042,
+  },
+  {
+    nombre: 'Rosenberger',
+    direccion: 'Rosenberger Mexico SA de CV',
+    lat: 25.7585531,
+    lng: -100.119366,
+  },
+  {
+    nombre: 'SEAH Precision Apodaca',
+    direccion: 'SEAH Precision Mexico - Planta Apodaca',
+    lat: 25.7774548,
+    lng: -100.1631919,
   },
 ] as const;
+
 
 const CAMIONES = [
   { codigo: 'T01', tipo: 'Van', placas: 'NLE-0101-A' },
@@ -190,27 +245,27 @@ const CAMIONES = [
 // esas se siembran cero.
 const RUTAS = [
   {
-    nombre: 'Route 1',
-    inicio: 'Stop 1',
-    fin: 'Stop 2',
+    nombre: 'CEVA - ESCOBEDO',
+    inicio: 'Av. Constitución & Av. Laderas',
+    fin: 'CEVA Lenovo',
     turno: 'manana' as const,
-    horaInicioEsperada: '06:00',
-    horaFinEsperada: '07:00',
+    horaInicioEsperada: '04:10',
+    horaFinEsperada: '05:10',
     personasEsperadas: 20,
   },
   {
-    nombre: 'Route 2',
-    inicio: 'Stop 3',
-    fin: 'Stop 4',
+    nombre: 'ROSENBERGER - CADEREYTA',
+    inicio: 'Cadereyta Jiménez',
+    fin: 'Rosenberger',
     turno: 'tarde' as const,
     horaInicioEsperada: '14:00',
     horaFinEsperada: '15:00',
     personasEsperadas: 18,
   },
   {
-    nombre: 'Route 3',
-    inicio: 'Stop 5',
-    fin: 'Stop 6',
+    nombre: 'CEVA GP - JUAREZ',
+    inicio: 'Cdad. Benito Juárez',
+    fin: 'CEVA Mty',
     turno: 'noche' as const,
     horaInicioEsperada: '20:00',
     horaFinEsperada: '21:00',
@@ -218,7 +273,7 @@ const RUTAS = [
   },
 ] as const;
 
-const NOMBRE_CLIENTE = 'Test Client';
+const NOMBRE_CLIENTE = 'CEVA';
 
 // --- limpieza -----------------------------------------------------------------
 
