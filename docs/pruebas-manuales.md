@@ -272,14 +272,59 @@ pnpm db:check
 pnpm db:seed
 ```
 
-**Que deberias ver:** `Semilla lista.`
+> ⚠️ **Este comando BORRA TODOS los datos antes de sembrar**, incluidas las cuentas de acceso. Es a
+> proposito: cada corrida deja la base exactamente igual. Solo funciona contra la base local; si lo
+> apuntas a un Supabase que no sea `127.0.0.1`, se niega a correr.
 
-Esto crea un cliente, tres paradas, dos camiones (`T23`, `T24`), dos rutas con sus horarios y dos
-choferes de ejemplo (`jperez`, `mgarcia`).
+**Que deberias ver:** las credenciales de todos los usuarios y un resumen que termina en
+`Status: SUCCESS`.
 
-> **Ojo:** los dos choferes de la semilla tienen contrasenas aleatorias que nadie conoce, asi que
-> **no sirven para entrar a la app**. Para probar la app vas a crear un chofer nuevo desde el panel,
-> que si te muestra su contrasena (§8, paso 2). Es a proposito: asi se hace en la vida real.
+Deja siempre esto, ni mas ni menos:
+
+| Cosa | Cuantas |
+|---|---|
+| Administrador | 1 |
+| Supervisor | 1 |
+| Choferes | 3 |
+| Paradas | `Stop 1` … `Stop 6` |
+| Rutas | `Route 1`, `Route 2`, `Route 3`, cada una con su horario |
+| Camiones | `T01`, `T02`, `T03`, uno por chofer |
+| **Rutas programadas** | **0** |
+| **Asignaciones** | **0** |
+
+**Las credenciales, que no cambian nunca:**
+
+| Quien | Se teclea | Contrasena |
+|---|---|---|
+| Administrador (panel) | `admin@test.com` | `Admin123!` |
+| Supervisor (panel) | `supervisor@test.com` | `Supervisor123!` |
+| Chofer 1 (app) | `driver1` | `Driver123!` |
+| Chofer 2 (app) | `driver2` | `Driver123!` |
+| Chofer 3 (app) | `driver3` | `Driver123!` |
+
+> **Por que el chofer no teclea un correo:** la app pide **credencial**, no correo — el chofer nunca
+> ve uno. Por dentro se convierte en `driver1@choferes.rutas.local`, pero eso no se escribe en
+> ningun lado de la pantalla.
+
+Las 3 rutas quedan **sin programar a proposito**: existen como plantillas para que puedas ejercitar
+el Planeador desde cero (§8, paso 4). Ningun chofer trae rutas asignadas.
+
+### Paso 4.8 — Si a un chofer se le perdio la contrasena
+
+No hace falta al empezar: el paso 4.6 ya deja a los tres choferes con `Driver123!`. Sirve despues,
+cuando esa contrasena dejo de servir porque probaste la pantalla de cambio obligatorio:
+
+```powershell
+pnpm chofer:prueba
+```
+
+Le devuelve `Driver123!` a `driver1` (y lo reactiva si lo diste de baja). **No crea choferes**: si
+creara uno, ya no serian tres.
+
+| Bandera | Para que |
+|---|---|
+| `--credencial driver2` | Trabajar sobre otro chofer sembrado |
+| `--forzar-cambio` | Que vuelva a pedir el cambio de contrasena del primer ingreso (§8, paso 6) |
 
 ### Paso 4.7 — Instalar el navegador interno que genera los PDF
 
@@ -375,10 +420,13 @@ una ventana de navegador ya con la sesion puesta**, directo en el planeador.
 
 ```
 Navegador abierto en http://127.0.0.1:3000/planeador
-  usuario: prueba-admin (admin)
+  usuario: admin (admin)
 
 Cierra la ventana del navegador para terminar este comando.
 ```
+
+Entra como el administrador sembrado (`admin@test.com`), no como un usuario aparte: asi el panel
+sigue teniendo **exactamente un** administrador y un supervisor, como dice el paso 4.6.
 
 Y una ventana de Chrome nueva mostrando el panel.
 
@@ -539,7 +587,14 @@ llave de Google Maps configurada (lo normal en local), el formulario te pide **l
 
 ---
 
-### Paso 2 — Crear el chofer con el que vas a probar la app
+### Paso 2 — El chofer con el que vas a probar la app
+
+**Camino rapido (recomendado si solo quieres probar la app):** ya lo tienes del paso 4.6. Entra con
+`driver1` / `Driver123!`. Salta al paso 3.
+
+**Camino largo (para probar la pantalla de alta del panel):** este es el flujo real, el que usa el
+supervisor en la vida diaria, y conviene recorrerlo **al menos una vez**. Ojo: crea un **cuarto**
+chofer, asi que despues de probarlo el conteo ya no da tres.
 
 ☐ Entra a **Choferes** → **Nuevo chofer** → nombre `Chofer de Prueba`, telefono `8110000009` →
 **Crear**.
@@ -552,7 +607,9 @@ Contrasena temporal <algo como 7fK2p-QwZa>
 ```
 
 > ⚠️ **ANOTA LOS DOS AHORA MISMO, EN UN PAPEL O EN EL BLOC DE NOTAS.** Solo se muestran **una vez**:
-> es a proposito, y si los pierdes tienes que crear otro chofer.
+> es a proposito, y el panel no tiene boton para volver a mostrarlos ni para restablecer la
+> contrasena. Si los pierdes, o creas otro chofer, o usas `pnpm chofer:prueba` (§4.8), que si puede
+> reimponer una contrasena conocida.
 
 ☐ Cierra la ventana. El chofer aparece en la tabla con estado activo.
 
@@ -563,7 +620,7 @@ Contrasena temporal <algo como 7fK2p-QwZa>
 ☐ Entra a **Rutas** → **Nueva ruta** → nombre `Prueba - Planta Oriente`, cliente `Aceros Monterrey`,
 parada de inicio y parada de fin (elige dos distintas) → **Crear**.
 
-☐ En la fila de la ruta recien creada, agrega un **horario**: turno `manana`, hora de inicio
+☐ En la fila de la ruta recien creada, agrega un **horario**: turno `mañana`, hora de inicio
 esperada **una hora antes de la hora actual** (si son las 14:30, pon `13:30`), hora de fin esperada
 una hora despues (`15:30`), personas esperadas `18`.
 
@@ -829,7 +886,7 @@ Esto no reemplaza la prueba manual, pero es rapido y detecta lo que se rompio si
 | Comando | Que prueba | Cuanto tarda | Que debe salir hoy |
 |---|---|---|---|
 | `pnpm test` | La logica: semaforo, permisos, aislamiento de datos entre choferes | ~20 s | `Tests 161 passed (161)` |
-| `pnpm test:e2e` | El panel entero, manejado por un robot en un navegador | 1-3 min | `34 passed` |
+| `pnpm test:e2e` | El panel entero, manejado por un robot en un navegador | ~10 min | **28 pasan, 8 fallan** — pendiente conocido, ver abajo |
 | `pnpm test:mobile` | La app del chofer | ~25 s | **falla — ver abajo** |
 
 Las tres, en una terminal, con la base encendida:
@@ -841,6 +898,18 @@ pnpm test
 ```powershell
 pnpm test:e2e
 ```
+
+> **8 pruebas e2e fallan hoy, y es un pendiente conocido del panel, no de tu instalacion.** Las
+> tres del **Planeador** hacen `getByLabel('Camion')` y la del **Monitor** hace `getByLabel('Paso')`
+> (cada una cuenta doble: corren en escritorio y en movil-375). Ninguno de esos dos controles existe
+> ya: el camion **se deriva del chofer** y se muestra como texto, y el paso de la captura manual lo
+> decide `siguientePaso()`. O sea, la interfaz mejoro y las pruebas se quedaron atras — hay que
+> reescribir esas cuatro contra la interfaz actual.
+
+> **Las pruebas ensucian la base a proposito.** `pnpm test:e2e` crea sus propios usuarios
+> (`e2e-admin@example.com`, `e2e-supervisor@example.com`), un horario extra en `Route 1` y varias
+> rutas `Ruta E2E …`. Es correcto: una suite que dependiera de que nadie toque los datos de ejemplo
+> se cae sola. Si despues quieres volver a los conteos exactos del paso 4.6, corre `pnpm db:seed`.
 
 `pnpm test:e2e` necesita el panel levantado en <http://127.0.0.1:3000>; si `pnpm dev` no esta
 corriendo, Playwright lo arranca solo. Una prueba de `pnpm test` (la que genera el PDF del cliente)
@@ -905,7 +974,12 @@ pnpm db:seed
 > tablas y `db:seed` vuelve a meter los datos de ejemplo. Si te saltas alguno, el panel arranca pero
 > truena al abrir cualquier pantalla.
 
-Despues de esto tienes que volver a crear el chofer de prueba (§8, paso 2): el anterior ya no existe.
+Las credenciales despues del reset son **las mismas de siempre** (`admin@test.com` / `Admin123!`,
+`driver1` / `Driver123!`…): el seed no genera nada al azar, por eso no hay nada que volver a anotar.
+
+> **Si solo quieres limpiar los datos de prueba y nada mas**, `pnpm db:seed` a secas ya vacia la base
+> antes de sembrar. Los tres comandos de arriba hacen falta unicamente cuando tambien quieres
+> rehacer las **tablas** (por ejemplo despues de cambiar el esquema).
 
 ---
 
@@ -924,6 +998,9 @@ Despues de esto tienes que volver a crear el chofer de prueba (§8, paso 2): el 
 | El panel abre pero te manda siempre al login | Estas usando una ventana de navegador sin sesion | Cierra todo y usa **la ventana que abre `pnpm panel:sesion`** (§6.2) |
 | `pnpm panel:sesion` dice `faltan variables de Supabase` | Falta el `.env` o la base esta apagada | §4.2 y §4.3 |
 | La app muestra pantalla roja con `EXPO_PUBLIC_SUPABASE_URL` | La app arranco sin leer el `.env` | `Ctrl+C` y arranca de nuevo **con `--clear`** (§7.2) |
+| La app dice `Credencial o contrasena incorrecta.` con `driver1` / `Driver123!` | Ya cambiaste esa contrasena al probar el primer ingreso | `pnpm chofer:prueba` para devolverle `Driver123!` (§4.8) |
+| Escribiste `driver1@test.com` en la app y no entra | La app pide **credencial**, no correo | Teclea solo `driver1` (§4.6) |
+| `pnpm db:seed` dice `no es local y esta semilla BORRA TODOS los datos` | El `.env` apunta a un Supabase que no es el local | Revisa `NEXT_PUBLIC_SUPABASE_URL` en `.env`; deberia ser `http://127.0.0.1:54321` |
 | La app abre pero el login gira para siempre o dice error de red | La app no alcanza al servidor | Revisa la tabla de §7.1: `10.0.2.2` para emulador, la IP de la PC para telefono. Acepta el aviso del Firewall |
 | El telefono no lee el QR / no conecta | El telefono esta en otra red WiFi | Ponlos en la misma red. Si la red del trabajo aisla dispositivos, usa el emulador |
 | El PDF no se genera | Falta el navegador interno | `pnpm exec playwright install chromium` (§4.7) y asegurate de que `pnpm dev` siga corriendo |
@@ -983,6 +1060,9 @@ pnpm panel:sesion
 cd "C:\Users\isaia\OneDrive\Documentos\Tregar\Rutas_Tregar"
 pnpm --filter @rutas/mobile start --clear
 ```
+
+Credenciales fijas del seed (§4.6): panel `admin@test.com` / `Admin123!` · app `driver1` /
+`Driver123!`.
 
 Y el guion de prueba esta en §8.
 

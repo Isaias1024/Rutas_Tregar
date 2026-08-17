@@ -5,7 +5,11 @@ const { colores, radio } = require('@rutas/shared/tokens');
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ['./src/app/**/*.{js,jsx,ts,tsx}', './src/components/**/*.{js,jsx,ts,tsx}'],
+  // `componentes`, en espanol: es como se llama la carpeta de verdad. El glob
+  // decia `components` y por eso ninguna clase usada SOLO dentro de un
+  // componente llegaba a generarse — se veian bien de casualidad, porque las
+  // mismas clases aparecian tambien en alguna pantalla de `src/app`.
+  content: ['./src/app/**/*.{js,jsx,ts,tsx}', './src/componentes/**/*.{js,jsx,ts,tsx}'],
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
@@ -21,6 +25,10 @@ module.exports = {
         'foreground-muted': colores.fgMuted,
         destructive: colores.destructive,
         success: colores.success,
+        // `warning` pinta "En curso" e `info` los avisos de solo lectura: son
+        // los mismos dos tokens del semaforo del panel, no colores nuevos.
+        warning: colores.warning,
+        info: colores.info,
       },
       borderRadius: {
         app: `${radio.app}px`,

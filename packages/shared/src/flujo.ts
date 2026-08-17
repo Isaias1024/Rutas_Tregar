@@ -44,3 +44,38 @@ export function puedeRegistrar(tipo: TipoEvento, eventosRegistrados: EventoRegis
 export function requiereContador(tipo: TipoEvento): boolean {
   return tipo === 'fin_ruta' || tipo === 'retorno';
 }
+
+/**
+ * El ciclo de vida de una ruta tal como lo lee un humano en una tarjeta.
+ *
+ * NO es una sexta columna ni un estado guardado: se deriva de los mismos
+ * cinco hitos de `ORDEN_PASOS` (§8 "el estado se deriva, nunca se guarda").
+ * Los cinco pasos siguen siendo el motor — enum de Postgres, RLS, monitor del
+ * panel y CSV del cliente dependen de ellos; esto solo los agrupa en las
+ * cuatro etiquetas que el chofer necesita distinguir de un vistazo.
+ */
+export type EstadoRuta = 'pendiente' | 'en_curso' | 'completada' | 'cancelada';
+
+/**
+ * `cancelada` gana sobre todo lo demas: una asignacion con `cancelada_en`
+ * puesto ya no se ejecuta aunque traiga eventos de cuando si estaba vigente.
+ * Despues manda el avance: `retorno` (el ultimo hito) la cierra, `inicio_ruta`
+ * la pone en curso, y `vio_ruta`/`listo_inicio` todavia son preparacion — la
+ * ruta no arranco, asi que sigue pendiente.
+ */
+export function estadoRuta(
+  eventosRegistrados: EventoRegistrado[],
+  canceladaEn?: string | null,
+): EstadoRuta {
+  if (canceladaEn) {
+    return 'cancelada';
+  }
+  const registrados = new Set(eventosRegistrados.map((evento) => evento.tipo));
+  if (registrados.has('retorno')) {
+    return 'completada';
+  }
+  if (registrados.has('inicio_ruta')) {
+    return 'en_curso';
+  }
+  return 'pendiente';
+}

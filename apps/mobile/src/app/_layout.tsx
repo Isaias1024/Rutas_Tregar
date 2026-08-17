@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useGlobalSearchParams, useRouter, useSegments } from 'expo-router';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { IndicadorPendientes } from '@/componentes/indicador-pendientes';
 import { supabase } from '@/lib/supabase';
@@ -88,6 +88,12 @@ export default function RootLayout() {
     };
   }, []);
 
+  // `useGlobalSearchParams` y no `useLocalSearchParams`: este layout no es la
+  // pantalla duena del parametro, y solo el global se actualiza cuando la ruta
+  // activa es una hija.
+  const { voluntario } = useGlobalSearchParams<{ voluntario?: string }>();
+  const cambioVoluntario = voluntario === '1';
+
   useEffect(() => {
     if (cargando) {
       return;
@@ -110,10 +116,16 @@ export default function RootLayout() {
       return;
     }
 
-    if (enLogin || enCambiarPassword) {
+    // Ojo con la condicion de `cambiar-password`. Esta pantalla tiene DOS
+    // entradas: la forzada del primer ingreso, de la que hay que salir sola en
+    // cuanto `debeCambiarPassword` se apaga, y la voluntaria desde Perfil, que
+    // llega con `?voluntario=1`. Sin distinguirlas, este `replace` expulsaba a
+    // "hoy" a quien tocaba "Cambiar contrasena" teniendo la columna en `false`
+    // —o sea, siempre— y la pantalla no alcanzaba a verse.
+    if (enLogin || (enCambiarPassword && !cambioVoluntario)) {
       router.replace('/');
     }
-  }, [cargando, session, usuario, segmentos, router]);
+  }, [cargando, session, usuario, segmentos, cambioVoluntario, router]);
 
   // Se registra una vez que hay sesion utilizable (no mientras falta
   // cambiar la contrasena): pide permiso, obtiene el token de Expo y lo

@@ -26,6 +26,7 @@
     "db:status": "pnpm exec supabase status",
     "env:write": "node scripts/write-env.mjs",
     "panel:sesion": "tsx scripts/sesion-prueba.ts",
+    "chofer:prueba": "tsx scripts/chofer-prueba.ts",
     "worker:version": "pnpm --filter @rutas/worker exec tsx src/index.ts --version",
     "worker:dev": "pnpm --filter @rutas/worker dev",
     "worker:start": "pnpm --filter @rutas/worker exec tsx src/index.ts serve",

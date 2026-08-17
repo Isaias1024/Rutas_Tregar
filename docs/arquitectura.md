@@ -21,7 +21,7 @@ si cada ruta va a tiempo, tarde o adelantada.
 | Migraciones | `pnpm db:generate` → `pnpm db:migrate` |
 | Migracion a mano | `pnpm db:generate:custom` |
 | Verificar esquema | `pnpm db:check` |
-| Semilla / reset | `pnpm db:seed` · `pnpm db:reset` |
+| Semilla / reset | `pnpm db:seed` (**vacia la base** antes de sembrar) · `pnpm db:reset` |
 | Worker | `pnpm worker:version` · `pnpm worker:dev` |
 | Diagnostico Expo | `pnpm mobile:doctor` |
 

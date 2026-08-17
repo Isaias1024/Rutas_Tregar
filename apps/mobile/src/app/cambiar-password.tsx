@@ -1,14 +1,39 @@
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { BotonSecundario } from '@/componentes/BotonSecundario';
 import { supabase } from '@/lib/supabase';
 import { useSesion } from './_layout';
 
+/**
+ * Dos entradas a la misma pantalla:
+ *
+ * - **Forzada** (`debeCambiarPassword` en `true`): el primer ingreso tras el
+ *   alta del supervisor. No hay salida — ni boton de volver ni gesto — y quien
+ *   saca de aqui al terminar es el guard de `_layout.tsx`, en cuanto la columna
+ *   se apaga.
+ * - **Voluntaria** (`?voluntario=1`, desde Perfil): se puede cancelar, y al
+ *   terminar hay que confirmar y volver por cuenta propia, porque el guard no
+ *   va a mover a nadie: la columna ya estaba en `false` y sigue igual.
+ */
 export default function PaginaCambiarPassword() {
   const { usuario, refrescarUsuario } = useSesion();
+  const { voluntario } = useLocalSearchParams<{ voluntario?: string }>();
+  const esVoluntario = voluntario === '1';
   const [nueva, setNueva] = useState('');
   const [confirmacion, setConfirmacion] = useState('');
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exito, setExito] = useState(false);
+
+  function volver() {
+    // Entrar por deep link deja la pila vacia y `back()` no tendria a donde ir.
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(chofer)/perfil');
+  }
 
   async function guardar() {
     if (nueva.length < 8) {
@@ -32,21 +57,47 @@ export default function PaginaCambiarPassword() {
 
     // El guard de _layout.tsx solo deja de mandar aqui cuando esta columna
     // se apaga; el UPDATE la exige RLS (`usuario_update_debe_cambiar_password`,
-    // paso 8) con GRANT restringido a esa unica columna.
-    if (usuario) {
+    // paso 8) con GRANT restringido a esa unica columna. En el cambio
+    // voluntario la columna ya vale `false`: no hay nada que apagar.
+    if (usuario?.debeCambiarPassword) {
       await supabase.from('usuario').update({ debe_cambiar_password: false }).eq('id', usuario.id);
     }
     await refrescarUsuario();
     setCargando(false);
+    setExito(true);
+  }
+
+  // Solo el cambio voluntario necesita esta pantalla: en el forzado, apagar la
+  // columna hace que el guard saque de aqui de inmediato.
+  if (exito && esVoluntario) {
+    return (
+      <View className="flex-1 justify-center bg-background px-6">
+        <Text className="mb-2 text-center text-2xl font-semibold text-foreground">
+          Contrasena actualizada
+        </Text>
+        <Text className="mb-8 text-center text-base text-foreground-muted">
+          Usa la nueva la proxima vez que entres.
+        </Text>
+        <Pressable
+          className="h-[72px] items-center justify-center rounded-app bg-primary"
+          onPress={volver}
+          testID="boton-volver"
+        >
+          <Text className="text-xl font-semibold text-primary-fg">Volver</Text>
+        </Pressable>
+      </View>
+    );
   }
 
   return (
     <View className="flex-1 justify-center bg-background px-6">
       <Text className="mb-2 text-center text-2xl font-semibold text-foreground">
-        Cambia tu contrasena
+        {esVoluntario ? 'Cambiar contrasena' : 'Cambia tu contrasena'}
       </Text>
       <Text className="mb-8 text-center text-base text-foreground-muted">
-        Es tu primer ingreso. Elige una contrasena nueva para continuar.
+        {esVoluntario
+          ? 'Elige una contrasena nueva. Minimo 8 caracteres.'
+          : 'Es tu primer ingreso. Elige una contrasena nueva para continuar.'}
       </Text>
 
       <View className="mb-4">
@@ -93,6 +144,14 @@ export default function PaginaCambiarPassword() {
           <Text className="text-xl font-semibold text-primary-fg">Guardar</Text>
         )}
       </Pressable>
+
+      {/* El primer ingreso NO lleva cancelar: es una compuerta, y salirse
+          dejaria una cuenta usable con la contrasena que dio el supervisor. */}
+      {esVoluntario ? (
+        <View className="mt-3">
+          <BotonSecundario etiqueta="Cancelar" onPress={volver} deshabilitado={cargando} />
+        </View>
+      ) : null}
     </View>
   );
 }

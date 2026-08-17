@@ -18,10 +18,11 @@ de personal en Monterrey. Monorepo pnpm + Turborepo.
 | Servicios locales | `pnpm db:up` · `pnpm db:down` · `pnpm db:status` |
 | Generar entorno | `pnpm env:write` |
 | Migraciones | `pnpm db:generate` → `pnpm db:migrate` · a mano: `pnpm db:generate:custom` · `pnpm db:check` |
-| Semilla / reset | `pnpm db:seed` · `pnpm db:reset` |
+| Semilla / reset | `pnpm db:seed` (**vacia la base** antes de sembrar) · `pnpm db:reset` |
 | Worker | `pnpm worker:version` · `pnpm worker:dev` |
 | Diagnostico Expo | `pnpm mobile:doctor` |
 | Sesion local de panel | `pnpm panel:sesion [--rol supervisor]` |
+| Restablecer contrasena de un chofer sembrado | `pnpm chofer:prueba [--credencial driver2] [--forzar-cambio]` |
 
 **Compuerta:** `pnpm typecheck && pnpm lint && pnpm test` pasa antes de marcar nada hecho.
 

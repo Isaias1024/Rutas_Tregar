@@ -1,34 +1,73 @@
+import { fechaOperativa } from '@rutas/shared';
 import { asignacion, db, horario, ruta } from '@rutas/shared/db';
 import { expect, test } from '@playwright/test';
 import { and, eq } from 'drizzle-orm';
 import { iniciarSesionComo } from './ayuda-sesion.ts';
 
-// Usa la semilla del paso 5/6: la ruta "Centro - Planta Norte" trae DOS
-// horarios en el turno "manana" (06:00-07:00 y 08:00-09:00) — el caso que
-// motiva la tabla `horario` y que este paso tiene que poder asignar sin que
+// Esta suite necesita una ruta con DOS horarios en el turno "manana" — el caso
+// que motiva la tabla `horario` y que este paso tiene que poder asignar sin que
 // choquen entre si, con dos choferes distintos.
+//
+// La semilla (`scripts/seed.ts`) da a cada ruta UN solo horario a proposito: es
+// un conjunto minimo y fijo. El segundo horario lo crea esta suite en su
+// `beforeAll`, que es donde debe vivir un fixture que solo una prueba necesita —
+// asi la semilla no crece para sostener un caso de prueba y la suite deja de
+// romperse cada vez que alguien ajusta los datos de ejemplo.
 
-function lunesDeSemana(fecha: Date): Date {
-  const dia = fecha.getDay();
-  const diferencia = dia === 0 ? -6 : 1 - dia;
-  const lunes = new Date(fecha);
-  lunes.setDate(fecha.getDate() + diferencia);
-  lunes.setHours(0, 0, 0, 0);
-  return lunes;
+/**
+ * El dia sobre el que trabajan estas pruebas: el mismo que el Planeador abre
+ * seleccionado, que es HOY segun la zona operativa (`diaSeleccionado` arranca en
+ * `hoy` cuando la semana en pantalla lo incluye).
+ *
+ * Antes esto calculaba el lunes de la semana y lo pasaba por `toISOString()`.
+ * Eran dos errores encimados: el Planeador casi nunca abre en lunes, y
+ * `toISOString()` es UTC — la medianoche local de Monterrey cae en el dia
+ * anterior. El resultado era que la limpieza de `beforeEach` vaciaba un dia que
+ * nadie tocaba mientras las asignaciones se acumulaban en el dia real, hasta que
+ * cada chofer aparecia como "horario encimado" y la suite se caia al abrir el
+ * selector. Se usa `fechaOperativa`, la misma funcion que alimenta el `hoy` de
+ * la pagina, para que no puedan volver a separarse.
+ */
+function diaDePruebas(): string {
+  return fechaOperativa(new Date());
 }
 
-function aISO(fecha: Date): string {
-  return fecha.toISOString().slice(0, 10);
-}
+const RUTA_DOS_HORARIOS = 'Route 1';
 
-// Limpia TODAS las asignaciones del lunes de la semana actual, no solo las de
-// "Centro - Planta Norte": el traslape se evalua por chofer y por hora, asi que
-// una asignacion que otra corrida dejo en CUALQUIER ruta a las 06:00 apaga a
-// Juan Perez en el selector y esta suite se cae sin haber probado nada. La
-// semilla no crea asignaciones, asi que borrar el dia entero no destruye datos
-// de referencia.
+test.beforeAll(async () => {
+  const [rutaFila] = await db
+    .select({ id: ruta.id })
+    .from(ruta)
+    .where(eq(ruta.nombre, RUTA_DOS_HORARIOS))
+    .limit(1);
+  if (!rutaFila) {
+    throw new Error(`setup: no existe la ruta "${RUTA_DOS_HORARIOS}". Corre \`pnpm db:seed\`.`);
+  }
+
+  // `time` vuelve de Postgres como 'HH:MM:SS', aunque se inserte 'HH:MM'.
+  const [yaExiste] = await db
+    .select({ id: horario.id })
+    .from(horario)
+    .where(and(eq(horario.rutaId, rutaFila.id), eq(horario.horaInicioEsperada, '08:00:00')))
+    .limit(1);
+  if (!yaExiste) {
+    await db.insert(horario).values({
+      rutaId: rutaFila.id,
+      turno: 'manana',
+      horaInicioEsperada: '08:00',
+      horaFinEsperada: '09:00',
+      personasEsperadas: 15,
+    });
+  }
+});
+
+// Limpia TODAS las asignaciones del dia, no solo las de `Route 1`: el traslape
+// se evalua por chofer y por hora, asi que una asignacion que otra prueba dejo
+// en CUALQUIER ruta a las 06:00 apaga a Driver Uno en el selector y esta suite
+// se cae sin haber probado nada. La semilla no crea asignaciones, asi que borrar
+// el dia entero no destruye datos de referencia.
 test.beforeEach(async () => {
-  await db.delete(asignacion).where(eq(asignacion.fecha, aISO(lunesDeSemana(new Date()))));
+  await db.delete(asignacion).where(eq(asignacion.fecha, diaDePruebas()));
 });
 
 test('arma un dia completo con una ruta de dos horarios y reasigna', async ({
@@ -40,44 +79,44 @@ test('arma un dia completo con una ruta de dos horarios y reasigna', async ({
   await page.goto('/planeador');
   await expect(page.getByRole('heading', { name: 'Planeador semanal' })).toBeVisible();
 
-  const horarioTemprano = page.locator('li').filter({ hasText: 'Centro - Planta Norte' }).filter({
+  const horarioTemprano = page.locator('li').filter({ hasText: 'Route 1' }).filter({
     hasText: '06:00',
   });
-  const horarioTardio = page.locator('li').filter({ hasText: 'Centro - Planta Norte' }).filter({
+  const horarioTardio = page.locator('li').filter({ hasText: 'Route 1' }).filter({
     hasText: '08:00',
   });
   await expect(horarioTemprano).toBeVisible();
   await expect(horarioTardio).toBeVisible();
 
-  // Asigna el horario de las 06:00 con Juan Perez / T23.
+  // Asigna el horario de las 06:00 con Driver Uno. El camion no se teclea: sale
+  // de `usuario.camion_id` (T01 para Driver Uno, por la semilla) y el dialogo
+  // solo lo muestra.
   await horarioTemprano.getByRole('button', { name: 'Asignar', exact: true }).click();
   await page.getByLabel('Chofer').click();
-  await page.getByRole('option', { name: 'Juan Perez' }).click();
-  await page.getByLabel('Camion').click();
-  await page.getByRole('option', { name: 'T23' }).click();
+  await page.getByRole('option', { name: 'Driver Uno' }).click();
   await page.getByRole('button', { name: 'Guardar' }).click();
 
-  await expect(horarioTemprano.getByText('#1 · Juan Perez · T23')).toBeVisible();
+  // T01 lo puso el servidor a partir del chofer: nadie lo tecleo en el dialogo.
+  await expect(horarioTemprano.getByText('#1 · Driver Uno · T01')).toBeVisible();
 
-  // Asigna el horario de las 08:00 (misma ruta, mismo turno) con Maria
-  // Garcia / T24: no debe chocar con la asignacion de arriba, porque el
-  // traslape se evalua por chofer, no por ruta.
+  // Asigna el horario de las 08:00 (misma ruta, mismo turno) con Driver Dos /
+  // T02: no debe chocar con la asignacion de arriba, porque el traslape se
+  // evalua por chofer, no por ruta.
   await horarioTardio.getByRole('button', { name: 'Asignar', exact: true }).click();
   await page.getByLabel('Chofer').click();
-  await page.getByRole('option', { name: 'Maria Garcia' }).click();
-  await page.getByLabel('Camion').click();
-  await page.getByRole('option', { name: 'T24' }).click();
+  await page.getByRole('option', { name: 'Driver Dos' }).click();
   await page.getByRole('button', { name: 'Guardar' }).click();
 
-  await expect(horarioTardio.getByText('#1 · Maria Garcia · T24')).toBeVisible();
+  await expect(horarioTardio.getByText('#1 · Driver Dos · T02')).toBeVisible();
 
-  // Reasigna la de las 06:00: mismo chofer, cambia el camion a T24.
+  // Reasigna la de las 06:00. Como el camion es una propiedad del chofer, la
+  // unica forma de cambiarlo es cambiar de chofer: Driver Tres entra con T03.
   await horarioTemprano.getByRole('button', { name: 'Reasignar' }).click();
-  await page.getByLabel('Camion').click();
-  await page.getByRole('option', { name: 'T24' }).click();
+  await page.getByLabel('Chofer').click();
+  await page.getByRole('option', { name: 'Driver Tres' }).click();
   await page.getByRole('button', { name: 'Guardar' }).click();
 
-  await expect(horarioTemprano.getByText('#1 · Juan Perez · T24')).toBeVisible();
+  await expect(horarioTemprano.getByText('#1 · Driver Tres · T03')).toBeVisible();
 });
 
 test('el mismo chofer toma las dos rutas del dia porque sus horas no se enciman', async ({
@@ -91,35 +130,33 @@ test('el mismo chofer toma las dos rutas del dia porque sus horas no se enciman'
   await iniciarSesionComo(context, 'admin', baseURL ?? 'http://127.0.0.1:3000');
   await page.goto('/planeador');
 
-  const horarioTemprano = page.locator('li').filter({ hasText: 'Centro - Planta Norte' }).filter({
+  const horarioTemprano = page.locator('li').filter({ hasText: 'Route 1' }).filter({
     hasText: '06:00',
   });
-  const horarioTardio = page.locator('li').filter({ hasText: 'Centro - Planta Norte' }).filter({
+  const horarioTardio = page.locator('li').filter({ hasText: 'Route 1' }).filter({
     hasText: '08:00',
   });
 
   await horarioTemprano.getByRole('button', { name: 'Asignar', exact: true }).click();
   await page.getByLabel('Chofer').click();
-  await page.getByRole('option', { name: 'Juan Perez' }).click();
-  await page.getByLabel('Camion').click();
-  await page.getByRole('option', { name: 'T23' }).click();
+  await page.getByRole('option', { name: 'Driver Uno' }).click();
   await page.getByRole('button', { name: 'Guardar' }).click();
-  await expect(horarioTemprano.getByText('#1 · Juan Perez · T23')).toBeVisible();
+  await expect(horarioTemprano.getByText('#1 · Driver Uno · T01')).toBeVisible();
 
   // El MISMO chofer, el MISMO dia, en el segundo horario.
   await horarioTardio.getByRole('button', { name: 'Asignar', exact: true }).click();
   await page.getByLabel('Chofer').click();
   // Y no aparece apagado: 08:00-09:00 no se encima con 06:00-07:00.
-  const opcionJuan = page.getByRole('option', { name: 'Juan Perez' });
-  await expect(opcionJuan).toBeEnabled();
-  await opcionJuan.click();
-  await page.getByLabel('Camion').click();
-  await page.getByRole('option', { name: 'T24' }).click();
+  const opcionDriverUno = page.getByRole('option', { name: 'Driver Uno' });
+  await expect(opcionDriverUno).toBeEnabled();
+  await opcionDriverUno.click();
   await page.getByRole('button', { name: 'Guardar' }).click();
 
-  await expect(horarioTardio.getByText('#1 · Juan Perez · T24')).toBeVisible();
+  // Con el mismo chofer va el mismo camion: T01 en las dos vueltas, porque el
+  // camion viaja con el chofer.
+  await expect(horarioTardio.getByText('#1 · Driver Uno · T01')).toBeVisible();
   // Y la primera sigue en pie: son dos rutas del mismo chofer el mismo dia.
-  await expect(horarioTemprano.getByText('#1 · Juan Perez · T23')).toBeVisible();
+  await expect(horarioTemprano.getByText('#1 · Driver Uno · T01')).toBeVisible();
 });
 
 test('Cancelar desasigna al chofer y deja la ruta y el horario en pie', async ({
@@ -130,17 +167,15 @@ test('Cancelar desasigna al chofer y deja la ruta y el horario en pie', async ({
   await iniciarSesionComo(context, 'admin', baseURL ?? 'http://127.0.0.1:3000');
   await page.goto('/planeador');
 
-  const horarioTemprano = page.locator('li').filter({ hasText: 'Centro - Planta Norte' }).filter({
+  const horarioTemprano = page.locator('li').filter({ hasText: 'Route 1' }).filter({
     hasText: '06:00',
   });
 
   await horarioTemprano.getByRole('button', { name: 'Asignar', exact: true }).click();
   await page.getByLabel('Chofer').click();
-  await page.getByRole('option', { name: 'Juan Perez' }).click();
-  await page.getByLabel('Camion').click();
-  await page.getByRole('option', { name: 'T23' }).click();
+  await page.getByRole('option', { name: 'Driver Uno' }).click();
   await page.getByRole('button', { name: 'Guardar' }).click();
-  await expect(horarioTemprano.getByText('#1 · Juan Perez · T23')).toBeVisible();
+  await expect(horarioTemprano.getByText('#1 · Driver Uno · T01')).toBeVisible();
 
   // El `confirm()` nativo ya no existe, y esta linea es la que lo garantiza:
   // descarta CUALQUIER dialogo del navegador, que es lo mismo que le pasa a
@@ -156,10 +191,10 @@ test('Cancelar desasigna al chofer y deja la ruta y el horario en pie', async ({
   await confirmacion.getByRole('button', { name: 'Quitar chofer' }).click();
 
   // La interfaz refleja de inmediato que la ruta ya no tiene chofer...
-  await expect(horarioTemprano.getByText('#1 · Juan Perez · T23')).toBeHidden();
+  await expect(horarioTemprano.getByText('#1 · Driver Uno · T01')).toBeHidden();
   // ...lo dice con todas sus letras, no solo quitando la fila: "la fila ya no
   // esta" es indistinguible de un rechazo silencioso.
-  await expect(page.getByRole('status')).toContainText('Juan Perez ya no esta asignado');
+  await expect(page.getByRole('status')).toContainText('Driver Uno ya no esta asignado');
   // ...la ruta y su horario siguen ahi, listos para otro chofer...
   await expect(horarioTemprano).toBeVisible();
   await expect(horarioTemprano.getByRole('button', { name: 'Asignar', exact: true })).toBeVisible();
@@ -168,26 +203,24 @@ test('Cancelar desasigna al chofer y deja la ruta y el horario en pie', async ({
 
   // En la base es borrado logico, nunca DELETE: la fila se conserva con su
   // `cancelada_en` puesto, para que el historico y sus eventos sobrevivan.
-  const fechaLunes = aISO(lunesDeSemana(new Date()));
+  const fecha = diaDePruebas();
   const [rutaFila] = await db
     .select({ id: ruta.id })
     .from(ruta)
-    .where(eq(ruta.nombre, 'Centro - Planta Norte'))
+    .where(eq(ruta.nombre, 'Route 1'))
     .limit(1);
   const filas = await db
     .select({ id: asignacion.id, canceladaEn: asignacion.canceladaEn })
     .from(asignacion)
     .innerJoin(horario, eq(horario.id, asignacion.horarioId))
-    .where(and(eq(horario.rutaId, rutaFila?.id ?? ''), eq(asignacion.fecha, fechaLunes)));
+    .where(and(eq(horario.rutaId, rutaFila?.id ?? ''), eq(asignacion.fecha, fecha)));
   expect(filas).toHaveLength(1);
   expect(filas[0]?.canceladaEn).not.toBeNull();
 
   // Y el horario quedo libre de verdad: se puede volver a asignar.
   await horarioTemprano.getByRole('button', { name: 'Asignar', exact: true }).click();
   await page.getByLabel('Chofer').click();
-  await page.getByRole('option', { name: 'Maria Garcia' }).click();
-  await page.getByLabel('Camion').click();
-  await page.getByRole('option', { name: 'T24' }).click();
+  await page.getByRole('option', { name: 'Driver Dos' }).click();
   await page.getByRole('button', { name: 'Guardar' }).click();
-  await expect(horarioTemprano.getByText('Maria Garcia · T24')).toBeVisible();
+  await expect(horarioTemprano.getByText('Driver Dos · T02')).toBeVisible();
 });

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { puedeRegistrar, requiereContador, siguientePaso, type TipoEvento } from './flujo.ts';
+import {
+  estadoRuta,
+  puedeRegistrar,
+  requiereContador,
+  siguientePaso,
+  type TipoEvento,
+} from './flujo.ts';
 
 function eventos(...tipos: TipoEvento[]) {
   return tipos.map((tipo) => ({ tipo }));
@@ -57,5 +63,46 @@ describe('requiereContador', () => {
     expect(requiereContador('vio_ruta')).toBe(false);
     expect(requiereContador('listo_inicio')).toBe(false);
     expect(requiereContador('inicio_ruta')).toBe(false);
+  });
+});
+
+describe('estadoRuta', () => {
+  it('sin eventos esta pendiente', () => {
+    expect(estadoRuta([])).toBe('pendiente');
+  });
+
+  it('vio_ruta y listo_inicio todavia son preparacion: sigue pendiente', () => {
+    // La ruta no ha arrancado hasta inicio_ruta; marcarla "en curso" antes
+    // le diria al chofer que ya salio cuando sigue en el patio.
+    expect(estadoRuta(eventos('vio_ruta'))).toBe('pendiente');
+    expect(estadoRuta(eventos('vio_ruta', 'listo_inicio'))).toBe('pendiente');
+  });
+
+  it('inicio_ruta la pone en curso, y fin_ruta la mantiene en curso', () => {
+    expect(estadoRuta(eventos('vio_ruta', 'listo_inicio', 'inicio_ruta'))).toBe('en_curso');
+    expect(estadoRuta(eventos('vio_ruta', 'listo_inicio', 'inicio_ruta', 'fin_ruta'))).toBe(
+      'en_curso',
+    );
+  });
+
+  it('retorno la cierra como completada', () => {
+    expect(
+      estadoRuta(eventos('vio_ruta', 'listo_inicio', 'inicio_ruta', 'fin_ruta', 'retorno')),
+    ).toBe('completada');
+  });
+
+  it('cancelada gana sobre cualquier avance previo', () => {
+    // Una ruta cancelada a media ejecucion sigue trayendo sus eventos: si el
+    // avance ganara, la tarjeta diria "en curso" para una ruta que ya nadie
+    // va a manejar.
+    expect(
+      estadoRuta(eventos('vio_ruta', 'listo_inicio', 'inicio_ruta'), '2026-08-14T10:00:00Z'),
+    ).toBe('cancelada');
+    expect(estadoRuta([], '2026-08-14T10:00:00Z')).toBe('cancelada');
+  });
+
+  it('null y undefined en canceladaEn no cancelan nada', () => {
+    expect(estadoRuta(eventos('inicio_ruta'), null)).toBe('en_curso');
+    expect(estadoRuta(eventos('inicio_ruta'), undefined)).toBe('en_curso');
   });
 });

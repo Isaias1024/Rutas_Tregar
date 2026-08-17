@@ -11,6 +11,8 @@ function crearAsignacion(overrides: Partial<AsignacionDetallada> = {}): Asignaci
     fecha: '2026-08-10',
     secuencia: 1,
     camionCodigo: 'T23',
+    canceladaEn: null,
+    eventos: [],
     horario: {
       id: 'h1',
       turno: 'manana',
@@ -19,8 +21,8 @@ function crearAsignacion(overrides: Partial<AsignacionDetallada> = {}): Asignaci
       ruta: {
         id: 'r1',
         nombre: 'Centro - Planta Norte',
-        paradaInicioNombre: 'Terminal Centro',
-        paradaFinNombre: 'Planta Norte',
+        paradaInicio: { nombre: 'Terminal Centro', direccion: 'Av. Colon 100' },
+        paradaFin: { nombre: 'Planta Norte', direccion: 'Carr. Saltillo km 12' },
       },
     },
     ...overrides,

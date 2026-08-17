@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { PasoTimeline } from './paso-timeline';
 import type { FilaMonitor } from './tipos';
 
-const ETIQUETA_TURNO: Record<string, string> = { manana: 'Manana', tarde: 'Tarde', noche: 'Noche' };
+const ETIQUETA_TURNO: Record<string, string> = { manana: 'Mañana', tarde: 'Tarde', noche: 'Noche' };
 
 interface Props {
   fila: FilaMonitor;

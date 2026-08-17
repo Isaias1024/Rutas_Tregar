@@ -1,11 +1,16 @@
 import type { TipoEvento } from '@rutas/shared';
 import { Text, View } from 'react-native';
+import { colores } from '@rutas/shared/tokens';
 
 export interface PasoStepperItem {
   tipo: TipoEvento;
   etiqueta: string;
   estado: 'completado' | 'activo' | 'futuro';
   horaTexto?: string;
+  lat?: number;
+  lng?: number;
+  sinGps?: boolean;
+  ubicacionCorrecta?: boolean;
 }
 
 interface Props {
@@ -64,6 +69,21 @@ export function PasoStepper({ pasos }: Props) {
               </Text>
               {paso.horaTexto ? (
                 <Text className="tabular-nums text-sm text-foreground-muted">{paso.horaTexto}</Text>
+              ) : null}
+              {paso.estado === 'completado' && (paso.lat !== undefined || paso.sinGps) ? (
+                <View className="mt-1 flex-row gap-1">
+                  {paso.sinGps ? (
+                    <Text className="text-xs font-medium text-foreground-muted">Sin GPS</Text>
+                  ) : paso.ubicacionCorrecta ? (
+                    <Text className="text-xs font-medium" style={{ color: colores.success }}>
+                      ✓ Ubicación correcta
+                    </Text>
+                  ) : (
+                    <Text className="text-xs font-medium" style={{ color: colores.destructive }}>
+                      ⚠ Otra parte
+                    </Text>
+                  )}
+                </View>
               ) : null}
               {paso.estado === 'activo' ? (
                 <Text className="text-sm font-medium text-primary">Siguiente paso</Text>

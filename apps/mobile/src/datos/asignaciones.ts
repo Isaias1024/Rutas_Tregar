@@ -1,7 +1,8 @@
 import { TZDate } from '@date-fns/tz';
+import type { TipoEvento } from '@rutas/shared';
 import { format } from 'date-fns';
-import * as SQLite from 'expo-sqlite';
 import { supabase } from '@/lib/supabase';
+import { type CacheAsignaciones, cacheSqlite } from './cache';
 
 // La zona operativa completa vive aqui, no en una variable de entorno: el
 // proyecto solo opera en Mexico y `packages/shared` ya trata `America/Mexico_City`
@@ -11,11 +12,30 @@ const ZONA_OPERATIVA = 'America/Mexico_City';
 
 export type Turno = 'manana' | 'tarde' | 'noche';
 
+export interface EventoDeRuta {
+  tipo: TipoEvento;
+  ocurrioEn: string;
+  lat?: number;
+  lng?: number;
+  sinGps?: boolean;
+}
+
+export interface Parada {
+  nombre: string;
+  direccion: string;
+  lat?: number;
+  lng?: number;
+}
+
 export interface AsignacionDetallada {
   id: string;
   fecha: string;
   secuencia: number;
   camionCodigo: string;
+  /** No nulo = el supervisor solto esta asignacion; la tarjeta la pinta CANCELADA. */
+  canceladaEn: string | null;
+  /** Los hitos ya marcados, de donde se deriva el estado visible (§ estadoRuta). */
+  eventos: EventoDeRuta[];
   horario: {
     id: string;
     turno: Turno;
@@ -24,8 +44,8 @@ export interface AsignacionDetallada {
     ruta: {
       id: string;
       nombre: string;
-      paradaInicioNombre: string;
-      paradaFinNombre: string;
+      paradaInicio: Parada;
+      paradaFin: Parada;
     };
   };
 }
@@ -39,11 +59,6 @@ export type ConsultaAsignaciones = (
   fechaInicio: string,
   fechaFin: string,
 ) => Promise<AsignacionDetallada[]>;
-
-export interface CacheAsignaciones {
-  leer: (clave: string) => Promise<AsignacionDetallada[]>;
-  guardar: (clave: string, datos: AsignacionDetallada[]) => Promise<void>;
-}
 
 /** Hoy, segun el calendario de America/Mexico_City — nunca el del dispositivo ni UTC. */
 export function fechaOperativaHoy(): string {
@@ -87,12 +102,29 @@ export function agruparPorDia(asignaciones: AsignacionDetallada[]): GrupoDia[] {
 
 // Forma cruda que devuelve PostgREST para el select anidado (verificado
 // contra el Supabase local: los `to-one` embebidos llegan como objeto, no
-// como arreglo de un elemento).
+// como arreglo de un elemento; `evento` es `to-many` y si llega como arreglo).
+interface ParadaCruda {
+  nombre: string;
+  direccion: string | null;
+  lat?: number;
+  lng?: number;
+}
+
 interface FilaCruda {
   id: string;
   fecha: string;
   secuencia: number;
   camion_codigo: string;
+  cancelada_en: string | null;
+  evento:
+    | {
+        tipo: TipoEvento;
+        ocurrio_en: string;
+        lat?: number | null;
+        lng?: number | null;
+        sin_gps?: boolean;
+      }[]
+    | null;
   horario: {
     id: string;
     turno: Turno;
@@ -101,10 +133,19 @@ interface FilaCruda {
     ruta: {
       id: string;
       nombre: string;
-      parada_inicio: { nombre: string } | null;
-      parada_fin: { nombre: string } | null;
+      parada_inicio: ParadaCruda | null;
+      parada_fin: ParadaCruda | null;
     } | null;
   } | null;
+}
+
+function normalizarParada(cruda: ParadaCruda | null | undefined): Parada {
+  return {
+    nombre: cruda?.nombre ?? '',
+    direccion: cruda?.direccion ?? '',
+    lat: cruda?.lat,
+    lng: cruda?.lng,
+  };
 }
 
 function normalizar(filas: FilaCruda[]): AsignacionDetallada[] {
@@ -113,22 +154,30 @@ function normalizar(filas: FilaCruda[]): AsignacionDetallada[] {
       fila.horario !== null && fila.horario.ruta !== null,
   );
   return conRuta.map((fila) => {
-    const ruta = fila.horario.ruta as NonNullable<FilaCruda['horario']>['ruta'];
+    const ruta = fila.horario.ruta as NonNullable<NonNullable<FilaCruda['horario']>['ruta']>;
     return {
       id: fila.id,
       fecha: fila.fecha,
       secuencia: fila.secuencia,
       camionCodigo: fila.camion_codigo,
+      canceladaEn: fila.cancelada_en,
+      eventos: (fila.evento ?? []).map((evento) => ({
+        tipo: evento.tipo,
+        ocurrioEn: evento.ocurrio_en,
+        lat: evento.lat ?? undefined,
+        lng: evento.lng ?? undefined,
+        sinGps: evento.sin_gps ?? false,
+      })),
       horario: {
         id: fila.horario.id,
         turno: fila.horario.turno,
         horaInicioEsperada: fila.horario.hora_inicio_esperada,
         horaFinEsperada: fila.horario.hora_fin_esperada,
         ruta: {
-          id: ruta?.id ?? '',
-          nombre: ruta?.nombre ?? '',
-          paradaInicioNombre: ruta?.parada_inicio?.nombre ?? '',
-          paradaFinNombre: ruta?.parada_fin?.nombre ?? '',
+          id: ruta.id,
+          nombre: ruta.nombre,
+          paradaInicio: normalizarParada(ruta.parada_inicio),
+          paradaFin: normalizarParada(ruta.parada_fin),
         },
       },
     };
@@ -136,22 +185,33 @@ function normalizar(filas: FilaCruda[]): AsignacionDetallada[] {
 }
 
 const SELECT_ASIGNACION_DETALLADA =
-  'id, fecha, secuencia, camion_codigo, horario:horario_id(id, turno, hora_inicio_esperada, hora_fin_esperada, ruta:ruta_id(id, nombre, parada_inicio:parada_inicio_id(nombre), parada_fin:parada_fin_id(nombre)))';
+  'id, fecha, secuencia, camion_codigo, cancelada_en, evento(tipo, ocurrio_en, lat, lng, sin_gps), horario:horario_id(id, turno, hora_inicio_esperada, hora_fin_esperada, ruta:ruta_id(id, nombre, parada_inicio:parada_inicio_id(nombre, direccion, lat, lng), parada_fin:parada_fin_id(nombre, direccion, lat, lng)))';
 
+/**
+ * `incluirCanceladas` existe por Historial: ahi una ruta cancelada SI se
+ * muestra (con su etiqueta), porque es parte de lo que le paso al chofer ese
+ * dia. Hoy y Semana la omiten — una ruta que ya no va a manejar solo
+ * estorbaria entre las que si.
+ */
 async function consultarSupabase(
   fechaInicio: string,
   fechaFin: string,
+  incluirCanceladas = false,
 ): Promise<AsignacionDetallada[]> {
   // RLS (`asignacion_select_chofer`, paso 2) ya restringe esto a las propias
   // filas del chofer autenticado: no hace falta filtrar por chofer_id aqui,
   // y no habria como burlarlo aunque se intentara.
-  const { data, error } = await supabase
+  let consulta = supabase
     .from('asignacion')
     .select(SELECT_ASIGNACION_DETALLADA)
-    .is('cancelada_en', null)
     .gte('fecha', fechaInicio)
     .lte('fecha', fechaFin);
 
+  if (!incluirCanceladas) {
+    consulta = consulta.is('cancelada_en', null);
+  }
+
+  const { data, error } = await consulta;
   if (error) {
     throw error;
   }
@@ -172,38 +232,6 @@ export async function obtenerAsignacionPorId(id: string): Promise<AsignacionDeta
   return normalizar([data as unknown as FilaCruda])[0] ?? null;
 }
 
-let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
-
-function abrirDb(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync('rutas-cache.db').then(async (db) => {
-      await db.execAsync(
-        'create table if not exists cache_asignaciones (clave text primary key, datos text not null, actualizado_en text not null);',
-      );
-      return db;
-    });
-  }
-  return dbPromise;
-}
-
-const cacheSqlite: CacheAsignaciones = {
-  async leer(clave) {
-    const db = await abrirDb();
-    const fila = await db.getFirstAsync<{ datos: string }>(
-      'select datos from cache_asignaciones where clave = ?;',
-      [clave],
-    );
-    return fila ? (JSON.parse(fila.datos) as AsignacionDetallada[]) : [];
-  },
-  async guardar(clave, datos) {
-    const db = await abrirDb();
-    await db.runAsync(
-      'insert into cache_asignaciones (clave, datos, actualizado_en) values (?, ?, ?) on conflict(clave) do update set datos = excluded.datos, actualizado_en = excluded.actualizado_en;',
-      [clave, JSON.stringify(datos), new Date().toISOString()],
-    );
-  },
-};
-
 /**
  * Nucleo testable: recibe la consulta y el cache inyectados, sin tocar
  * Supabase ni SQLite directamente. `obtenerAsignaciones` (abajo) es el unico
@@ -213,7 +241,7 @@ export async function resolverAsignaciones(
   fechaInicio: string,
   fechaFin: string,
   consultar: ConsultaAsignaciones,
-  cache: CacheAsignaciones,
+  cache: CacheAsignaciones<AsignacionDetallada>,
 ): Promise<AsignacionDetallada[]> {
   const clave = `${fechaInicio}_${fechaFin}`;
   try {
@@ -231,6 +259,12 @@ export async function resolverAsignaciones(
 export function obtenerAsignaciones(
   fechaInicio: string,
   fechaFin: string,
+  incluirCanceladas = false,
 ): Promise<AsignacionDetallada[]> {
-  return resolverAsignaciones(fechaInicio, fechaFin, consultarSupabase, cacheSqlite);
+  return resolverAsignaciones(
+    fechaInicio,
+    fechaFin,
+    (desde, hasta) => consultarSupabase(desde, hasta, incluirCanceladas),
+    cacheSqlite,
+  );
 }

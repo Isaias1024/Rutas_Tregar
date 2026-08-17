@@ -38,16 +38,37 @@ pnpm mobile:doctor               # diagnostico del stack de Expo
 
 ## Pantallas
 
+Cuatro pestanas — Hoy, Semana, Historial, Perfil — y el detalle de ruta apilado encima.
+
 | Ruta | Que es |
 |---|---|
 | `app/login.tsx` | Credencial y contrasena. **El chofer nunca teclea un correo** |
 | `app/cambiar-password.tsx` | Obligatorio en el primer ingreso, tras el alta del supervisor |
-| `app/(chofer)/hoy.tsx` | Las asignaciones de hoy |
-| `app/(chofer)/semana.tsx` | La semana. Los dias futuros son **solo lectura** |
+| `app/(chofer)/hoy.tsx` | Pestana inicial: saludo, resumen del dia y las rutas de hoy |
+| `app/(chofer)/semana.tsx` | Siete dias desde hoy. Lo que no es hoy es **solo consulta** |
+| `app/(chofer)/historial.tsx` | Los ultimos 30 dias, hasta ayer. Incluye las canceladas |
+| `app/(chofer)/perfil.tsx` | Identidad y camion. Lo unico editable es el telefono |
 | `app/(chofer)/ruta/[id].tsx` | El detalle donde se marcan los cinco hitos |
 
 El correo determinista que exige Supabase Auth se sintetiza en `src/lib/credencial.ts` y no aparece
-jamas en la UI.
+jamas en la UI. En Perfil tampoco: se muestra la credencial, nunca el correo.
+
+Historial y Perfil no consultan nada nuevo — salen de las mismas politicas RLS que ya existian
+(`asignacion_select_chofer` no tiene tope de fecha; `perfil_personal` concede `update` **solo** sobre
+`telefono`, y por eso nombre y credencial se ven pero no se editan).
+
+## Estados de una ruta
+
+Las tarjetas hablan de cuatro estados, pero **no hay una sexta columna en la base**: los cuatro se
+derivan de los mismos cinco hitos con `estadoRuta()` de `packages/shared/src/flujo.ts`, igual que el
+semaforo del panel se deriva con `derivarEstado()`.
+
+| Hitos marcados | Estado que se ve |
+|---|---|
+| ninguno, `vio_ruta`, `listo_inicio` | `PENDIENTE` — todavia es preparacion, la ruta no salio |
+| `inicio_ruta`, `fin_ruta` | `EN CURSO` |
+| `retorno` | `COMPLETADA` |
+| `cancelada_en` no nulo | `CANCELADA` — gana sobre cualquier avance previo |
 
 ## Como viaja un toque
 
@@ -74,12 +95,24 @@ Fondo blanco y alto contraste: esta pantalla se usa al sol directo en un patio d
 oscuro en v1.
 
 **Un solo objetivo tactil activo por pantalla**, de ancho completo y 72px de alto, texto 20px
-semibold. El chofer confirma el siguiente paso; jamas elige entre cinco. Si crees que necesitan ser
-dos botones, es que falta un paso en `flujo.ts`.
+semibold (`componentes/BotonPrimario.tsx`). El chofer confirma el siguiente paso; jamas elige entre
+cinco. Si crees que necesitan ser dos botones, es que falta un paso en `flujo.ts`.
+
+Solo `retorno` — el hito que cierra la ruta — pide confirmacion, porque `evento` es append-only y no
+se deshace desde la app. Ningun otro paso pregunta.
 
 Los colores salen de `@rutas/shared/tokens` como valores planos, que `tailwind.config.js` mete en
 NativeWind. Nunca se comparte el archivo de config con el panel: el panel usa Tailwind 4 y aqui es
-3.4.
+3.4. El glob de `content` apunta a `./src/componentes/**` — **en espanol**, como se llama la carpeta;
+cuando decia `components` las clases usadas solo dentro de un componente no se generaban.
+
+Los iconos son SVG propios en `componentes/Icono.tsx` sobre `react-native-svg`. No se usa
+`@expo/vector-icons`: existe en el monorepo solo por hoisting a la raiz, y esta app ya se quemo una
+vez con un paquete de Expo resuelto desde la raiz (el incidente de `babel-preset-expo`).
+
+Sin dimensiones fijas de alto: los botones usan `minHeight` para que crezcan si el usuario subio el
+tamano de fuente del sistema, y la fila de dias de "Semana" desplaza en horizontal en vez de repartir
+siete columnas que se cortarian en un telefono chico.
 
 ## Pruebas
 

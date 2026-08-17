@@ -125,15 +125,15 @@ test.describe('Paradas y rutas', () => {
     await page.getByRole('button', { name: 'Nueva ruta' }).click();
 
     await page.getByLabel('Cliente').click();
-    await page.getByRole('option', { name: 'Manufacturas del Norte' }).click();
+    await page.getByRole('option', { name: 'Test Client' }).click();
 
     await page.getByLabel('Nombre').fill(nombreRuta);
 
     await page.getByLabel('Parada de inicio').click();
-    await page.getByRole('option', { name: 'Terminal Centro — Monterrey' }).click();
+    await page.getByRole('option', { name: 'Stop 1' }).click();
 
     await page.getByLabel('Parada de fin').click();
-    await page.getByRole('option', { name: 'Planta Sur — Santa Catarina' }).click();
+    await page.getByRole('option', { name: 'Stop 4' }).click();
 
     // El primer horario ya trae valores validos por defecto (manana,
     // 06:00-06:30, 1 persona). Agregamos un segundo del mismo turno: es
@@ -158,12 +158,12 @@ test.describe('Paradas y rutas', () => {
     await page.getByRole('button', { name: 'Nueva ruta' }).click();
 
     await page.getByLabel('Cliente').click();
-    await page.getByRole('option', { name: 'Manufacturas del Norte' }).click();
+    await page.getByRole('option', { name: 'Test Client' }).click();
     await page.getByLabel('Nombre').fill(`Ruta invertida E2E ${Date.now()}`);
     await page.getByLabel('Parada de inicio').click();
-    await page.getByRole('option', { name: 'Terminal Centro — Monterrey' }).click();
+    await page.getByRole('option', { name: 'Stop 1' }).click();
     await page.getByLabel('Parada de fin').click();
-    await page.getByRole('option', { name: 'Planta Sur — Santa Catarina' }).click();
+    await page.getByRole('option', { name: 'Stop 4' }).click();
 
     await page.getByLabel('Hora de inicio').fill('10:00');
     await page.getByLabel('Hora de fin').fill('09:00');

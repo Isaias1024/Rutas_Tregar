@@ -1,50 +1,68 @@
-import {
-  ORDEN_PASOS,
-  requiereContador,
-  siguientePaso,
-  type EventoRegistrado,
-  type TipoEvento,
-} from '@rutas/shared';
 import { TZDate } from '@date-fns/tz';
+import { estadoRuta, ORDEN_PASOS, requiereContador, siguientePaso } from '@rutas/shared';
 import { format } from 'date-fns';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
-import { PasoActivo } from '@/componentes/paso-activo';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { CabeceraDetalleRuta } from '@/componentes/CabeceraDetalleRuta';
+import { ModalConfirmacion } from '@/componentes/ModalConfirmacion';
+import { ETIQUETA_ACCION, PasoActivo } from '@/componentes/paso-activo';
 import { PasoStepper, type PasoStepperItem } from '@/componentes/paso-stepper';
 import { type AsignacionDetallada, obtenerAsignacionPorId } from '@/datos/asignaciones';
+import { type EventoDeRuta, combinarConPendientes, horaDelPaso } from '@/datos/eventos-locales';
 import { supabase } from '@/lib/supabase';
 import { almacenSqlite } from '@/outbox/db';
 import { vaciarCola } from '@/outbox/flusher';
 import { registrarEvento } from '@/outbox/registrar';
 import { useSesion } from '../../_layout';
 
-const ETIQUETA_PASO: Record<TipoEvento, string> = {
-  vio_ruta: 'Vi la ruta',
-  listo_inicio: 'Listo para iniciar',
-  inicio_ruta: 'Inicie la ruta',
-  fin_ruta: 'Llegue al final',
-  retorno: 'Regrese',
-};
-
-const ETIQUETA_TURNO: Record<string, string> = { manana: 'Manana', tarde: 'Tarde', noche: 'Noche' };
-
-interface EventoFila extends EventoRegistrado {
-  ocurrioEn: string;
-}
-
 function formatearHora(iso: string): string {
   return format(new TZDate(iso, 'America/Mexico_City'), 'HH:mm');
+}
+
+function distanciaEnMetros(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000; // Radio de la tierra en metros
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.asin(Math.sqrt(a));
+  return R * c;
+}
+
+function ubicacionEsCorrecta(
+  eventoLat: number | undefined,
+  eventoLng: number | undefined,
+  paradaLat: number | undefined,
+  paradaLng: number | undefined,
+): boolean | undefined {
+  if (
+    eventoLat === undefined ||
+    eventoLng === undefined ||
+    paradaLat === undefined ||
+    paradaLng === undefined
+  ) {
+    return undefined;
+  }
+  const distancia = distanciaEnMetros(eventoLat, eventoLng, paradaLat, paradaLng);
+  return distancia <= 100; // Considera correcto si esta dentro de 100 metros
 }
 
 export default function PaginaDetalleRuta() {
   const { id, soloLectura } = useLocalSearchParams<{ id: string; soloLectura?: string }>();
   const { usuario } = useSesion();
   const [asignacion, setAsignacion] = useState<AsignacionDetallada | null>(null);
-  const [eventos, setEventos] = useState<EventoFila[]>([]);
+  const [eventos, setEventos] = useState<EventoDeRuta[]>([]);
   const [cargando, setCargando] = useState(true);
   const [registrando, setRegistrando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmando, setConfirmando] = useState<number | undefined>(undefined);
+  const [pidiendoConfirmacion, setPidiendoConfirmacion] = useState(false);
 
   const cargar = useCallback(async () => {
     const [detalle, respuestaEventos, pendientes] = await Promise.all([
@@ -57,28 +75,14 @@ export default function PaginaDetalleRuta() {
       almacenSqlite.listar(),
     ]);
     setAsignacion(detalle);
-
-    // Combina lo ya subido con lo que sigue en el outbox local para esta
-    // asignacion: la UI avanza con lo que se acaba de encolar, sin esperar
-    // a que el flusher realmente lo suba (paso 11).
-    const combinados = new Map<TipoEvento, EventoFila>();
-    for (const fila of respuestaEventos.data ?? []) {
-      combinados.set(fila.tipo as TipoEvento, {
-        tipo: fila.tipo as TipoEvento,
-        ocurrioEn: fila.ocurrio_en,
-      });
-    }
-    for (const fila of pendientes) {
-      if (fila.payload.asignacion_id === id) {
-        combinados.set(fila.payload.tipo, {
-          tipo: fila.payload.tipo,
-          ocurrioEn: fila.payload.ocurrio_en,
-        });
-      }
-    }
     setEventos(
-      ORDEN_PASOS.filter((tipo) => combinados.has(tipo)).map(
-        (tipo) => combinados.get(tipo) as EventoFila,
+      combinarConPendientes(
+        id,
+        (respuestaEventos.data ?? []).map((fila) => ({
+          tipo: fila.tipo,
+          ocurrioEn: fila.ocurrio_en,
+        })),
+        pendientes,
       ),
     );
   }, [id]);
@@ -89,7 +93,6 @@ export default function PaginaDetalleRuta() {
 
   const esSoloLectura = soloLectura === '1';
   const paso = siguientePaso(eventos);
-  const eventosPorTipo = new Map(eventos.map((evento) => [evento.tipo, evento]));
 
   async function registrar(contadorValor?: number) {
     if (!paso || !usuario) {
@@ -117,86 +120,142 @@ export default function PaginaDetalleRuta() {
       setError('No se pudo registrar. Intenta de nuevo.');
     } finally {
       setRegistrando(false);
+      setPidiendoConfirmacion(false);
     }
+  }
+
+  /**
+   * Solo `retorno` pregunta antes: es el hito que cierra la ruta y `evento` es
+   * append-only — marcarlo por error no se deshace desde la app, hay que ir al
+   * panel. Los demas pasos no preguntan (§14: nada de confirmaciones
+   * innecesarias).
+   */
+  function intentarRegistrar(contadorValor?: number) {
+    if (paso === 'retorno') {
+      setConfirmando(contadorValor);
+      setPidiendoConfirmacion(true);
+      return;
+    }
+    void registrar(contadorValor);
   }
 
   if (cargando) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
+      <SafeAreaView className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!asignacion) {
     return (
-      <View className="flex-1 items-center justify-center bg-background px-6">
+      <SafeAreaView className="flex-1 items-center justify-center bg-background px-6">
         <Text className="text-center text-base text-foreground-muted">
           No se encontro esta asignacion.
         </Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
-  const completados = eventos.length;
-  const totalPasos = ORDEN_PASOS.length;
-  const tituloProgreso = paso ? `Paso ${completados + 1} de ${totalPasos}` : 'Ruta completada';
+  const estado = estadoRuta(eventos, asignacion.canceladaEn);
+  const inicioReal = horaDelPaso(eventos, 'inicio_ruta');
+  const finReal = horaDelPaso(eventos, 'retorno');
+  const eventosPorTipo = new Map(eventos.map((evento) => [evento.tipo, evento]));
 
   const pasosStepper: PasoStepperItem[] = ORDEN_PASOS.map((tipoPaso) => {
     const cumplido = eventosPorTipo.get(tipoPaso);
     if (cumplido) {
+      let ubicacionCorrecta: boolean | undefined;
+      if (tipoPaso === 'inicio_ruta') {
+        ubicacionCorrecta = ubicacionEsCorrecta(
+          cumplido.lat,
+          cumplido.lng,
+          asignacion.horario.ruta.paradaInicio.lat,
+          asignacion.horario.ruta.paradaInicio.lng,
+        );
+      } else if (tipoPaso === 'fin_ruta') {
+        ubicacionCorrecta = ubicacionEsCorrecta(
+          cumplido.lat,
+          cumplido.lng,
+          asignacion.horario.ruta.paradaFin.lat,
+          asignacion.horario.ruta.paradaFin.lng,
+        );
+      }
       return {
         tipo: tipoPaso,
-        etiqueta: ETIQUETA_PASO[tipoPaso],
+        etiqueta: ETIQUETA_ACCION[tipoPaso],
         estado: 'completado',
         horaTexto: formatearHora(cumplido.ocurrioEn),
+        lat: cumplido.lat,
+        lng: cumplido.lng,
+        sinGps: cumplido.sinGps,
+        ubicacionCorrecta,
       };
     }
     return {
       tipo: tipoPaso,
-      etiqueta: ETIQUETA_PASO[tipoPaso],
+      etiqueta: ETIQUETA_ACCION[tipoPaso],
       estado: tipoPaso === paso ? 'activo' : 'futuro',
     };
   });
 
+  // Una ruta cancelada no se marca aunque sea de hoy: el supervisor ya la
+  // solto y sus hitos dejaron de tener sentido.
+  const puedeMarcar = paso !== null && !esSoloLectura && estado !== 'cancelada';
+
   return (
-    <ScrollView className="flex-1 bg-background" contentContainerClassName="gap-5 p-4">
-      <View className="rounded-app border border-border bg-surface p-4">
-        <Text className="text-xl font-semibold text-foreground">
-          {asignacion.horario.ruta.nombre}
-        </Text>
-        <Text className="mt-1 text-base text-foreground-muted">
-          {ETIQUETA_TURNO[asignacion.horario.turno] ?? asignacion.horario.turno} ·{' '}
-          {asignacion.camionCodigo}
-        </Text>
-        <Text className="mt-1 tabular-nums text-base text-foreground-muted">
-          {asignacion.horario.horaInicioEsperada.slice(0, 5)}–
-          {asignacion.horario.horaFinEsperada.slice(0, 5)}
-        </Text>
-        <Text className="mt-1 text-base text-foreground-muted">
-          {asignacion.horario.ruta.paradaInicioNombre} → {asignacion.horario.ruta.paradaFinNombre}
-        </Text>
-      </View>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <ScrollView className="flex-1" contentContainerClassName="gap-5 p-4">
+        <CabeceraDetalleRuta
+          asignacion={asignacion}
+          estado={estado}
+          horaInicioReal={inicioReal ? formatearHora(inicioReal) : null}
+          horaFinReal={finReal ? formatearHora(finReal) : null}
+        />
 
-      <View>
-        <View className="mb-3 flex-row items-center justify-between">
-          <Text className="text-base font-semibold text-foreground">Progreso</Text>
-          <Text className="text-sm font-medium text-primary">{tituloProgreso}</Text>
+        <View>
+          <View className="mb-3 flex-row items-center justify-between">
+            <Text className="text-base font-semibold text-foreground">Progreso</Text>
+            <Text className="text-sm font-medium tabular-nums text-primary">
+              {paso ? `Paso ${eventos.length + 1} de ${ORDEN_PASOS.length}` : 'Ruta completada'}
+            </Text>
+          </View>
+          <PasoStepper pasos={pasosStepper} />
         </View>
-        <PasoStepper pasos={pasosStepper} />
-      </View>
 
-      {error ? <Text className="text-center text-base text-destructive">{error}</Text> : null}
+        {error ? <Text className="text-center text-base text-destructive">{error}</Text> : null}
 
-      {paso && !esSoloLectura ? (
-        <PasoActivo tipo={paso} registrando={registrando} onConfirmar={registrar} />
-      ) : null}
+        {puedeMarcar && paso ? (
+          // `key` obligatoria: reinicia la fase y el contador al avanzar de
+          // hito, en vez de arrastrar lo tecleado en el paso anterior.
+          <PasoActivo
+            key={paso}
+            tipo={paso}
+            registrando={registrando}
+            onConfirmar={intentarRegistrar}
+          />
+        ) : null}
 
-      {paso && esSoloLectura ? (
-        <Text className="text-center text-sm text-foreground-muted">
-          Solo lectura: los dias futuros no se marcan todavia.
-        </Text>
-      ) : null}
-    </ScrollView>
+        {estado === 'cancelada' ? (
+          <Text className="text-center text-base text-foreground-muted">
+            Esta ruta fue cancelada por el supervisor.
+          </Text>
+        ) : paso && esSoloLectura ? (
+          <Text className="text-center text-base text-foreground-muted">
+            Solo consulta: los pasos se marcan el mismo dia de la ruta.
+          </Text>
+        ) : null}
+      </ScrollView>
+
+      <ModalConfirmacion
+        visible={pidiendoConfirmacion}
+        titulo="Finalizar ruta"
+        descripcion="Confirma que llegaste al punto final y deseas finalizar esta ruta. Esto no se puede deshacer desde la app."
+        etiquetaConfirmar="Finalizar ruta"
+        ocupado={registrando}
+        onConfirmar={() => void registrar(confirmando)}
+        onCancelar={() => setPidiendoConfirmacion(false)}
+      />
+    </SafeAreaView>
   );
 }

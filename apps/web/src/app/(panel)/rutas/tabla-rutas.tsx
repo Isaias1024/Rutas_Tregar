@@ -90,7 +90,7 @@ interface Props {
 }
 
 const ETIQUETA_TURNO: Record<Horario['turno'], string> = {
-  manana: 'Manana',
+  manana: 'manana',
   tarde: 'Tarde',
   noche: 'Noche',
 };

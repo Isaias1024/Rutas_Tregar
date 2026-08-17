@@ -36,7 +36,15 @@ if (!supabaseUrl || !anonKey || !serviceRoleKey) {
   process.exit(1);
 }
 
-const PASSWORD_PRUEBA = 'Prueba-local-12345';
+// Los mismos usuarios que siembra `scripts/seed.ts`. Este script NO inventa un
+// `prueba-admin` propio a proposito: crear su propia cuenta dejaba dos admins
+// en una base recien sembrada y rompia los conteos exactos del seed. Aqui solo
+// se reutiliza lo que ya existe; si no existe, se crea igual para que el script
+// siga sirviendo en una base a medio preparar.
+const PASSWORD_POR_ROL = {
+  admin: 'Admin123!',
+  supervisor: 'Supervisor123!',
+} as const;
 
 function leerArgumento(bandera: string, porDefecto: string): string {
   const indice = process.argv.indexOf(bandera);
@@ -59,9 +67,10 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-const correo = `prueba-${rol}@example.com`;
-const credencial = `prueba-${rol}`;
-const nombre = rol === 'admin' ? 'Admin de prueba' : 'Supervisor de prueba';
+const PASSWORD_PRUEBA = PASSWORD_POR_ROL[rol];
+const correo = `${rol}@test.com`;
+const credencial = rol;
+const nombre = rol === 'admin' ? 'Administrator Test' : 'Supervisor Test';
 
 async function asegurarUsuario(): Promise<string> {
   const { data: lista, error: errorLista } = await admin.auth.admin.listUsers();

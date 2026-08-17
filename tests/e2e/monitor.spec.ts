@@ -129,10 +129,18 @@ test.describe('Monitor', () => {
     const anchoVentana = await page.evaluate(() => window.innerWidth);
     expect(anchoDocumento).toBeLessThanOrEqual(anchoVentana);
 
-    await fila.getByRole('button', { name: /Registrar/ }).click();
-    await page.getByLabel('Paso').click();
-    await page.getByRole('option', { name: 'Vio la ruta' }).click();
-    await page.getByRole('button', { name: 'Guardar' }).click();
+    await fila.getByRole('button', { name: 'Registrar evento' }).click();
+
+    // El supervisor ya no elige el paso: el dialogo deriva el siguiente con la
+    // misma `siguientePaso` que sigue el chofer y solo deja registrar ese. Sin
+    // eventos previos, el siguiente es `vio_ruta` — y el dialogo lo dice en dos
+    // lugares, asi que la prueba verifica los dos: el bloque "Proximo evento" y
+    // el propio boton de guardar.
+    const dialogo = page.getByRole('dialog');
+    // `exact` importa: sin el, esto tambien casa con el boton "Registrar vio la
+    // ruta" y el localizador deja de ser unico.
+    await expect(dialogo.getByText('Vio la ruta', { exact: true })).toBeVisible();
+    await dialogo.getByRole('button', { name: 'Registrar vio la ruta' }).click();
 
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(fila.getByText('En curso')).toBeVisible();
