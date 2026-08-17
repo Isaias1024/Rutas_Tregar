@@ -5,7 +5,7 @@
 // `process.env.DATABASE_URL` al importarse. Import de solo efecto.
 import '@/lib/env';
 import { asignarSchema, cancelarSchema, type Resultado, reasignarSchema } from '@rutas/shared';
-import { asignacion, camion, db, horario, perfilPersonal, ruta, usuario } from '@rutas/shared/db';
+import { asignacion, camion, db, evento, horario, perfilPersonal, ruta, usuario } from '@rutas/shared/db';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { can } from '@/lib/authz/can';
@@ -67,6 +67,7 @@ export async function listarAsignacionesSemana(fechas: string[]) {
       choferNombre: perfilPersonal.nombre,
       camionId: asignacion.camionId,
       camionCodigo: asignacion.camionCodigo,
+      completada: sql<boolean>`exists(select 1 from ${evento} where ${evento.asignacionId} = ${asignacion.id} and ${evento.tipo} = 'retorno')`,
     })
     .from(asignacion)
     .leftJoin(perfilPersonal, eq(perfilPersonal.usuarioId, asignacion.choferId))

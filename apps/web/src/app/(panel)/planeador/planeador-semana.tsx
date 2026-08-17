@@ -50,6 +50,7 @@ interface AsignacionFila {
   choferNombre: string | null;
   camionId: string;
   camionCodigo: string;
+  completada: boolean;
 }
 
 // El camion viene con el chofer, no aparte: es una propiedad suya
@@ -76,7 +77,7 @@ interface Props {
 }
 
 const TURNOS_ORDEN: readonly Turno[] = ['manana', 'tarde', 'noche'];
-const ETIQUETA_TURNO: Record<Turno, string> = { manana: 'Manana', tarde: 'Tarde', noche: 'Noche' };
+const ETIQUETA_TURNO: Record<Turno, string> = { manana: 'Mañana', tarde: 'Tarde', noche: 'Noche' };
 
 function recortarHora(hora: string): string {
   return hora.slice(0, 5);
@@ -259,7 +260,7 @@ export function PlaneadorSemana({
                               <span>
                                 #{a.secuencia} · {a.choferNombre ?? 'Sin nombre'} · {a.camionCodigo}
                               </span>
-                              {diaEsPasado ? null : (
+                              {diaEsPasado || a.completada ? null : (
                                 <span className="flex gap-2">
                                   <Button
                                     type="button"
