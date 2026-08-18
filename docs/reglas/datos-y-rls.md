@@ -25,6 +25,15 @@ paths:
   correccion de un contador se hace en `asignacion` y queda en `audit_log`.
 - `evento.client_event_id` es UNIQUE: es la clave de idempotencia del outbox. Todo insert desde la
   app usa `on conflict (client_event_id) do nothing`.
+- **El orden del enum `tipo_evento` NO es `ORDEN_PASOS`.** El trigger
+  `evento_validar_insert_chofer()` deriva el "siguiente paso esperado" recorriendo `enum_range`, y
+  el enum trae ademas `fin_ruta_incidente` — declarado entre `fin_ruta` y `retorno` — que no
+  pertenece a la secuencia. El trigger lo excluye explicitamente; sin esa exclusion el computo
+  anunciaba el incidente como paso siguiente y **rechazaba todo `retorno` normal**, dejando sin
+  forma de cerrar una ruta desde la app (corregido en `drizzle/0007_worthless_katie_power.sql`).
+  Al agregar un valor al enum decide siempre, y explicitamente, si entra en la secuencia (va en
+  `ORDEN_PASOS` de `flujo.ts`) o si es una salida (va excluida del computo ordinal del trigger).
+  No hay fuente unica compartida entre SQL y TypeScript: los dos lados se editan a mano.
 - La baja de un usuario **vacia `perfil_personal` y conserva `usuario`**. Nunca borres la fila de
   `usuario`: es lo que sostiene el historial laboral y las referencias de `asignacion`.
 - El borrado logico usa `deleted_at`. Toda consulta de catalogo lo filtra.

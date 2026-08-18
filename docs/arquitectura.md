@@ -4,6 +4,11 @@ Panel web para supervisores y app Android para choferes de una empresa de transp
 Monterrey. El supervisor planea rutas; el chofer marca cinco hitos por ruta; el panel muestra en vivo
 si cada ruta va a tiempo, tarde o adelantada.
 
+Los cinco hitos son la secuencia normal (`ORDEN_PASOS`). Existe un sexto tipo de evento,
+`fin_ruta_incidente`, que **no pertenece a esa secuencia**: es la salida de emergencia — cierra la
+ruta sin completarla, se puede marcar en cualquier momento mientras la ruta no haya cerrado ya, y
+lleva su propia razon (`tipo_incidente`). Ver `packages/shared/src/flujo.ts`.
+
 ## Comandos
 
 | Tarea | Comando |
@@ -69,6 +74,7 @@ La frontera de seguridad de ese camino es RLS y nada mas.
 |---|---|
 | Esquema de datos | `packages/shared/src/db/schema.ts` — se edita ahi y luego `pnpm db:generate` |
 | Politicas RLS | `packages/shared/src/db/rls.sql`, aplicadas por una migracion custom |
+| Maquina de pasos del chofer | `packages/shared/src/flujo.ts` — `ORDEN_PASOS`, `siguientePaso`, `puedeRegistrar` y la excepcion de `fin_ruta_incidente`. La pantalla no decide nada |
 | Derivacion del semaforo | `packages/shared/src/estado.ts` — funcion pura, probada con vitest |
 | Tolerancias del semaforo | `packages/shared/src/estado.ts` — constantes exportadas, jamas literales sueltos |
 | Tokens de diseno | `packages/shared/src/tokens.ts` — sin hex ni px crudos en componentes |

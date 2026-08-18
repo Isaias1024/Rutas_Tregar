@@ -19,7 +19,7 @@ pnpm dev          # desde la raiz — panel en http://127.0.0.1:3000
 | `(panel)` | `/monitor` | Estado en vivo de las rutas de hoy, con captura manual del supervisor |
 | | `/planeador` | Asignacion semanal de chofer y camion por horario |
 | | `/catalogos/clientes` · `/catalogos/camiones` · `/catalogos/choferes` | Altas y bajas |
-| | `/rutas` · `/paradas` | Recorridos, sus horarios por turno, y los puntos con ubicacion |
+| | `/rutas` · `/paradas` | Recorridos, sus horarios por turno (editables mientras no haya arrancado el viaje de hoy), y los puntos con ubicacion |
 | | `/reportes/{cumplimiento,ocupacion,ejecuciones,cliente}` | Los cuatro reportes por periodo |
 | | `/bitacora` | Toda mutacion administrativa, paginada por cursor |
 | `(imprimible)` | `/reportes/cliente/[id]/imprimible` | La pagina que el worker imprime a PDF con Chromium |
@@ -63,6 +63,16 @@ que `src/app/globals.css` reenvia como variables CSS. La tabla de tokens esta en
 
 Bajo 768px las tablas colapsan a tarjetas y la barra lateral se vuelve un cajon. Ninguna pantalla
 produce scroll horizontal a 320px — hay una prueba e2e que lo verifica.
+
+**Dialogos con formulario** (rutas, paradas, camiones, choferes) llevan
+`onPointerDownOutside={(e) => e.preventDefault()}`: un clic afuera cerraba el dialogo y el
+`onOpenChange` reseteaba el form, perdiendo todo lo capturado. Escape y el boton de cerrar siguen
+funcionando. Los `DialogoConfirmar` no lo llevan, porque no hay nada que perder.
+
+**El ancho se pide siempre con prefijo `sm:`** (`sm:max-w-2xl`). `DialogContent` ya trae
+`sm:max-w-sm` en su clase base, y `tailwind-merge` no considera en conflicto dos clases con
+variantes distintas: un `max-w-2xl` pelado convive con la base y pierde en el CSS compilado, asi que
+el formulario se queda en 24rem por mas ancho que le pidas.
 
 ## Verificar
 

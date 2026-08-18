@@ -231,10 +231,17 @@ create policy evento_select_chofer on evento
 -- hueco fuera de orden.
 --
 -- El orden se calcula contra el orden real de `tipo_evento` en el catalogo
--- (`enum_range`), que hoy coincide exactamente con `ORDEN_PASOS` de
--- packages/shared/src/flujo.ts — si alguna vez se reordena uno, hay que
--- reordenar el otro a mano; no hay una fuente unica compartida entre SQL y
--- TypeScript.
+-- (`enum_range`), y ese orden NO es identico a `ORDEN_PASOS` de
+-- packages/shared/src/flujo.ts: el enum trae ademas `fin_ruta_incidente`,
+-- declarado entre `fin_ruta` y `retorno`, que no pertenece a la secuencia.
+-- Por eso el filtro `t.tipo <> 'fin_ruta_incidente'` de la consulta de abajo
+-- no es cosmetico — sin el, el computo ordinal anunciaba
+-- `fin_ruta_incidente` como el paso siguiente a `fin_ruta` y rechazaba TODO
+-- `retorno` normal con este mismo 23514, dejando sin forma de cerrar una
+-- ruta por el camino de PostgREST. No hay una fuente unica compartida entre
+-- SQL y TypeScript: si agregas un valor al enum, decide explicitamente si
+-- entra en la secuencia (y va en `ORDEN_PASOS`) o si es una salida como el
+-- incidente (y va excluido aqui).
 --
 -- Un `tipo` que YA existe para esa asignacion se deja pasar SIN validar
 -- orden: es exactamente el reintento idempotente que

@@ -48,6 +48,13 @@ SDK sin confirmar antes que Expo Go en las tiendas ya soporta la version nueva.
   y no se pide ese permiso.
 - **Un solo boton activo por pantalla**, de ancho completo y **72px de alto**, texto 20px semibold.
   El chofer confirma el siguiente paso; jamas elige entre cinco.
+- **"Terminar ruta por incidente" es la unica excepcion, y por eso es secundario.** Vive en
+  `BotonSecundario` con `destructivo` (56px, contorno rojo) — nunca como `BotonPrimario`, ni como un
+  `Text` con `onPress` suelto: la jerarquia tiene que verse antes de leerse, porque el hito normal
+  sigue siendo lo que el chofer toca el 99% de las veces. Esta disponible **desde que ve la ruta**,
+  no desde que la inicia: un choque o una emergencia pueden impedir que la ruta arranque siquiera.
+  Deja de ofrecerse cuando la ruta ya cerro. Pide la razon (`tipo_incidente`) en un modal antes de
+  registrar; es un evento append-only mas, con su `client_event_id` y su paso por el outbox.
 - Los contadores viven dentro del paso que los necesita: `fin_ruta` pide "cuantos abordaron",
   `retorno` pide "cuantos regresaron". Textbox numerico simple, sin steppers, obligatorio para
   registrar ese evento.

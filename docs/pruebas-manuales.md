@@ -189,7 +189,7 @@ Chrome, Edge o Firefox. Cualquiera sirve.
 |---|---|---|---|
 | **A. Telefono Android real** | Un Android + la app gratis **Expo Go** de Google Play + la misma red WiFi que la computadora | Facil | **Si** |
 | **B. Emulador de Android** | **Android Studio** instalado (<https://developer.android.com/studio>, ~10 GB) y un telefono virtual creado | Media | Si no hay telefono a la mano |
-| **C. Sin app** | Nada: los cinco hitos del chofer tambien se pueden capturar desde el panel ("Registrar evento a mano") | Facil | Solo si no puedes con A ni B |
+| **C. Sin app** | Nada: los cinco hitos del chofer tambien se pueden capturar desde el panel ("Registrar evento a mano"). El **incidente** no: ese solo existe en la app (ver §10) | Facil | Solo si no puedes con A ni B |
 
 Si eliges **B**, despues de instalar Android Studio abrelo una vez y ve a
 **More Actions → Virtual Device Manager → Create Device**, elige un "Pixel 7", descarga la imagen de
@@ -547,7 +547,9 @@ tocado el archivo `.env`**, si no la app sigue usando la direccion vieja.
 
 ### 7.5 Camino C — sin app
 
-Salta este apartado. En §8 se indica como capturar los mismos cinco hitos desde el panel.
+Salta este apartado. En §8 se indica como capturar los mismos cinco hitos desde el panel. La prueba
+de "terminar por incidente" del paso 6 **no** se puede hacer por este camino: ese evento solo lo
+registra la app (§10).
 
 ### 7.6 Comprobacion
 
@@ -626,6 +628,27 @@ una hora despues (`15:30`), personas esperadas `18`.
 
 > **Por que una hora antes:** asi la ruta ya deberia haber empezado, y el semaforo del monitor tiene
 > algo interesante que decir en vez de quedarse en "Pendiente" toda la prueba.
+
+☐ **Prueba clave — el formulario no se cierra solo.** Abre **Nueva ruta** otra vez, escribe un
+nombre y **haz clic fuera de la ventana**, sobre el fondo gris.
+
+**Debe pasar:** la ventana **sigue abierta** y lo que escribiste **sigue ahi**. Antes se cerraba y se
+perdia todo lo capturado. Cierra con la **X** o con `Escape` — esas si cierran, porque son
+intencion, no un clic accidental.
+
+☐ **Prueba de tamano:** con esa misma ventana abierta, fijate en que **usa el ancho de la pantalla**
+y que los campos de hora se leen completos, no recortados a un solo numero. Achica la ventana del
+navegador hasta el ancho de un telefono: el formulario se acomoda sin scroll horizontal.
+
+☐ **Editar en vez de recrear.** En la fila del horario que acabas de crear, presiona **Editar**,
+cambia `18` personas por `20` y guarda.
+
+**Debe pasar:** el horario queda con `20` y **sigue siendo el mismo horario** — no aparece uno nuevo
+ni se duplica la fila. Esto es lo que evita tener que borrar y recrear una ruta por un ajuste menor.
+
+☐ **Desactivar, no borrar.** Fijate en que el boton rojo de la ruta dice **Desactivar**, no
+"Borrar". No lo presiones todavia (lo vas a necesitar); solo confirma el texto. Una ruta desactivada
+desaparece de las vistas pero **conserva su historico**: nunca se borra de la base.
 
 ---
 
@@ -719,13 +742,16 @@ incorrecta."** — nunca dice cual de las dos fallo. Es a proposito.
 | # | Boton | Que pide extra |
 |---|---|---|
 | 1 | Vi la ruta | nada |
-| 2 | Listo para iniciar | pide permiso de ubicacion la primera vez |
-| 3 | Inicie la ruta | nada |
-| 4 | Llegue al final | **cuantas personas abordaron** (escribe `15`) |
-| 5 | Regrese | **cuantas personas regresaron** (escribe `15`) |
+| 2 | Estoy listo para iniciar | pide permiso de ubicacion la primera vez |
+| 3 | Iniciar ruta | nada |
+| 4 | Llegue al destino | **cuantas personas bajaron** (escribe `15`) |
+| 5 | Finalizar ruta | **cuantas personas regresaron** (`15`) y **una confirmacion** |
 
 **Debe pasar en cada uno:** la pantalla avanza **al instante** (no se queda "cargando"), el hito
 recien marcado aparece arriba con su hora, y el boton cambia al siguiente paso.
+
+El paso 5 es el unico que pregunta "¿seguro?" antes de guardar: cierra la ruta y `evento` es
+append-only, asi que no se deshace desde la app. Los otros cuatro no preguntan, a proposito.
 
 ☐ **Prueba clave — el GPS nunca bloquea:** cuando pida el permiso de ubicacion, **niegalo**. El
 evento se debe registrar igual, sin ningun error. Esa es la regla: sin senal o sin permiso, se guarda
@@ -738,6 +764,27 @@ evento aparece en el monitor del panel.
 
 ☐ Entra a la pantalla **Semana**. Los dias futuros se ven, pero **no dejan marcar nada**: son solo
 lectura.
+
+☐ **Prueba clave — terminar por incidente.** Necesita **otra ruta** (asigna una segunda desde el
+planeador, o repite en la del dia siguiente). Abre su detalle **sin marcar ningun hito**.
+
+**Debe pasar:** debajo del boton grande aparece **"Terminar ruta por incidente"**, en rojo con
+contorno y mas bajo que el boton principal. Tiene que estar visible **desde el primer momento**, sin
+haber iniciado la ruta: un choque o una emergencia pueden impedir que la ruta arranque siquiera.
+
+☐ Tocalo. **Debe pasar:** abre un modal que pregunta **la razon** — Emergencia Personal, Choque,
+Trafico u Otro. Elige una.
+
+**Debe pasar:** la ruta queda **COMPLETADA** (cerrada sin completarse) y ya no ofrece mas hitos ni
+el boton de incidente. En el monitor del panel aparece el evento con su razon.
+
+☐ Vuelve a la ruta que **si** terminaste con los cinco hitos. **Debe pasar:** ahi el boton de
+incidente ya **no** aparece — una ruta cerrada no se puede terminar otra vez.
+
+> Esta prueba cubre un bug real que estuvo vivo: el orden de los tipos de evento en la base
+> declaraba el incidente entre "Llegue al destino" y "Finalizar ruta", y eso hacia que **ninguna
+> ruta se pudiera cerrar normalmente**. Si el paso 5 falla con un error de "evento fuera de orden",
+> es esto. Ver `docs/reglas/datos-y-rls.md`.
 
 ---
 
@@ -759,6 +806,19 @@ los reportes existen para mostrar.
 ☐ **Prueba de tamano:** achica la ventana del navegador hasta que sea angosta como un telefono
 (o presiona `F12` y usa el modo de dispositivo movil). **Debe pasar:** la tabla se convierte en
 tarjetas apiladas. **Nunca** debe aparecer una barra de desplazamiento horizontal.
+
+☐ **Prueba clave — lo que ya ocurrio hoy no se edita.** Vuelve a **Rutas** y busca la ruta que el
+chofer ya inicio.
+
+**Debe pasar:** el boton **Editar** de la ruta y el del horario estan **desactivados**, y aparece la
+leyenda *"Ya tiene un viaje iniciado o terminado hoy"*. Cambiar la hora de salida de una ruta que ya
+salio dejaria el semaforo comparando contra un horario que nadie respeto.
+
+**Debe seguir disponible:** **Desactivar** — sacar la ruta de circulacion a futuro siempre se puede;
+lo que se bloquea es reescribir los datos contra los que ya se midio el viaje de hoy.
+
+☐ Comprueba que una ruta **sin** viaje iniciado hoy si deja editarse. Manana esta misma ruta vuelve
+a ser editable: el bloqueo es por dia operativo, no permanente.
 
 ---
 
@@ -1028,6 +1088,7 @@ persiguiendolas.
 | **Opcion "Mi cuenta" del menu** | Da pagina no encontrada (404) | El enlace existe en el menu pero la pantalla todavia no esta construida. Es un pendiente real del proyecto, no un problema de tu instalacion |
 | **`pnpm test:mobile`** | 2 de 3 suites no arrancan | Pendiente conocido tras bajar a Expo SDK 54; ver §10 y `apps/mobile/README.md`. No forma parte de la comprobacion obligatoria |
 | **El supervisor ve lo mismo que el admin** | No hay diferencia en el menu | Es el comportamiento actual, no un defecto: la unica accion que separa los dos roles todavia no tiene pantalla (§6.2) |
+| **Capturar "terminar por incidente" desde el panel** | No aparece entre los eventos que ofrece "Registrar evento a mano" | El dialogo propone unicamente el siguiente paso de la secuencia (`siguientePaso()`), y el incidente no pertenece a ella. Hoy **solo el chofer** puede cerrar una ruta por incidente; si el telefono no esta disponible, el supervisor cancela la ruta desde el planeador. Pendiente real, no un fallo de instalacion |
 | **Estados en gris al imprimir el PDF** | Los cinco se ven de tonos parecidos | La pastilla trae el nombre escrito, asi que se lee; el icono que los separaba en gris se quito en el rediseno de agosto 2026 (§8, paso 8) |
 | **Instalar la app como APK** | No aplica | La distribucion real se hace con EAS y Google Play; eso vive en `docs/runbook.md` §5 |
 

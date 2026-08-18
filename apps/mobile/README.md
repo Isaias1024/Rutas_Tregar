@@ -1,7 +1,8 @@
 # `@rutas/mobile` — App del chofer
 
 Expo SDK 54 (React Native, expo-router). Es la pantalla del chofer: ve las rutas que le tocan hoy y
-marca cinco hitos por ruta. Distribucion interna en Android; no pasa por revision publica.
+marca cinco hitos por ruta, o la termina por incidente si no puede completarla. Distribucion interna
+en Android; no pasa por revision publica.
 
 ## Fijada al SDK 54 a proposito
 
@@ -48,7 +49,7 @@ Cuatro pestanas — Hoy, Semana, Historial, Perfil — y el detalle de ruta apil
 | `app/(chofer)/semana.tsx` | Siete dias desde hoy. Lo que no es hoy es **solo consulta** |
 | `app/(chofer)/historial.tsx` | Los ultimos 30 dias, hasta ayer. Incluye las canceladas |
 | `app/(chofer)/perfil.tsx` | Identidad y camion. Lo unico editable es el telefono |
-| `app/(chofer)/ruta/[id].tsx` | El detalle donde se marcan los cinco hitos |
+| `app/(chofer)/ruta/[id].tsx` | El detalle donde se marcan los hitos y se termina por incidente |
 
 El correo determinista que exige Supabase Auth se sintetiza en `src/lib/credencial.ts` y no aparece
 jamas en la UI. En Perfil tampoco: se muestra la credencial, nunca el correo.
@@ -57,18 +58,29 @@ Historial y Perfil no consultan nada nuevo — salen de las mismas politicas RLS
 (`asignacion_select_chofer` no tiene tope de fecha; `perfil_personal` concede `update` **solo** sobre
 `telefono`, y por eso nombre y credencial se ven pero no se editan).
 
+`src/datos/usePerfil.ts` relee al montar **y cada vez que la pantalla recibe foco**
+(`useFocusEffect`). El camion lo asigna el supervisor desde el panel, asi que sin ese segundo
+disparo un chofer al que le reasignan o le quitan el camion seguia viendo el anterior hasta cerrar
+sesion. Cualquier dato de la app que el panel pueda cambiar a media jornada necesita lo mismo.
+
 ## Estados de una ruta
 
-Las tarjetas hablan de cuatro estados, pero **no hay una sexta columna en la base**: los cuatro se
-derivan de los mismos cinco hitos con `estadoRuta()` de `packages/shared/src/flujo.ts`, igual que el
-semaforo del panel se deriva con `derivarEstado()`.
+Las tarjetas hablan de cuatro estados, pero **no hay una columna de estado en la base**: los cuatro
+se derivan de los hitos con `estadoRuta()` de `packages/shared/src/flujo.ts`, igual que el semaforo
+del panel se deriva con `derivarEstado()`.
 
 | Hitos marcados | Estado que se ve |
 |---|---|
 | ninguno, `vio_ruta`, `listo_inicio` | `PENDIENTE` — todavia es preparacion, la ruta no salio |
 | `inicio_ruta`, `fin_ruta` | `EN CURSO` |
 | `retorno` | `COMPLETADA` |
+| `fin_ruta_incidente` | `COMPLETADA` — cerrada sin completarse; la razon queda en el evento |
 | `cancelada_en` no nulo | `CANCELADA` — gana sobre cualquier avance previo |
+
+`fin_ruta_incidente` es la salida de emergencia: **no es el sexto paso de la secuencia**, se puede
+marcar en cualquier momento desde que el chofer ve la ruta y hasta que esta cierra. `ORDEN_PASOS`
+sigue teniendo cinco elementos; el enum `tipo_evento` tiene seis. Esa diferencia es deliberada y
+esta explicada en `docs/reglas/datos-y-rls.md`.
 
 ## Como viaja un toque
 
@@ -98,8 +110,14 @@ oscuro en v1.
 semibold (`componentes/BotonPrimario.tsx`). El chofer confirma el siguiente paso; jamas elige entre
 cinco. Si crees que necesitan ser dos botones, es que falta un paso en `flujo.ts`.
 
+La unica excepcion es "Terminar ruta por incidente", y se resuelve con jerarquia en vez de con dos
+primarios: vive en `componentes/BotonSecundario.tsx` con `destructivo` (56px, contorno rojo), debajo
+del hito. Una salida de emergencia tiene que estar a la mano sin competir con la accion normal, que
+es lo que el chofer toca casi siempre.
+
 Solo `retorno` — el hito que cierra la ruta — pide confirmacion, porque `evento` es append-only y no
-se deshace desde la app. Ningun otro paso pregunta.
+se deshace desde la app. Ningun otro paso pregunta. El incidente tambien interrumpe, pero con otro
+proposito: su modal pide **la razon** (`tipo_incidente`), no una confirmacion.
 
 Los colores salen de `@rutas/shared/tokens` como valores planos, que `tailwind.config.js` mete en
 NativeWind. Nunca se comparte el archivo de config con el panel: el panel usa Tailwind 4 y aqui es

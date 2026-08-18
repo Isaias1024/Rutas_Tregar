@@ -35,6 +35,20 @@ paths:
 - **El boton primario de la pantalla se pasa como `acciones` a `EncabezadoPagina`.** Cuando ese
   boton abre un dialogo que vive en el componente cliente, el `page.tsx` le pasa `titulo` y
   `descripcion` como props y es el cliente quien renderiza el encabezado.
+- **Un dialogo que sostiene un formulario lleva `onPointerDownOutside={(e) => e.preventDefault()}`.**
+  Un clic afuera cerraba el dialogo y el `onOpenChange` reseteaba el form: se perdia todo lo
+  capturado. Escape y el boton de cerrar siguen funcionando — son intencion explicita, el clic
+  accidental no. Los dialogos de confirmacion (`DialogoConfirmar`) NO lo llevan: cerrarlos sin
+  querer no pierde nada.
+- **El ancho de un dialogo se pide con el prefijo `sm:`** (`sm:max-w-2xl`, no `max-w-2xl`). La clase
+  base de `DialogContent` ya trae `sm:max-w-sm`, y `tailwind-merge` no considera en conflicto dos
+  clases con variantes distintas: un `max-w-2xl` pelado convive con ella y pierde en el CSS
+  compilado, dejando el formulario atrapado en 24rem en cualquier pantalla ≥640px.
+- **Lo que ya ocurrio hoy no se edita.** Una ruta o un horario con una asignacion de hoy que ya
+  registro `inicio_ruta`, `fin_ruta`, `fin_ruta_incidente` o `retorno` rechaza la edicion desde
+  `rutas-nucleo.ts`, y el panel deshabilita el boton con `bloqueadaHoy` para no ofrecer una accion
+  que el servidor va a rechazar. Mismo criterio con el que el planeador ya cierra Cancelar y
+  Reasignar. La comprobacion del servidor es la que manda; la del cliente solo evita el viaje.
 - Toda lista tiene sus tres estados especificados: cargando, vacia y con error. Una lista sin estado
   vacio no esta terminada.
 - Los reportes separan `origen = 'app'` de `origen = 'supervisor'`. Nunca los sumes en una sola cifra:

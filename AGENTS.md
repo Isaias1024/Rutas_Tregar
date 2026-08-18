@@ -43,10 +43,14 @@ compuerta, asi que no bloquea. Detalle en `apps/mobile/README.md`.
 4. Toda mutacion administrativa pasa por `can()` y escribe en `audit_log` en la misma transaccion.
 5. `evento` es append-only: nunca UPDATE, nunca DELETE.
 6. El estado del semaforo se deriva en `packages/shared/src/estado.ts`; no se guarda en ninguna columna.
-7. Nunca versionar secretos ni editar a mano nada bajo `drizzle/`.
-8. Nunca marcar una tarea hecha con una compuerta en rojo.
-9. Los colores, radios y sombras salen de `packages/shared/src/tokens.ts`. Ningun componente escribe
-   un hex ni un px crudo.
+7. **El enum `tipo_evento` y `ORDEN_PASOS` de `flujo.ts` no son la misma lista.** El enum incluye
+   `fin_ruta_incidente`, que no pertenece a la secuencia, y el trigger de orden en `rls.sql` lo
+   excluye a mano. Agregar un valor al enum obliga a decidir en cual de los dos lados entra — ya
+   rompio el cierre de rutas una vez. Detalle en `docs/reglas/datos-y-rls.md`.
+8. Nunca versionar secretos ni editar a mano nada bajo `drizzle/`.
+9. Nunca marcar una tarea hecha con una compuerta en rojo.
+10. Los colores, radios y sombras salen de `packages/shared/src/tokens.ts`. Ningun componente escribe
+    un hex ni un px crudo.
 
 Arquitectura completa, fronteras de import y tokens de diseno: `docs/arquitectura.md`.
 Es la fuente de verdad; este archivo es un puente.
