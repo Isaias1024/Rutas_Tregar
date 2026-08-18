@@ -51,7 +51,7 @@ export function SelectorParada({
         <p className="text-xs text-muted-foreground">
           Haz clic en el mapa o arrastra el pin para ajustar la ubicacion con precision.
         </p>
-        <div className="h-64 w-full overflow-hidden rounded-lg border border-border">
+        <div className="h-80 w-full overflow-hidden rounded-lg border border-border sm:h-96">
           <MapaGoogle
             mapId="selector-parada"
             defaultCenter={coordenadas ?? CENTRO_DEFECTO}

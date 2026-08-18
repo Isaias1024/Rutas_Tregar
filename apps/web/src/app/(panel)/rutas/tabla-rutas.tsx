@@ -3,6 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   type AgregarHorario,
+  type EditarHorario,
   type ParadaCrear,
   type Resultado,
   type RutaCrear,
@@ -44,6 +45,7 @@ interface Horario {
   horaFinEsperada: string;
   personasEsperadas: number;
   activo: boolean;
+  bloqueadaHoy: boolean;
 }
 
 interface Ruta {
@@ -85,6 +87,7 @@ interface Props {
   accionActualizarRuta: (input: RutaEditar) => Promise<Resultado<{ id: string }>>;
   accionBorrarRuta: AccionRuta;
   accionAgregarHorario: (input: AgregarHorario) => Promise<Resultado<{ id: string }>>;
+  accionEditarHorario: (input: EditarHorario) => Promise<Resultado<{ id: string }>>;
   accionDesactivarHorario: AccionRuta;
   accionCrearParada: (input: ParadaCrear) => Promise<Resultado<{ id: string }>>;
 }
@@ -110,6 +113,7 @@ export function TablaRutas({
   accionActualizarRuta,
   accionBorrarRuta,
   accionAgregarHorario,
+  accionEditarHorario,
   accionDesactivarHorario,
   accionCrearParada,
 }: Props) {
@@ -149,7 +153,7 @@ export function TablaRutas({
         return;
       }
       setPorBorrar(null);
-      setExitoBorrado(`Ruta "${ruta.nombre}" eliminada correctamente.`);
+      setExitoBorrado(`Ruta "${ruta.nombre}" desactivada correctamente.`);
     });
   }
 
@@ -176,9 +180,9 @@ export function TablaRutas({
             setPorBorrar(null);
           }
         }}
-        titulo="Borrar ruta"
+        titulo="Desactivar ruta"
         descripcion={`La ruta "${porBorrar?.nombre ?? ''}" y sus horarios dejan de planearse. Las asignaciones y los eventos ya registrados se conservan en el historico.`}
-        etiquetaConfirmar="Borrar"
+        etiquetaConfirmar="Desactivar"
         error={errorBorrado}
         pendiente={pendiente}
         onConfirmar={confirmarBorrado}
@@ -190,48 +194,58 @@ export function TablaRutas({
         </Card>
       ) : (
         <ul className="flex flex-col gap-4">
-          {rutas.map((ruta) => (
-            <li
-              key={ruta.id}
-              className="rounded-lg border border-border bg-card p-4 shadow-tarjeta"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p className="font-medium text-foreground">{ruta.nombre}</p>
-                  <p className="text-sm text-muted-foreground">{ruta.clienteNombre}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {ruta.paradaInicioNombre} → {ruta.paradaFinNombre}
-                  </p>
+          {rutas.map((ruta) => {
+            const rutaBloqueada = ruta.horarios.some((h) => h.bloqueadaHoy);
+            return (
+              <li
+                key={ruta.id}
+                className="rounded-lg border border-border bg-card p-4 shadow-tarjeta"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="font-medium text-foreground">{ruta.nombre}</p>
+                    <p className="text-sm text-muted-foreground">{ruta.clienteNombre}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {ruta.paradaInicioNombre} → {ruta.paradaFinNombre}
+                    </p>
+                    {rutaBloqueada ? (
+                      <p className="mt-1 text-sm text-warning">
+                        Ya tiene un viaje iniciado o terminado hoy: no se puede editar hasta manana.
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={rutaBloqueada}
+                      onClick={() => setRutaEditando(ruta)}
+                    >
+                      Editar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      disabled={pendiente}
+                      onClick={() => pedirBorrado(ruta)}
+                    >
+                      Desactivar
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setRutaEditando(ruta)}
-                  >
-                    Editar
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    disabled={pendiente}
-                    onClick={() => pedirBorrado(ruta)}
-                  >
-                    Borrar
-                  </Button>
-                </div>
-              </div>
 
-              <ListaHorarios
-                ruta={ruta}
-                accionAgregarHorario={accionAgregarHorario}
-                accionDesactivarHorario={accionDesactivarHorario}
-              />
-            </li>
-          ))}
+                <ListaHorarios
+                  ruta={ruta}
+                  accionAgregarHorario={accionAgregarHorario}
+                  accionEditarHorario={accionEditarHorario}
+                  accionDesactivarHorario={accionDesactivarHorario}
+                />
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -267,13 +281,16 @@ export function TablaRutas({
 function ListaHorarios({
   ruta,
   accionAgregarHorario,
+  accionEditarHorario,
   accionDesactivarHorario,
 }: {
   ruta: Ruta;
   accionAgregarHorario: Props['accionAgregarHorario'];
+  accionEditarHorario: Props['accionEditarHorario'];
   accionDesactivarHorario: Props['accionDesactivarHorario'];
 }) {
   const [formularioAbierto, setFormularioAbierto] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [turno, setTurno] = useState<Horario['turno']>('manana');
   const [horaInicio, setHoraInicio] = useState('06:00');
   const [horaFin, setHoraFin] = useState('06:30');
@@ -283,21 +300,54 @@ function ListaHorarios({
   const [porDesactivar, setPorDesactivar] = useState<string | null>(null);
   const [pendiente, startTransition] = useTransition();
 
-  function agregar() {
+  function abrirCrear() {
+    setEditandoId(null);
+    setTurno('manana');
+    setHoraInicio('06:00');
+    setHoraFin('06:30');
+    setPersonas(1);
+    setError(null);
+    setFormularioAbierto(true);
+  }
+
+  function abrirEditar(horarioAEditar: Horario) {
+    setEditandoId(horarioAEditar.id);
+    setTurno(horarioAEditar.turno);
+    setHoraInicio(recortarHora(horarioAEditar.horaInicioEsperada));
+    setHoraFin(recortarHora(horarioAEditar.horaFinEsperada));
+    setPersonas(horarioAEditar.personasEsperadas);
+    setError(null);
+    setFormularioAbierto(true);
+  }
+
+  function cerrarFormulario() {
+    setFormularioAbierto(false);
+    setEditandoId(null);
+  }
+
+  function guardar() {
     setError(null);
     startTransition(async () => {
-      const resultado = await accionAgregarHorario({
-        rutaId: ruta.id,
-        turno,
-        horaInicioEsperada: horaInicio,
-        horaFinEsperada: horaFin,
-        personasEsperadas: personas,
-      });
+      const resultado = editandoId
+        ? await accionEditarHorario({
+            id: editandoId,
+            turno,
+            horaInicioEsperada: horaInicio,
+            horaFinEsperada: horaFin,
+            personasEsperadas: personas,
+          })
+        : await accionAgregarHorario({
+            rutaId: ruta.id,
+            turno,
+            horaInicioEsperada: horaInicio,
+            horaFinEsperada: horaFin,
+            personasEsperadas: personas,
+          });
       if (!resultado.ok) {
         setError(resultado.error.mensaje);
         return;
       }
-      setFormularioAbierto(false);
+      cerrarFormulario();
     });
   }
 
@@ -352,16 +402,32 @@ function ListaHorarios({
                 <span className="tabular-nums text-muted-foreground">
                   {horario.personasEsperadas} personas
                 </span>
+                {horario.bloqueadaHoy ? (
+                  <span className="text-warning" title="Ya tiene un viaje iniciado o terminado hoy">
+                    (en curso hoy)
+                  </span>
+                ) : null}
               </span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={pendiente}
-                onClick={() => setPorDesactivar(horario.id)}
-              >
-                Desactivar
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={pendiente || horario.bloqueadaHoy}
+                  onClick={() => abrirEditar(horario)}
+                >
+                  Editar
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={pendiente}
+                  onClick={() => setPorDesactivar(horario.id)}
+                >
+                  Desactivar
+                </Button>
+              </div>
             </li>
           ))}
         </ul>
@@ -404,26 +470,16 @@ function ListaHorarios({
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <div className="flex gap-2">
-            <Button type="button" size="sm" disabled={pendiente} onClick={agregar}>
+            <Button type="button" size="sm" disabled={pendiente} onClick={guardar}>
               Guardar horario
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setFormularioAbierto(false)}
-            >
+            <Button type="button" variant="outline" size="sm" onClick={cerrarFormulario}>
               Cancelar
             </Button>
           </div>
         </div>
       ) : (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setFormularioAbierto(true)}
-        >
+        <Button type="button" variant="outline" size="sm" onClick={abrirCrear}>
           Agregar horario
         </Button>
       )}
@@ -516,7 +572,10 @@ function CampoParada({
       </div>
 
       <Dialog open={dialogoAbierto} onOpenChange={setDialogoAbierto}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="max-h-[90vh] overflow-y-auto sm:max-w-xl"
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Nueva parada</DialogTitle>
           </DialogHeader>
@@ -627,7 +686,10 @@ function DialogoCrearRuta({
 
   return (
     <Dialog open={abierto} onOpenChange={(v) => (v ? onOpenChange(true) : cerrar())}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Nueva ruta</DialogTitle>
         </DialogHeader>
@@ -844,7 +906,10 @@ function DialogoEditarRuta({
 
   return (
     <Dialog open={ruta !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Editar ruta</DialogTitle>
         </DialogHeader>

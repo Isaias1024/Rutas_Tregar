@@ -6,13 +6,15 @@
 import '@/lib/env';
 import {
   agregarHorarioSchema,
+  editarHorarioSchema,
+  fechaOperativa,
   idSchema,
   type Resultado,
   rutaCrearSchema,
   rutaEditarSchema,
 } from '@rutas/shared';
-import { cliente, db, horario, parada, ruta } from '@rutas/shared/db';
-import { and, eq, isNull } from 'drizzle-orm';
+import { asignacion, cliente, db, evento, horario, parada, ruta } from '@rutas/shared/db';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { revalidatePath } from 'next/cache';
 import { can } from '@/lib/authz/can';
@@ -22,6 +24,7 @@ import {
   borrarRutaNucleo,
   crearRutaNucleo,
   desactivarHorarioNucleo,
+  editarHorarioNucleo,
 } from '@/server/rutas-nucleo';
 import { obtenerUsuarioActual } from '@/server/sesion';
 
@@ -72,8 +75,31 @@ export async function listarRutas() {
     .where(isNull(ruta.deletedAt))
     .orderBy(ruta.nombre);
 
+  // `bloqueadaHoy`: ya hay un viaje de hoy en este horario que arranco o
+  // termino (mismos hitos que cierran Cancelar/Reasignar en el planeador).
+  // El panel deshabilita "Editar" con esto para no dejar que el supervisor
+  // escriba un cambio que el nucleo va a rechazar de todas formas.
+  const hoy = fechaOperativa(new Date());
   const filasHorario = await db
-    .select()
+    .select({
+      id: horario.id,
+      rutaId: horario.rutaId,
+      turno: horario.turno,
+      horaInicioEsperada: horario.horaInicioEsperada,
+      horaFinEsperada: horario.horaFinEsperada,
+      personasEsperadas: horario.personasEsperadas,
+      activo: horario.activo,
+      bloqueadaHoy: sql<boolean>`exists(
+        select 1 from ${asignacion}
+        where ${asignacion.horarioId} = ${horario.id}
+          and ${asignacion.fecha} = ${hoy}
+          and exists(
+            select 1 from ${evento}
+            where ${evento.asignacionId} = ${asignacion.id}
+              and ${evento.tipo} in ('inicio_ruta', 'fin_ruta', 'fin_ruta_incidente', 'retorno')
+          )
+      )`,
+    })
     .from(horario)
     .where(and(isNull(horario.deletedAt), eq(horario.activo, true)));
 
@@ -184,6 +210,28 @@ export async function agregarHorario(input: unknown): Promise<Resultado<{ id: st
   }
 
   const resultado = await agregarHorarioNucleo(actor.id, parseo.data);
+  if (resultado.ok) {
+    revalidatePath('/rutas');
+  }
+  return resultado;
+}
+
+export async function editarHorario(input: unknown): Promise<Resultado<{ id: string }>> {
+  const parseo = editarHorarioSchema.safeParse(input);
+  if (!parseo.success) {
+    const primero = parseo.error.issues[0];
+    return errorValidacion(
+      primero?.message ?? 'Entrada invalida',
+      primero?.path[primero.path.length - 1]?.toString(),
+    );
+  }
+
+  const actor = await actorAutorizado();
+  if (!actor) {
+    return SIN_PERMISO;
+  }
+
+  const resultado = await editarHorarioNucleo(actor.id, parseo.data);
   if (resultado.ok) {
     revalidatePath('/rutas');
   }

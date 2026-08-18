@@ -7,6 +7,7 @@ import {
   borrarRuta,
   crearRuta,
   desactivarHorario,
+  editarHorario,
   listarRutas,
 } from '@/server/rutas';
 import { TablaRutas } from './tabla-rutas';
@@ -32,6 +33,7 @@ export default async function PaginaRutas() {
       accionActualizarRuta={actualizarRuta}
       accionBorrarRuta={borrarRuta}
       accionAgregarHorario={agregarHorario}
+      accionEditarHorario={editarHorario}
       accionDesactivarHorario={desactivarHorario}
       accionCrearParada={crearParada}
     />

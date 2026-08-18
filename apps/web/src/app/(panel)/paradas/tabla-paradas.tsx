@@ -313,7 +313,10 @@ export function TablaParadas({
       )}
 
       <Dialog open={dialogoAbierto} onOpenChange={setDialogoAbierto}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="max-h-[90vh] overflow-y-auto sm:max-w-xl"
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>{editandoId ? 'Editar parada' : 'Nueva parada'}</DialogTitle>
           </DialogHeader>

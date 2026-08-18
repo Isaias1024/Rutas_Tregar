@@ -335,7 +335,7 @@ export function TablaChoferes({
       )}
 
       <Dialog open={dialogoAbierto} onOpenChange={setDialogoAbierto}>
-        <DialogContent>
+        <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{editando ? 'Editar chofer' : 'Nuevo chofer'}</DialogTitle>
           </DialogHeader>

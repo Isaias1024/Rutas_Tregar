@@ -6,10 +6,84 @@
 // sea el unico punto de entrada real, y para que este nucleo se pueda probar
 // contra Postgres sin pasar por `next/headers`, que no existe fuera de una
 // peticion real de Next.
-import type { AgregarHorario, Resultado, RutaCrear, RutaEditar } from '@rutas/shared';
-import { db, horario, ruta } from '@rutas/shared/db';
-import { and, eq, isNull } from 'drizzle-orm';
+import {
+  type AgregarHorario,
+  type EditarHorario,
+  fechaOperativa,
+  type Resultado,
+  type RutaCrear,
+  type RutaEditar,
+} from '@rutas/shared';
+import { asignacion, db, evento, horario, ruta } from '@rutas/shared/db';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { registrarAuditoria } from '@/lib/audit/registrar';
+
+// Los mismos tres hitos que cierran la ventana de edicion en el resto del
+// panel (§ planeador: Cancelar/Reasignar se deshabilitan igual para una
+// asignacion de hoy ya completada). `inicio_ruta` cuenta porque el chofer ya
+// salio siguiendo los datos viejos; `fin_ruta`/`fin_ruta_incidente` cuentan
+// porque la ruta de hoy ya termino.
+const EVENTOS_QUE_BLOQUEAN_EDICION = [
+  'inicio_ruta',
+  'fin_ruta',
+  'fin_ruta_incidente',
+  'retorno',
+] as const;
+
+const RUTA_EN_CURSO: Resultado<never> = {
+  ok: false,
+  error: {
+    codigo: 'validacion',
+    mensaje:
+      'Esta ruta ya tiene un viaje iniciado o terminado hoy. Espera a manana o edita despues de que termine el dia operativo.',
+  },
+};
+
+const HORARIO_EN_CURSO: Resultado<never> = {
+  ok: false,
+  error: {
+    codigo: 'validacion',
+    mensaje:
+      'Este horario ya tiene un viaje iniciado o terminado hoy. Espera a manana o edita despues de que termine el dia operativo.',
+  },
+};
+
+/** `true` si ALGUN horario de esta ruta tiene una asignacion de hoy ya iniciada o terminada. */
+async function rutaTieneViajeEnCursoHoy(rutaId: string): Promise<boolean> {
+  const hoy = fechaOperativa(new Date());
+  const filas = await db
+    .select({ id: asignacion.id })
+    .from(asignacion)
+    .innerJoin(horario, eq(horario.id, asignacion.horarioId))
+    .innerJoin(evento, eq(evento.asignacionId, asignacion.id))
+    .where(
+      and(
+        eq(horario.rutaId, rutaId),
+        eq(asignacion.fecha, hoy),
+        inArray(evento.tipo, EVENTOS_QUE_BLOQUEAN_EDICION),
+      ),
+    )
+    .limit(1);
+  return filas.length > 0;
+}
+
+/** `true` si la asignacion de hoy de este horario ya esta iniciada o terminada. */
+async function horarioTieneViajeEnCursoHoy(horarioId: string): Promise<boolean> {
+  const hoy = fechaOperativa(new Date());
+  const filas = await db
+    .select({ id: asignacion.id })
+    .from(asignacion)
+    .innerJoin(evento, eq(evento.asignacionId, asignacion.id))
+    .where(
+      and(
+        eq(asignacion.horarioId, horarioId),
+        eq(asignacion.fecha, hoy),
+        inArray(evento.tipo, EVENTOS_QUE_BLOQUEAN_EDICION),
+      ),
+    )
+    .limit(1);
+  return filas.length > 0;
+}
 
 const NO_ENCONTRADO: Resultado<never> = {
   ok: false,
@@ -50,6 +124,10 @@ export async function actualizarRutaNucleo(
     .limit(1);
   if (!antes) {
     return NO_ENCONTRADO;
+  }
+
+  if (await rutaTieneViajeEnCursoHoy(datos.id)) {
+    return RUTA_EN_CURSO;
   }
 
   const { id, ...cambios } = datos;
@@ -122,6 +200,43 @@ export async function agregarHorarioNucleo(
       accion: 'crear',
       recurso: { tipo: 'horario', id },
       despues: { rutaId, ...datosHorario },
+    });
+  });
+
+  return { ok: true, data: { id } };
+}
+
+export async function editarHorarioNucleo(
+  actorId: string,
+  datos: EditarHorario,
+): Promise<Resultado<{ id: string }>> {
+  const [antes] = await db
+    .select()
+    .from(horario)
+    .where(and(eq(horario.id, datos.id), isNull(horario.deletedAt)))
+    .limit(1);
+  if (!antes) {
+    return NO_ENCONTRADO;
+  }
+
+  if (await horarioTieneViajeEnCursoHoy(datos.id)) {
+    return HORARIO_EN_CURSO;
+  }
+
+  const { id, ...cambios } = datos;
+  await db.transaction(async (tx) => {
+    await tx.update(horario).set(cambios).where(eq(horario.id, id));
+    await registrarAuditoria(tx, {
+      actor: actorId,
+      accion: 'editar',
+      recurso: { tipo: 'horario', id },
+      antes: {
+        turno: antes.turno,
+        horaInicioEsperada: antes.horaInicioEsperada,
+        horaFinEsperada: antes.horaFinEsperada,
+        personasEsperadas: antes.personasEsperadas,
+      },
+      despues: cambios,
     });
   });
 

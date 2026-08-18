@@ -1,10 +1,32 @@
 import { randomUUID } from 'node:crypto';
-import { agregarHorarioSchema, type RutaCrear, rutaCrearSchema } from '@rutas/shared';
-import { asignacion, camion, cliente, db, horario, parada, ruta, usuario } from '@rutas/shared/db';
+import {
+  agregarHorarioSchema,
+  editarHorarioSchema,
+  fechaOperativa,
+  type RutaCrear,
+  rutaCrearSchema,
+} from '@rutas/shared';
+import {
+  asignacion,
+  camion,
+  cliente,
+  db,
+  evento,
+  horario,
+  parada,
+  ruta,
+  usuario,
+} from '@rutas/shared/db';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { agregarHorario, crearRuta } from './rutas.ts';
-import { borrarRutaNucleo, crearRutaNucleo, desactivarHorarioNucleo } from './rutas-nucleo.ts';
+import {
+  actualizarRutaNucleo,
+  borrarRutaNucleo,
+  crearRutaNucleo,
+  desactivarHorarioNucleo,
+  editarHorarioNucleo,
+} from './rutas-nucleo.ts';
 
 function datosRuta(overrides: Partial<RutaCrear> = {}): RutaCrear {
   return {
@@ -98,6 +120,17 @@ describe('esquemas de validacion (paso 6)', () => {
   it('agregarHorarioSchema tambien exige hora_fin posterior a hora_inicio', () => {
     const parseo = agregarHorarioSchema.safeParse({
       rutaId: randomUUID(),
+      turno: 'noche',
+      horaInicioEsperada: '22:00',
+      horaFinEsperada: '21:00',
+      personasEsperadas: 10,
+    });
+    expect(parseo.success).toBe(false);
+  });
+
+  it('editarHorarioSchema tambien exige hora_fin posterior a hora_inicio', () => {
+    const parseo = editarHorarioSchema.safeParse({
+      id: randomUUID(),
       turno: 'noche',
       horaInicioEsperada: '22:00',
       horaFinEsperada: '21:00',
@@ -203,6 +236,14 @@ describe('rutas-nucleo contra Postgres real', () => {
         .where(inArray(horario.rutaId, rutaIds));
       const horarioIds = horariosCreados.map((h) => h.id);
       if (horarioIds.length > 0) {
+        const asignacionesCreadas = await db
+          .select({ id: asignacion.id })
+          .from(asignacion)
+          .where(inArray(asignacion.horarioId, horarioIds));
+        const asignacionIds = asignacionesCreadas.map((a) => a.id);
+        if (asignacionIds.length > 0) {
+          await db.delete(evento).where(inArray(evento.asignacionId, asignacionIds));
+        }
         await db.delete(asignacion).where(inArray(asignacion.horarioId, horarioIds));
         await db.delete(horario).where(inArray(horario.rutaId, rutaIds));
       }
@@ -328,6 +369,146 @@ describe('rutas-nucleo contra Postgres real', () => {
       .limit(1);
     expect(filaHorario).toBeDefined();
     expect(filaHorario?.activo).toBe(false);
+  });
+
+  it('editarHorarioNucleo actualiza horas y personas sin crear una fila nueva', async () => {
+    const creada = await crearRutaNucleo(
+      actorId,
+      datosRuta({ clienteId, paradaInicioId, paradaFinId }),
+    );
+    expect(creada.ok).toBe(true);
+    if (!creada.ok) return;
+
+    const [horarioCreado] = await db
+      .select()
+      .from(horario)
+      .where(eq(horario.rutaId, creada.data.id))
+      .limit(1);
+    if (!horarioCreado) throw new Error('setup: horario no encontrado');
+
+    const resultado = await editarHorarioNucleo(actorId, {
+      id: horarioCreado.id,
+      turno: 'tarde',
+      horaInicioEsperada: '15:00',
+      horaFinEsperada: '15:45',
+      personasEsperadas: 30,
+    });
+    expect(resultado.ok).toBe(true);
+
+    const horariosDeLaRuta = await db
+      .select()
+      .from(horario)
+      .where(eq(horario.rutaId, creada.data.id));
+    expect(horariosDeLaRuta).toHaveLength(1);
+    const [filaHorario] = horariosDeLaRuta;
+    expect(filaHorario?.turno).toBe('tarde');
+    expect(filaHorario?.horaInicioEsperada).toBe('15:00:00');
+    expect(filaHorario?.horaFinEsperada).toBe('15:45:00');
+    expect(filaHorario?.personasEsperadas).toBe(30);
+  });
+
+  it('actualizarRutaNucleo rechaza el cambio si algun horario ya tiene un viaje de hoy iniciado', async () => {
+    const creada = await crearRutaNucleo(
+      actorId,
+      datosRuta({ clienteId, paradaInicioId, paradaFinId }),
+    );
+    expect(creada.ok).toBe(true);
+    if (!creada.ok) return;
+
+    const [horarioCreado] = await db
+      .select()
+      .from(horario)
+      .where(eq(horario.rutaId, creada.data.id))
+      .limit(1);
+    if (!horarioCreado) throw new Error('setup: horario no encontrado');
+
+    const asignacionId = randomUUID();
+    await db.insert(asignacion).values({
+      id: asignacionId,
+      horarioId: horarioCreado.id,
+      fecha: fechaOperativa(new Date()),
+      choferId,
+      camionId,
+      camionCodigo: 'T-RUTAS-TEST',
+      createdBy: actorId,
+    });
+    await db.insert(evento).values({
+      id: randomUUID(),
+      asignacionId,
+      tipo: 'inicio_ruta',
+      ocurrioEn: new Date(),
+      origen: 'app',
+      capturadoPor: choferId,
+      clientEventId: randomUUID(),
+    });
+
+    const resultado = await actualizarRutaNucleo(actorId, {
+      id: creada.data.id,
+      clienteId,
+      nombre: 'Nombre nuevo que no deberia guardarse',
+      paradaInicioId,
+      paradaFinId,
+    });
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.error.codigo).toBe('validacion');
+
+    const [filaRuta] = await db.select().from(ruta).where(eq(ruta.id, creada.data.id)).limit(1);
+    expect(filaRuta?.nombre).toBe('Centro - Planta Norte');
+  });
+
+  it('editarHorarioNucleo rechaza el cambio si el horario ya tiene un viaje de hoy terminado', async () => {
+    const creada = await crearRutaNucleo(
+      actorId,
+      datosRuta({ clienteId, paradaInicioId, paradaFinId }),
+    );
+    expect(creada.ok).toBe(true);
+    if (!creada.ok) return;
+
+    const [horarioCreado] = await db
+      .select()
+      .from(horario)
+      .where(eq(horario.rutaId, creada.data.id))
+      .limit(1);
+    if (!horarioCreado) throw new Error('setup: horario no encontrado');
+
+    const asignacionId = randomUUID();
+    await db.insert(asignacion).values({
+      id: asignacionId,
+      horarioId: horarioCreado.id,
+      fecha: fechaOperativa(new Date()),
+      choferId,
+      camionId,
+      camionCodigo: 'T-RUTAS-TEST',
+      createdBy: actorId,
+    });
+    await db.insert(evento).values({
+      id: randomUUID(),
+      asignacionId,
+      tipo: 'retorno',
+      ocurrioEn: new Date(),
+      origen: 'app',
+      capturadoPor: choferId,
+      clientEventId: randomUUID(),
+    });
+
+    const resultado = await editarHorarioNucleo(actorId, {
+      id: horarioCreado.id,
+      turno: 'noche',
+      horaInicioEsperada: '20:00',
+      horaFinEsperada: '20:30',
+      personasEsperadas: 5,
+    });
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.error.codigo).toBe('validacion');
+
+    const [filaHorario] = await db
+      .select()
+      .from(horario)
+      .where(eq(horario.id, horarioCreado.id))
+      .limit(1);
+    expect(filaHorario?.personasEsperadas).toBe(20);
   });
 
   it('borrar una ruta ya borrada responde no_encontrado, no un exito falso', async () => {

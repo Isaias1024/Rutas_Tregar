@@ -48,6 +48,12 @@ export const agregarHorarioSchema = horarioBase
   });
 export type AgregarHorario = z.infer<typeof agregarHorarioSchema>;
 
+export const editarHorarioSchema = horarioBase.extend({ id: idSchema }).refine(horaFinPosterior, {
+  message: MENSAJE_HORAS_INVERTIDAS,
+  path: ['horaFinEsperada'],
+});
+export type EditarHorario = z.infer<typeof editarHorarioSchema>;
+
 function paradasDistintas(r: { paradaInicioId: string; paradaFinId: string }): boolean {
   return r.paradaInicioId !== r.paradaFinId;
 }
