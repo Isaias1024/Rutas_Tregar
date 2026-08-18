@@ -50,6 +50,13 @@
       "when": 1786996346498,
       "tag": "0006_red_wallop",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787019351258,
+      "tag": "0007_worthless_katie_power",
+      "breakpoints": true
     }
   ]
 }

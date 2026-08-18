@@ -51,6 +51,27 @@ describe('puedeRegistrar', () => {
   it('rechaza repetir un paso ya marcado', () => {
     expect(puedeRegistrar('vio_ruta', eventos('vio_ruta'))).toBe(false);
   });
+
+  it('fin_ruta_incidente esta disponible desde antes de cualquier evento, no solo tras inicio_ruta', () => {
+    expect(puedeRegistrar('fin_ruta_incidente', [])).toBe(true);
+    expect(puedeRegistrar('fin_ruta_incidente', eventos('vio_ruta'))).toBe(true);
+    expect(puedeRegistrar('fin_ruta_incidente', eventos('vio_ruta', 'listo_inicio'))).toBe(true);
+    expect(
+      puedeRegistrar('fin_ruta_incidente', eventos('vio_ruta', 'listo_inicio', 'inicio_ruta')),
+    ).toBe(true);
+  });
+
+  it('fin_ruta_incidente se cierra una vez que la ruta ya termino', () => {
+    expect(
+      puedeRegistrar(
+        'fin_ruta_incidente',
+        eventos('vio_ruta', 'listo_inicio', 'inicio_ruta', 'fin_ruta', 'retorno'),
+      ),
+    ).toBe(false);
+    expect(puedeRegistrar('fin_ruta_incidente', eventos('vio_ruta', 'fin_ruta_incidente'))).toBe(
+      false,
+    );
+  });
 });
 
 describe('requiereContador', () => {

@@ -4,6 +4,8 @@ interface Props {
   etiqueta: string;
   onPress: () => void;
   deshabilitado?: boolean;
+  /** Para acciones de apoyo que igual son irreversibles (terminar por incidente). */
+  destructivo?: boolean;
   testID?: string;
 }
 
@@ -15,19 +17,27 @@ interface Props {
  * 56px de alto: mas bajo que los 72 del primario a proposito (la jerarquia se
  * ve antes de leer), pero por encima del minimo tactil de 44px.
  */
-export function BotonSecundario({ etiqueta, onPress, deshabilitado, testID }: Props) {
+export function BotonSecundario({ etiqueta, onPress, deshabilitado, destructivo, testID }: Props) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={etiqueta}
       accessibilityState={{ disabled: Boolean(deshabilitado) }}
-      className="items-center justify-center rounded-app border border-border bg-background px-4 disabled:opacity-40"
+      className={`items-center justify-center rounded-app border px-4 disabled:opacity-40 ${
+        destructivo ? 'border-destructive bg-background' : 'border-border bg-background'
+      }`}
       style={{ minHeight: 56 }}
       disabled={deshabilitado}
       onPress={onPress}
       testID={testID}
     >
-      <Text className="text-center text-base font-semibold text-foreground">{etiqueta}</Text>
+      <Text
+        className={`text-center text-base font-semibold ${
+          destructivo ? 'text-destructive' : 'text-foreground'
+        }`}
+      >
+        {etiqueta}
+      </Text>
     </Pressable>
   );
 }

@@ -56,14 +56,16 @@ export function siguientePaso(eventosRegistrados: EventoRegistrado[]): TipoEvent
  * saltarse un paso (marcar `inicio_ruta` sin `listo_inicio`) como repetir uno
  * ya marcado (marcar `vio_ruta` otra vez).
  *
- * EXCEPCION: `fin_ruta_incidente` se puede registrar en cualquier momento,
- * siempre que `inicio_ruta` ya haya sido marcado (la ruta debe haber empezado).
+ * EXCEPCION: `fin_ruta_incidente` se puede registrar en cualquier momento
+ * desde que el chofer ve la ruta — no hace falta haber marcado `inicio_ruta`,
+ * porque el incidente (choque, emergencia, camion vardado) puede impedir que
+ * la ruta arranque siquiera. Solo se cierra la puerta cuando la ruta ya
+ * termino: `retorno` ya registrado, o un incidente ya registrado antes.
  */
 export function puedeRegistrar(tipo: TipoEvento, eventosRegistrados: EventoRegistrado[]): boolean {
   if (tipo === 'fin_ruta_incidente') {
     const registrados = new Set(eventosRegistrados.map((evento) => evento.tipo));
-    // Solo permitir incidente si la ruta ya empezo
-    return registrados.has('inicio_ruta') && !registrados.has('fin_ruta_incidente');
+    return !registrados.has('retorno') && !registrados.has('fin_ruta_incidente');
   }
   return siguientePaso(eventosRegistrados) === tipo;
 }

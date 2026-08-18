@@ -255,6 +255,7 @@ as $$
 declare
   siguiente tipo_evento;
   ya_existe boolean;
+  ruta_cerrada boolean;
 begin
   if auth.uid() is null then
     return new;
@@ -272,10 +273,36 @@ begin
     return new;
   end if;
 
+  -- `fin_ruta_incidente` es la excepcion de `puedeRegistrar` en flujo.ts: se
+  -- puede registrar en CUALQUIER momento de la ruta, sin respetar el orden
+  -- lineal de ORDEN_PASOS, mientras la ruta no este ya cerrada por `retorno`.
+  -- Por eso queda fuera del computo ordinal de abajo en los dos sentidos: ni
+  -- se le exige turno a el mismo (este bloque), ni cuenta como el "siguiente
+  -- paso" que otro tipo tendria que esperar (el `and t.tipo <> ...` de mas
+  -- abajo). Antes de esta correccion, como el enum lo declara entre
+  -- `fin_ruta` y `retorno`, el computo ordinal insistia en que el siguiente
+  -- paso tras un `fin_ruta` normal era `fin_ruta_incidente` y rechazaba TODO
+  -- `retorno` normal con "evento fuera de orden" -- ninguna ruta se podia
+  -- cerrar sin incidente por este camino.
+  if new.tipo = 'fin_ruta_incidente' then
+    select exists (
+      select 1 from evento where asignacion_id = new.asignacion_id and tipo = 'retorno'
+    )
+    into ruta_cerrada;
+
+    if ruta_cerrada then
+      raise exception 'la ruta ya esta cerrada, no se puede registrar un incidente'
+        using errcode = '23514';
+    end if;
+
+    return new;
+  end if;
+
   select t.tipo
   into siguiente
   from unnest(enum_range(null::tipo_evento)) with ordinality as t(tipo, orden)
   where t.tipo not in (select e.tipo from evento e where e.asignacion_id = new.asignacion_id)
+    and t.tipo <> 'fin_ruta_incidente'
   order by t.orden
   limit 1;
 

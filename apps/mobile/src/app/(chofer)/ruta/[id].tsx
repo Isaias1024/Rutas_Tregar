@@ -1,10 +1,18 @@
 import { TZDate } from '@date-fns/tz';
-import { estadoRuta, ORDEN_PASOS, puedeRegistrar, requiereContador, siguientePaso, type TipoIncidente } from '@rutas/shared';
+import {
+  estadoRuta,
+  ORDEN_PASOS,
+  puedeRegistrar,
+  requiereContador,
+  siguientePaso,
+  type TipoIncidente,
+} from '@rutas/shared';
 import { format } from 'date-fns';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BotonSecundario } from '@/componentes/BotonSecundario';
 import { CabeceraDetalleRuta } from '@/componentes/CabeceraDetalleRuta';
 import { ModalConfirmacion } from '@/componentes/ModalConfirmacion';
 import { ModalIncidente } from '@/componentes/ModalIncidente';
@@ -267,14 +275,13 @@ export default function PaginaDetalleRuta() {
             <Text className="text-center text-sm text-foreground-muted">
               Si no puedes completar la ruta normalmente
             </Text>
-            <View className="rounded-lg border border-destructive bg-destructive/5 p-4">
-              <Text
-                onPress={() => setPidiendoIncidente(true)}
-                className="text-center text-base font-semibold text-destructive underline"
-              >
-                Terminar ruta por incidente
-              </Text>
-            </View>
+            <BotonSecundario
+              etiqueta="Terminar ruta por incidente"
+              destructivo
+              deshabilitado={registrando}
+              onPress={() => setPidiendoIncidente(true)}
+              testID="boton-terminar-incidente"
+            />
           </View>
         ) : null}
 

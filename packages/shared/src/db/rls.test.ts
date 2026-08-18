@@ -451,6 +451,176 @@ describe('rls: el trigger de evento fuerza origen/capturado_por y el orden', () 
   });
 });
 
+// Regresion: `tipo_evento` declara fin_ruta_incidente entre fin_ruta y
+// retorno, y el computo ordinal de "siguiente paso esperado" en
+// evento_validar_insert_chofer() lo trataba como un paso mas de la
+// secuencia. Consecuencia real: tras un fin_ruta normal, el trigger insistia
+// en que el siguiente evento tenia que ser fin_ruta_incidente y rechazaba
+// TODO retorno normal con "evento fuera de orden" — ninguna ruta se podia
+// cerrar sin incidente por este camino. Cada test usa su propia asignacion
+// para no interferir con la secuencia del describe de arriba.
+describe('rls: fin_ruta_incidente es una excepcion al orden, no un paso mas', () => {
+  const clienteId = randomUUID();
+  const paradaInicioId = randomUUID();
+  const paradaFinId = randomUUID();
+  const camionId = randomUUID();
+  const rutaId = randomUUID();
+  const horarioId = randomUUID();
+  const choferId = randomUUID();
+
+  beforeAll(async () => {
+    await db.execute(sql`insert into auth.users (id) values (${choferId})`);
+    await db
+      .insert(cliente)
+      .values({ id: clienteId, nombre: 'Cliente de prueba (incidente-orden)' });
+    await db.insert(parada).values([
+      {
+        id: paradaInicioId,
+        nombre: 'Parada inicio (incidente-orden)',
+        direccion: 'Direccion 1',
+        lat: 25.68,
+        lng: -100.31,
+      },
+      {
+        id: paradaFinId,
+        nombre: 'Parada fin (incidente-orden)',
+        direccion: 'Direccion 2',
+        lat: 25.7,
+        lng: -100.3,
+      },
+    ]);
+    await db.insert(camion).values({
+      id: camionId,
+      codigo: `INC-${camionId.slice(0, 8)}`,
+      tipo: 'Van',
+      placas: 'INC-0001',
+    });
+    await db.insert(ruta).values({
+      id: rutaId,
+      clienteId,
+      nombre: 'Ruta de prueba (incidente-orden)',
+      paradaInicioId,
+      paradaFinId,
+    });
+    await db.insert(horario).values({
+      id: horarioId,
+      rutaId,
+      turno: 'manana',
+      horaInicioEsperada: '06:00',
+      horaFinEsperada: '07:00',
+      personasEsperadas: 10,
+    });
+    await db
+      .insert(usuario)
+      .values({ id: choferId, credencial: `chofer-inc-${choferId.slice(0, 8)}`, rol: 'chofer' });
+  });
+
+  afterAll(async () => {
+    await db.execute(sql`delete from evento where asignacion_id in (
+      select id from asignacion where horario_id = ${horarioId}
+    )`);
+    await db.execute(sql`delete from asignacion where horario_id = ${horarioId}`);
+    await db.execute(sql`delete from horario where id = ${horarioId}`);
+    await db.execute(sql`delete from ruta where id = ${rutaId}`);
+    await db.execute(sql`delete from camion where id = ${camionId}`);
+    await db.execute(sql`delete from parada where id in (${paradaInicioId}, ${paradaFinId})`);
+    await db.execute(sql`delete from cliente where id = ${clienteId}`);
+    await db.execute(sql`delete from usuario where id = ${choferId}`);
+    await db.execute(sql`delete from auth.users where id = ${choferId}`);
+  });
+
+  it('un chofer puede marcar retorno despues de un fin_ruta normal, sin fin_ruta_incidente de por medio', async () => {
+    const asignacionId = randomUUID();
+    await db.insert(asignacion).values({
+      id: asignacionId,
+      horarioId,
+      fecha: '2026-08-12',
+      choferId,
+      camionId,
+      camionCodigo: 'INC-A',
+      createdBy: choferId,
+    });
+
+    const comoChofer = await comoUsuario(choferId);
+    for (const tipo of ['vio_ruta', 'listo_inicio', 'inicio_ruta', 'fin_ruta']) {
+      await comoChofer`
+        insert into evento (asignacion_id, tipo, ocurrio_en, origen, capturado_por, client_event_id)
+        values (${asignacionId}, ${tipo}, now(), 'app', ${choferId}, ${randomUUID()})
+      `;
+    }
+
+    // Esta es la regresion exacta del bug: antes de la correccion, el
+    // trigger rechazaba este insert porque calculaba fin_ruta_incidente
+    // como el "siguiente paso esperado".
+    await comoChofer`
+      insert into evento (asignacion_id, tipo, ocurrio_en, origen, capturado_por, client_event_id)
+      values (${asignacionId}, 'retorno', now(), 'app', ${choferId}, ${randomUUID()})
+    `;
+
+    const filas =
+      await comoChofer`select tipo from evento where asignacion_id = ${asignacionId} and tipo = 'retorno'`;
+    expect(filas).toHaveLength(1);
+    await comoChofer.end();
+  });
+
+  it('un chofer puede registrar fin_ruta_incidente justo despues de vio_ruta, sin haber marcado inicio_ruta', async () => {
+    const asignacionId = randomUUID();
+    await db.insert(asignacion).values({
+      id: asignacionId,
+      horarioId,
+      fecha: '2026-08-13',
+      choferId,
+      camionId,
+      camionCodigo: 'INC-B',
+      createdBy: choferId,
+    });
+
+    const comoChofer = await comoUsuario(choferId);
+    await comoChofer`
+      insert into evento (asignacion_id, tipo, ocurrio_en, origen, capturado_por, client_event_id)
+      values (${asignacionId}, 'vio_ruta', now(), 'app', ${choferId}, ${randomUUID()})
+    `;
+    await comoChofer`
+      insert into evento (asignacion_id, tipo, ocurrio_en, origen, capturado_por, client_event_id)
+      values (${asignacionId}, 'fin_ruta_incidente', now(), 'app', ${choferId}, ${randomUUID()})
+    `;
+
+    const filas =
+      await comoChofer`select tipo from evento where asignacion_id = ${asignacionId} and tipo = 'fin_ruta_incidente'`;
+    expect(filas).toHaveLength(1);
+    await comoChofer.end();
+  });
+
+  it('un chofer no puede registrar fin_ruta_incidente si la ruta ya cerro con retorno', async () => {
+    const asignacionId = randomUUID();
+    await db.insert(asignacion).values({
+      id: asignacionId,
+      horarioId,
+      fecha: '2026-08-14',
+      choferId,
+      camionId,
+      camionCodigo: 'INC-C',
+      createdBy: choferId,
+    });
+
+    const comoChofer = await comoUsuario(choferId);
+    for (const tipo of ['vio_ruta', 'listo_inicio', 'inicio_ruta', 'fin_ruta', 'retorno']) {
+      await comoChofer`
+        insert into evento (asignacion_id, tipo, ocurrio_en, origen, capturado_por, client_event_id)
+        values (${asignacionId}, ${tipo}, now(), 'app', ${choferId}, ${randomUUID()})
+      `;
+    }
+
+    await expect(
+      comoChofer`
+        insert into evento (asignacion_id, tipo, ocurrio_en, origen, capturado_por, client_event_id)
+        values (${asignacionId}, 'fin_ruta_incidente', now(), 'app', ${choferId}, ${randomUUID()})
+      `,
+    ).rejects.toThrow(/ya esta cerrada/);
+    await comoChofer.end();
+  });
+});
+
 // Auditoria de seguridad (post paso 16): antes, un chofer podia corregir sus
 // propios contadores via PostgREST sin dejar ningun rastro en `audit_log` —
 // solo el camino del panel (server action) lo auditaba.
