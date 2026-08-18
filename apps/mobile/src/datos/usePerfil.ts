@@ -1,3 +1,4 @@
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { useSesion } from '@/app/_layout';
 import { obtenerPerfil, type PerfilChofer } from './perfil';
@@ -46,6 +47,16 @@ export function usePerfil(): EstadoPerfil {
       activo = false;
     };
   }, [recargar]);
+
+  // El camion asignado se edita desde el panel del supervisor: sin esto, un
+  // chofer que reasignan o desasignan sigue viendo el camion viejo hasta que
+  // cierra sesion y vuelve a entrar, porque el efecto de montaje de arriba
+  // solo corre una vez por sesion.
+  useFocusEffect(
+    useCallback(() => {
+      recargar();
+    }, [recargar]),
+  );
 
   return { perfil, cargando, recargar };
 }
