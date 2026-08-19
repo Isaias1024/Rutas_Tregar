@@ -82,6 +82,10 @@ marcar en cualquier momento desde que el chofer ve la ruta y hasta que esta cier
 sigue teniendo cinco elementos; el enum `tipo_evento` tiene seis. Esa diferencia es deliberada y
 esta explicada en `docs/reglas/datos-y-rls.md`.
 
+El supervisor tambien puede cerrarla por incidente desde el monitor del panel ("Terminar por
+incidente"), para cuando el telefono se quedo sin bateria o el chofer esta atendiendo la
+emergencia. Queda con `origen = 'supervisor'`, nunca confundido con lo que marco la app.
+
 ## Como viaja un toque
 
 ```

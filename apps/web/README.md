@@ -16,7 +16,7 @@ pnpm dev          # desde la raiz — panel en http://127.0.0.1:3000
 |---|---|---|
 | `(auth)` | `/login` | Entrada con Google. No crea cuentas: exige una fila previa en `usuario` |
 | | `/consentimiento` · `/privacidad` | Textos legales, publicos |
-| `(panel)` | `/monitor` | Estado en vivo de las rutas de hoy, con captura manual del supervisor |
+| `(panel)` | `/monitor` | Estado en vivo de las rutas de hoy, con captura manual del supervisor y cierre por incidente |
 | | `/planeador` | Asignacion semanal de chofer y camion por horario |
 | | `/catalogos/clientes` · `/catalogos/camiones` · `/catalogos/choferes` | Altas y bajas |
 | | `/rutas` · `/paradas` | Recorridos, sus horarios por turno (editables mientras no haya arrancado el viaje de hoy), y los puntos con ubicacion |

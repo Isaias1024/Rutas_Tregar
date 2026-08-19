@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { listarMonitorDelDia } from '@/server/monitor';
 import { DialogoCapturaManual } from './dialogo-captura-manual';
+import { DialogoIncidenteManual } from './dialogo-incidente-manual';
 import { horaTexto } from './formato';
 import { ResumenDia } from './resumen-dia';
 import { TarjetaRuta } from './tarjeta-ruta';
@@ -91,6 +92,7 @@ export function MonitorTabla({ fecha }: Props) {
     refetchInterval: REFRESH_MS,
   });
   const [capturaPara, setCapturaPara] = useState<FilaMonitor | null>(null);
+  const [incidentePara, setIncidentePara] = useState<FilaMonitor | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstados, setFiltroEstados] = useState<Set<EstadoSemaforo>>(new Set());
 
@@ -258,7 +260,12 @@ export function MonitorTabla({ fecha }: Props) {
       ) : (
         <ul className="flex flex-col gap-3">
           {filasFiltradas.map((fila) => (
-            <TarjetaRuta key={fila.id} fila={fila} onRegistrar={() => setCapturaPara(fila)} />
+            <TarjetaRuta
+              key={fila.id}
+              fila={fila}
+              onRegistrar={() => setCapturaPara(fila)}
+              onTerminarPorIncidente={() => setIncidentePara(fila)}
+            />
           ))}
         </ul>
       )}
@@ -267,6 +274,13 @@ export function MonitorTabla({ fecha }: Props) {
         fila={capturaPara}
         onOpenChange={(abierto) => {
           if (!abierto) setCapturaPara(null);
+        }}
+      />
+
+      <DialogoIncidenteManual
+        fila={incidentePara}
+        onOpenChange={(abierto) => {
+          if (!abierto) setIncidentePara(null);
         }}
       />
     </div>

@@ -1,3 +1,4 @@
+import { puedeRegistrar } from '@rutas/shared';
 import { semaforo } from '@rutas/shared/tokens';
 import { TruckIcon, UserRoundIcon } from 'lucide-react';
 import { PastillaEstado } from '@/components/pastilla-estado';
@@ -11,10 +12,19 @@ const ETIQUETA_TURNO: Record<string, string> = { manana: 'Mañana', tarde: 'Tard
 interface Props {
   fila: FilaMonitor;
   onRegistrar: () => void;
+  onTerminarPorIncidente: () => void;
 }
 
 /** Una ruta del monitor: cabecera con su estado + los cinco hitos en detalle (§UI monitor). */
-export function TarjetaRuta({ fila, onRegistrar }: Props) {
+export function TarjetaRuta({ fila, onRegistrar, onTerminarPorIncidente }: Props) {
+  // El incidente no es el siguiente paso de nada — se ofrece mientras la ruta
+  // no haya cerrado ya, igual que en la app del chofer. `puedeRegistrar` es la
+  // misma funcion que impone la regla en el servidor; esto solo evita ofrecer
+  // un boton que iba a ser rechazado.
+  const puedeTerminarPorIncidente = puedeRegistrar(
+    'fin_ruta_incidente',
+    fila.eventos.map((evento) => ({ tipo: evento.tipo })),
+  );
   return (
     <li>
       <Card
@@ -45,7 +55,18 @@ export function TarjetaRuta({ fila, onRegistrar }: Props) {
             sospechoso={fila.sospechoso}
           />
 
-          <div className="flex justify-end">
+          <div className="flex flex-wrap justify-end gap-2">
+            {puedeTerminarPorIncidente ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={onTerminarPorIncidente}
+              >
+                Terminar por incidente
+              </Button>
+            ) : null}
             <Button type="button" variant="outline" size="sm" onClick={onRegistrar}>
               Registrar evento
             </Button>

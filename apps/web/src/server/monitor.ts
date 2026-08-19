@@ -6,6 +6,7 @@
 import '@/lib/env';
 import {
   eventoManualSchema,
+  incidenteManualSchema,
   puedeRegistrar,
   requiereContador,
   type Resultado,
@@ -33,6 +34,27 @@ async function actorAutorizado() {
     return null;
   }
   return actor;
+}
+
+/**
+ * La hora de un `<input type="datetime-local">` ('YYYY-MM-DDTHH:mm', sin zona)
+ * interpretada en `America/Mexico_City`. El servidor decide la zona, nunca el
+ * host que procesa la peticion. `null` si el texto no trae una fecha completa.
+ */
+function interpretarHoraLocal(ocurrioEnLocal: string): TZDate | null {
+  const [fechaTexto, horaTexto] = ocurrioEnLocal.split('T');
+  const [anio, mes, dia] = (fechaTexto ?? '').split('-').map(Number);
+  const [horas, minutos] = (horaTexto ?? '').split(':').map(Number);
+  if (
+    anio === undefined ||
+    mes === undefined ||
+    dia === undefined ||
+    horas === undefined ||
+    minutos === undefined
+  ) {
+    return null;
+  }
+  return new TZDate(anio, mes - 1, dia, horas, minutos, 0, 'America/Mexico_City');
 }
 
 // === consulta del dia ===============================================================
@@ -114,19 +136,10 @@ export async function registrarEventoManual(input: unknown): Promise<Resultado<{
   }
 
   const { asignacionId, tipo, ocurrioEnLocal, cantidad } = parseo.data;
-  const [fechaTexto, horaTexto] = ocurrioEnLocal.split('T');
-  const [anio, mes, dia] = (fechaTexto ?? '').split('-').map(Number);
-  const [horas, minutos] = (horaTexto ?? '').split(':').map(Number);
-  if (
-    anio === undefined ||
-    mes === undefined ||
-    dia === undefined ||
-    horas === undefined ||
-    minutos === undefined
-  ) {
+  const ocurrioEn = interpretarHoraLocal(ocurrioEnLocal);
+  if (!ocurrioEn) {
     return errorValidacion('Fecha y hora invalidas', 'ocurrioEnLocal');
   }
-  const ocurrioEn = new TZDate(anio, mes - 1, dia, horas, minutos, 0, 'America/Mexico_City');
 
   const id = crypto.randomUUID();
   let resultado: Resultado<{ id: string }>;
@@ -198,6 +211,95 @@ export async function registrarEventoManual(input: unknown): Promise<Resultado<{
         'Ese paso ya tiene un evento registrado para esta asignacion.',
         'tipo',
       );
+    }
+    throw error;
+  }
+
+  if (resultado.ok) {
+    revalidatePath('/monitor');
+  }
+  return resultado;
+}
+
+// === incidente (fuera de la secuencia) ==============================================
+
+/**
+ * Cierra una ruta por incidente desde el panel, cuando el chofer no pudo
+ * hacerlo desde la app (telefono sin bateria, sin senal, o el chofer mismo
+ * incomunicado — que es justo cuando hay un incidente que reportar).
+ *
+ * Es una accion aparte de `registrarEventoManual` a proposito, y no pasa por
+ * `siguientePaso()`: `fin_ruta_incidente` no pertenece a `ORDEN_PASOS`, se
+ * puede registrar en cualquier momento mientras la ruta no haya cerrado ya, y
+ * exige una razon que ningun paso de la secuencia pide. Meterla en la misma
+ * accion obligaria a `siguientePaso()` a proponer algo que por definicion no
+ * propone. Quien impone la regla sigue siendo `puedeRegistrar`, aqui abajo.
+ */
+export async function registrarIncidenteManual(input: unknown): Promise<Resultado<{ id: string }>> {
+  const parseo = incidenteManualSchema.safeParse(input);
+  if (!parseo.success) {
+    const primero = parseo.error.issues[0];
+    return errorValidacion(primero?.message ?? 'Entrada invalida', primero?.path[0]?.toString());
+  }
+
+  const actor = await actorAutorizado();
+  if (!actor) {
+    return SIN_PERMISO;
+  }
+
+  const { asignacionId, ocurrioEnLocal, razonIncidente } = parseo.data;
+  const ocurrioEn = interpretarHoraLocal(ocurrioEnLocal);
+  if (!ocurrioEn) {
+    return errorValidacion('Fecha y hora invalidas', 'ocurrioEnLocal');
+  }
+
+  const id = crypto.randomUUID();
+  let resultado: Resultado<{ id: string }>;
+  try {
+    resultado = await db.transaction(async (tx) => {
+      const eventosExistentes = await tx
+        .select({ tipo: evento.tipo })
+        .from(evento)
+        .where(eq(evento.asignacionId, asignacionId));
+      if (!puedeRegistrar('fin_ruta_incidente', eventosExistentes)) {
+        return errorValidacion('Esta ruta ya esta cerrada.', 'asignacionId');
+      }
+
+      await tx.insert(evento).values({
+        id,
+        asignacionId,
+        tipo: 'fin_ruta_incidente',
+        ocurrioEn,
+        lat: null,
+        lng: null,
+        gpsPrecisionM: null,
+        sinGps: true,
+        origen: 'supervisor',
+        capturadoPor: actor.id,
+        clientEventId: crypto.randomUUID(),
+        razonIncidente,
+      });
+
+      await registrarAuditoria(tx, {
+        actor: actor.id,
+        accion: 'crear',
+        recurso: { tipo: 'evento', id },
+        despues: {
+          asignacionId,
+          tipo: 'fin_ruta_incidente',
+          ocurrioEn: ocurrioEn.toISOString(),
+          origen: 'supervisor',
+          razonIncidente,
+        },
+      });
+
+      return { ok: true, data: { id } } satisfies Resultado<{ id: string }>;
+    });
+  } catch (error) {
+    // Mismo caso que arriba: el chofer alcanzo a marcarlo desde la app entre
+    // que se abrio el dialogo y se confirmo.
+    if (error instanceof Error && 'code' in error && error.code === '23505') {
+      return errorValidacion('Esta ruta ya tiene un incidente registrado.', 'asignacionId');
     }
     throw error;
   }

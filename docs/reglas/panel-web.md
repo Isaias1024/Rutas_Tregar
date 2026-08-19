@@ -44,6 +44,12 @@ paths:
   base de `DialogContent` ya trae `sm:max-w-sm`, y `tailwind-merge` no considera en conflicto dos
   clases con variantes distintas: un `max-w-2xl` pelado convive con ella y pierde en el CSS
   compilado, dejando el formulario atrapado en 24rem en cualquier pantalla ≥640px.
+- **Un evento de la secuencia y una salida no comparten formulario.** `DialogoCapturaManual` ofrece
+  unicamente lo que `siguientePaso()` calcula, y por eso `fin_ruta_incidente` — que no pertenece a
+  `ORDEN_PASOS` — vive en `DialogoIncidenteManual` con su propia server action y su propio esquema
+  zod. Colapsarlos obligaria a `siguientePaso()` a proponer algo que por definicion no propone.
+  Quien impone la regla en los dos casos es `puedeRegistrar` en el servidor; el cliente solo evita
+  ofrecer un boton que iba a ser rechazado.
 - **Lo que ya ocurrio hoy no se edita.** Una ruta o un horario con una asignacion de hoy que ya
   registro `inicio_ruta`, `fin_ruta`, `fin_ruta_incidente` o `retorno` rechaza la edicion desde
   `rutas-nucleo.ts`, y el panel deshabilita el boton con `bloqueadaHoy` para no ofrecer una accion

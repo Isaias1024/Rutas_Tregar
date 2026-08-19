@@ -38,7 +38,12 @@ description: Usar al tocar el flujo de hitos de la app del chofer — agregar o 
    (`packages/shared/src/estado.ts`) y su prueba de vitest. `estadoRuta()` tambien vive ahi y ya
    trata `retorno` y `fin_ruta_incidente` como cierre: si tu tipo cierra la ruta, agregalo.
 7. **Actualiza la captura manual del supervisor** en el panel para que el mismo evento pueda
-   registrarse con `origen = 'supervisor'`. Si el chofer puede marcarlo, el supervisor tambien.
+   registrarse con `origen = 'supervisor'`. Si el chofer puede marcarlo, el supervisor tambien —
+   el telefono se queda sin bateria y la ruta no se puede quedar abierta para siempre. Un paso de
+   la secuencia entra en `DialogoCapturaManual`, que ofrece lo que `siguientePaso()` diga; una
+   salida necesita **su propio dialogo y su propia server action**, como
+   `DialogoIncidenteManual` / `registrarIncidenteManual`, porque `siguientePaso()` por definicion
+   nunca la va a proponer.
 
 ## Verify
 

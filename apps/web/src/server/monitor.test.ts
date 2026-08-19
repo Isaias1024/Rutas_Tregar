@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { asignacion, camion, cliente, db, horario, parada, ruta, usuario } from '@rutas/shared/db';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { listarMonitorDelDia } from './monitor.ts';
+import { listarMonitorDelDia, registrarIncidenteManual } from './monitor.ts';
 import { asignarNucleo } from './planeador-nucleo.ts';
 import { borrarRutaNucleo, desactivarHorarioNucleo } from './rutas-nucleo.ts';
 
@@ -195,5 +195,34 @@ describe('monitor: desactivar un horario tambien lo saca de Monitor sin tocar la
 
     const filas = await listarMonitorDelDia(fecha);
     expect(filas.some((fila) => fila.horarioId === horarioId)).toBe(false);
+  });
+});
+
+// `registrarIncidenteManual` parsea con zod ANTES de resolver el actor
+// (`obtenerUsuarioActual`, que necesita `next/headers` y no existe fuera de
+// una peticion real de Next). Con entrada invalida la funcion nunca llega a
+// intentar leer la sesion, asi que se puede probar aqui — mismo truco que
+// usa rutas.test.ts.
+describe('registrarIncidenteManual: rechaza entrada invalida antes de tocar sesion o base', () => {
+  it('exige la razon del incidente', async () => {
+    const resultado = await registrarIncidenteManual({
+      asignacionId: randomUUID(),
+      ocurrioEnLocal: '2026-08-18T06:40',
+    });
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.error.codigo).toBe('validacion');
+    expect(resultado.error.campo).toBe('razonIncidente');
+  });
+
+  it('rechaza una razon fuera del catalogo', async () => {
+    const resultado = await registrarIncidenteManual({
+      asignacionId: randomUUID(),
+      ocurrioEnLocal: '2026-08-18T06:40',
+      razonIncidente: 'se_poncho_una_llanta',
+    });
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.error.codigo).toBe('validacion');
   });
 });

@@ -189,7 +189,7 @@ Chrome, Edge o Firefox. Cualquiera sirve.
 |---|---|---|---|
 | **A. Telefono Android real** | Un Android + la app gratis **Expo Go** de Google Play + la misma red WiFi que la computadora | Facil | **Si** |
 | **B. Emulador de Android** | **Android Studio** instalado (<https://developer.android.com/studio>, ~10 GB) y un telefono virtual creado | Media | Si no hay telefono a la mano |
-| **C. Sin app** | Nada: los cinco hitos del chofer tambien se pueden capturar desde el panel ("Registrar evento a mano"). El **incidente** no: ese solo existe en la app (ver §10) | Facil | Solo si no puedes con A ni B |
+| **C. Sin app** | Nada: los cinco hitos y el cierre por incidente tambien se capturan desde el panel ("Registrar evento a mano" y "Terminar por incidente") | Facil | Solo si no puedes con A ni B |
 
 Si eliges **B**, despues de instalar Android Studio abrelo una vez y ve a
 **More Actions → Virtual Device Manager → Create Device**, elige un "Pixel 7", descarga la imagen de
@@ -547,9 +547,8 @@ tocado el archivo `.env`**, si no la app sigue usando la direccion vieja.
 
 ### 7.5 Camino C — sin app
 
-Salta este apartado. En §8 se indica como capturar los mismos cinco hitos desde el panel. La prueba
-de "terminar por incidente" del paso 6 **no** se puede hacer por este camino: ese evento solo lo
-registra la app (§10).
+Salta este apartado. En §8 se indica como capturar los mismos cinco hitos desde el panel, y tambien
+como terminar una ruta por incidente sin la app (boton **Terminar por incidente** en el monitor).
 
 ### 7.6 Comprobacion
 
@@ -802,6 +801,20 @@ esperada, la pastilla dira **`A tiempo`** (verde), **`Tarde`** (rojo), **`Adelan
 **Debe pasar:** el evento se registra, pero queda marcado con origen **supervisor**, distinto de los
 que manda la app. Los reportes nunca suman los dos en una sola cifra — es exactamente el punto que
 los reportes existen para mostrar.
+
+☐ **Terminar por incidente desde el panel.** En la tarjeta de una ruta que **no** haya cerrado
+todavia, presiona **Terminar por incidente** (el boton rojo, a la izquierda de "Registrar evento").
+
+**Debe pasar:** se abre una ventana que pide **la razon** — Emergencia Personal, Choque, Trafico u
+Otro — y la fecha y hora. Elige una razon y confirma.
+
+**Debe pasar:** la ruta queda cerrada, el boton de incidente **desaparece** de esa tarjeta, y el
+evento queda con origen **supervisor**.
+
+> Existe porque el chofer no siempre puede reportarlo el: si el telefono se quedo sin bateria o el
+> chofer esta atendiendo la emergencia, la ruta se quedaba abierta para siempre. **No** es el
+> siguiente paso de la secuencia: por eso es un boton aparte y no aparece dentro de "Registrar
+> evento a mano".
 
 ☐ **Prueba de tamano:** achica la ventana del navegador hasta que sea angosta como un telefono
 (o presiona `F12` y usa el modo de dispositivo movil). **Debe pasar:** la tabla se convierte en
@@ -1088,7 +1101,6 @@ persiguiendolas.
 | **Opcion "Mi cuenta" del menu** | Da pagina no encontrada (404) | El enlace existe en el menu pero la pantalla todavia no esta construida. Es un pendiente real del proyecto, no un problema de tu instalacion |
 | **`pnpm test:mobile`** | 2 de 3 suites no arrancan | Pendiente conocido tras bajar a Expo SDK 54; ver §10 y `apps/mobile/README.md`. No forma parte de la comprobacion obligatoria |
 | **El supervisor ve lo mismo que el admin** | No hay diferencia en el menu | Es el comportamiento actual, no un defecto: la unica accion que separa los dos roles todavia no tiene pantalla (§6.2) |
-| **Capturar "terminar por incidente" desde el panel** | No aparece entre los eventos que ofrece "Registrar evento a mano" | El dialogo propone unicamente el siguiente paso de la secuencia (`siguientePaso()`), y el incidente no pertenece a ella. Hoy **solo el chofer** puede cerrar una ruta por incidente; si el telefono no esta disponible, el supervisor cancela la ruta desde el planeador. Pendiente real, no un fallo de instalacion |
 | **Estados en gris al imprimir el PDF** | Los cinco se ven de tonos parecidos | La pastilla trae el nombre escrito, asi que se lee; el icono que los separaba en gris se quito en el rediseno de agosto 2026 (§8, paso 8) |
 | **Instalar la app como APK** | No aplica | La distribucion real se hace con EAS y Google Play; eso vive en `docs/runbook.md` §5 |
 
