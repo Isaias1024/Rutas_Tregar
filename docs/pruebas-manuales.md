@@ -865,7 +865,7 @@ escala de grises.
 **Que debe pasar:** el estado de cada fila **se sigue leyendo**, porque la pastilla trae el nombre
 escrito dentro (`A tiempo`, `Tarde`, …), no solo un color.
 
-> **Limitacion conocida y aceptada.** Impresos en gris, los cinco rellenos quedan en tonos
+> **Limitacion conocida y aceptada.** Impresos en gris, los seis rellenos quedan en tonos
 > parecidos: ya **no** se distinguen entre si de un vistazo, solo leyendo la palabra. Hasta el
 > rediseno de agosto 2026 cada pastilla traia ademas un icono (`● A tiempo`, `▲ Tarde`) que si los
 > separaba en gris; se quito al adoptar el diseno del portal Tregar, con la contrapartida sobre la

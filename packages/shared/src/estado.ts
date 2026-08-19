@@ -35,6 +35,29 @@ export function esFechaPasada(fecha: string, ahora: Date = new Date()): boolean 
   return fecha < fechaOperativa(ahora);
 }
 
+/**
+ * La hora de un `<input type="datetime-local">` ('YYYY-MM-DDTHH:mm', sin
+ * zona) interpretada en `America/Mexico_City` — el servidor decide la zona,
+ * nunca el host que procesa la peticion. `null` si el texto no trae una
+ * fecha completa. Unica fuente: la captura manual del supervisor (eventos e
+ * incidentes) y su validacion comparten este parseo, no cada quien el suyo.
+ */
+export function interpretarHoraLocal(ocurrioEnLocal: string): TZDate | null {
+  const [fechaTexto, horaTexto] = ocurrioEnLocal.split('T');
+  const [anio, mes, dia] = (fechaTexto ?? '').split('-').map(Number);
+  const [horas, minutos] = (horaTexto ?? '').split(':').map(Number);
+  if (
+    anio === undefined ||
+    mes === undefined ||
+    dia === undefined ||
+    horas === undefined ||
+    minutos === undefined
+  ) {
+    return null;
+  }
+  return new TZDate(anio, mes - 1, dia, horas, minutos, 0, ZONA_OPERATIVA);
+}
+
 /** ±10 min alrededor de la hora esperada sigue siendo "a tiempo". */
 export const TOLERANCIA_A_TIEMPO_MIN = 10;
 /** Mas de 15 min antes de la hora esperada es "adelantado". */
@@ -108,6 +131,15 @@ export function derivarEstado({
   horaEsperada: string;
   ahora: Date;
 }): ResultadoEstado {
+  // Terminal y primero que cualquier otra cosa: una ruta con incidente no
+  // habla de puntualidad, y puede llevar `inicio_ruta` (el incidente ocurrio
+  // a medio camino) o no llevarlo (ni siquiera pudo arrancar). En los dos
+  // casos es "incidente", nunca "en curso" ni "a tiempo/tarde/adelantado".
+  const conIncidente = eventos.some((evento) => evento.tipo === 'fin_ruta_incidente');
+  if (conIncidente) {
+    return { estado: 'incidente', sospechoso: false };
+  }
+
   const inicioRuta = eventos.find((evento) => evento.tipo === 'inicio_ruta');
 
   if (inicioRuta) {

@@ -60,13 +60,24 @@ export const sombra = {
 } as const;
 
 /**
- * Los cinco estados del semaforo, como pastilla solida de color pleno.
+ * Los seis estados del semaforo, como pastilla solida de color pleno.
  *
  * `bg` es el relleno y `fg` el texto encima; el par ya viene contrastado, no se
  * mezclan con otro. `icono` se conserva como parte del vocabulario compartido y
  * lo usa la app del chofer; el panel pinta solo texto sobre el relleno.
+ *
+ * Los cinco primeros describen puntualidad o avance. `incidente` es de otra
+ * naturaleza: es terminal y no habla de la hora — la ruta se cerro sin
+ * completarse. Por eso lleva el rojo mas oscuro del sistema y no el `#DC2626`
+ * de `tarde`: una ruta tarde llego, esta no.
  */
-export type EstadoSemaforo = 'pendiente' | 'en_curso' | 'a_tiempo' | 'tarde' | 'adelantado';
+export type EstadoSemaforo =
+  | 'pendiente'
+  | 'en_curso'
+  | 'a_tiempo'
+  | 'tarde'
+  | 'adelantado'
+  | 'incidente';
 
 export const semaforo: Record<
   EstadoSemaforo,
@@ -77,4 +88,5 @@ export const semaforo: Record<
   a_tiempo: { texto: 'A tiempo', icono: '●', fg: '#FFFFFF', bg: '#6DAB3C' },
   tarde: { texto: 'Tarde', icono: '▲', fg: '#FFFFFF', bg: '#DC2626' },
   adelantado: { texto: 'Adelantado', icono: '▼', fg: '#FFFFFF', bg: '#2563EB' },
+  incidente: { texto: 'Terminada por incidente', icono: '✕', fg: '#FFFFFF', bg: '#7F1D1D' },
 };

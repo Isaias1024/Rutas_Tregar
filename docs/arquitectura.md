@@ -125,9 +125,10 @@ La marca es el **verde oliva Tregar**, el mismo del logo y el mismo que pinta la
 | Semaforo a tiempo | `#FFFFFF` sobre `#6DAB3C` | `A tiempo` |
 | Semaforo tarde | `#FFFFFF` sobre `#DC2626` | `Tarde` |
 | Semaforo adelantado | `#FFFFFF` sobre `#2563EB` | `Adelantado` |
+| Semaforo incidente | `#FFFFFF` sobre `#7F1D1D` | `Terminada por incidente` |
 
 - **El semaforo es una pastilla de color pleno con su texto dentro.** El texto siempre esta en el
-  DOM, nunca solo el color de fondo. **Contrapartida asumida a proposito:** los cinco rellenos se
+  DOM, nunca solo el color de fondo. **Contrapartida asumida a proposito:** los seis rellenos se
   aplanan a grises parecidos impresos en blanco y negro, que es como acaba el reporte del cliente en
   la junta — si eso empieza a estorbar, el arreglo es devolver el icono de `semaforo[estado].icono`
   a `PastillaEstado`, que sigue exportado en los tokens justo para eso.

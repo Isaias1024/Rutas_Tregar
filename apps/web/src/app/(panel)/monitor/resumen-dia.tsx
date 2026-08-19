@@ -6,6 +6,7 @@ import {
   ClockIcon,
   type LucideIcon,
   RouteIcon,
+  ShieldAlertIcon,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -22,6 +23,7 @@ interface Props {
   pendientes: number;
   enEjecucion: number;
   finalizadas: number;
+  conIncidente: number;
   tarde: number;
 }
 
@@ -30,7 +32,14 @@ interface Props {
  * que ya se deriva de `evento` y `derivarEstado`: ninguna cifra nueva se
  * inventa aqui, es la misma fuente que alimenta los chips de filtro.
  */
-export function ResumenDia({ total, pendientes, enEjecucion, finalizadas, tarde }: Props) {
+export function ResumenDia({
+  total,
+  pendientes,
+  enEjecucion,
+  finalizadas,
+  conIncidente,
+  tarde,
+}: Props) {
   const tarjetas: Tarjeta[] = [
     {
       etiqueta: 'Rutas de hoy',
@@ -67,10 +76,17 @@ export function ResumenDia({ total, pendientes, enEjecucion, finalizadas, tarde 
       icono: AlertTriangleIcon,
       color: colores.destructive,
     },
+    {
+      etiqueta: 'Con incidente',
+      valor: conIncidente,
+      caption: 'Terminaron sin completarse',
+      icono: ShieldAlertIcon,
+      color: colores.destructive,
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       {tarjetas.map((tarjeta) => (
         <Card key={tarjeta.etiqueta}>
           <CardContent className="flex flex-col gap-3 p-4">

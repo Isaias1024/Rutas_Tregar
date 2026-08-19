@@ -24,6 +24,7 @@ const ORDEN_ESTADOS: EstadoSemaforo[] = [
   'a_tiempo',
   'adelantado',
   'pendiente',
+  'incidente',
 ];
 
 function normalizar(texto: string): string {
@@ -120,6 +121,7 @@ export function MonitorTabla({ fecha }: Props) {
       a_tiempo: 0,
       tarde: 0,
       adelantado: 0,
+      incidente: 0,
     };
     for (const fila of filas) {
       base[fila.estado] += 1;
@@ -131,9 +133,16 @@ export function MonitorTabla({ fecha }: Props) {
     let pendientes = 0;
     let enEjecucion = 0;
     let finalizadas = 0;
+    let conIncidente = 0;
     for (const fila of filas) {
       const tiposRegistrados = new Set(fila.eventos.map((evento) => evento.tipo));
-      if (tiposRegistrados.size === 0) {
+      // Primero que cualquier otra cosa, igual que en derivarEstado(): el
+      // incidente es terminal y puede coexistir con inicio_ruta (paso a medio
+      // camino) o sin el (nunca arranco). Evaluarlo despues dejaba una ruta
+      // con incidente contada como "En ejecucion" para siempre.
+      if (tiposRegistrados.has('fin_ruta_incidente')) {
+        conIncidente += 1;
+      } else if (tiposRegistrados.size === 0) {
         pendientes += 1;
       } else if (tiposRegistrados.has('retorno')) {
         finalizadas += 1;
@@ -141,7 +150,14 @@ export function MonitorTabla({ fecha }: Props) {
         enEjecucion += 1;
       }
     }
-    return { total: filas.length, pendientes, enEjecucion, finalizadas, tarde: conteos.tarde };
+    return {
+      total: filas.length,
+      pendientes,
+      enEjecucion,
+      finalizadas,
+      conIncidente,
+      tarde: conteos.tarde,
+    };
   }, [filas, conteos.tarde]);
 
   const terminoBusqueda = normalizar(busqueda.trim());

@@ -1,11 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { semaforo } from '../../packages/shared/src/tokens.ts';
 
-const ESTADOS_SEMAFORO = ['pendiente', 'en_curso', 'a_tiempo', 'tarde', 'adelantado'] as const;
+const ESTADOS_SEMAFORO = [
+  'pendiente',
+  'en_curso',
+  'a_tiempo',
+  'tarde',
+  'adelantado',
+  'incidente',
+] as const;
 
 describe('packages/shared/src/tokens.ts', () => {
-  it('exporta los cinco estados del semaforo, cada uno con icono y texto no vacios', () => {
-    expect(Object.keys(semaforo)).toHaveLength(5);
+  it('exporta los seis estados del semaforo, cada uno con icono y texto no vacios', () => {
+    expect(Object.keys(semaforo)).toHaveLength(6);
     for (const estado of ESTADOS_SEMAFORO) {
       expect(semaforo[estado].texto.length).toBeGreaterThan(0);
       expect(semaforo[estado].icono.length).toBeGreaterThan(0);
