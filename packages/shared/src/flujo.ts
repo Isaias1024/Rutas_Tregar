@@ -1,7 +1,13 @@
 // La maquina de los cinco pasos (§ paso 10). La pantalla no decide nada:
 // pinta lo que estas funciones digan.
 
-export type TipoEvento = 'vio_ruta' | 'listo_inicio' | 'inicio_ruta' | 'fin_ruta' | 'fin_ruta_incidente' | 'retorno';
+export type TipoEvento =
+  | 'vio_ruta'
+  | 'listo_inicio'
+  | 'inicio_ruta'
+  | 'fin_ruta'
+  | 'fin_ruta_incidente'
+  | 'retorno';
 export type TipoIncidente = 'emergencia_personal' | 'choque' | 'trafico' | 'otro';
 
 export const ORDEN_PASOS: readonly TipoEvento[] = [

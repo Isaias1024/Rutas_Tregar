@@ -138,53 +138,53 @@ function correoDeChofer(credencial: string): string {
 // Coordenadas reales del area metropolitana de Monterrey: el panel las pinta en
 // un mapa y una parada en medio del mar se nota de inmediato.
 const PARADAS = [
- {
+  {
     nombre: 'Av. Constitución & Av. Laderas',
     direccion: 'Av. Constitución & Av. Laderas',
     lat: 25.8406212,
-    lng: -100.4073241
+    lng: -100.4073241,
   },
   {
     nombre: 'Cadereyta Jiménez',
     direccion: 'HXM7+XH6 Cadereyta Jiménez, Nuevo León, México',
     lat: 25.584903,
-    lng: -100.036116
+    lng: -100.036116,
   },
   {
     nombre: 'Cdad. Benito Juárez',
     direccion: 'MW39+VRX Cdad. Benito Juárez, Nuevo León, México',
     lat: 25.654747,
-    lng: -100.080382
+    lng: -100.080382,
   },
   {
     nombre: 'C. San Lucas & Cam. A San Javier',
     direccion: 'C. San Lucas & Cam. A San Javier',
     lat: 25.7380904,
-    lng: -100.135478
+    lng: -100.135478,
   },
   {
     nombre: 'Av. Abraham Lincoln PTE - OTE (Parada de autobús)',
     direccion: 'GAR-0265 Av. Abraham Lincoln PTE - OTE (Parada de autobús)',
     lat: 25.80596,
-    lng: -100.56027
+    lng: -100.56027,
   },
   {
     nombre: 'Fraccionamiento Real Palmas, Nuevo León, México',
     direccion: 'WR2Q+5FQ Fraccionamiento Real Palmas, Nuevo León, México',
     lat: 25.900463,
-    lng: -100.161257
+    lng: -100.161257,
   },
   {
     nombre: 'Banorte (Ciénega de Flores)',
     direccion: 'Banorte (Ciénega de Flores)',
     lat: 25.9527542,
-    lng: -100.1682797
+    lng: -100.1682797,
   },
   {
     nombre: 'S-Mart (Carr. A Reynosa, Guadalupe)',
     direccion: 'S-Mart (Carr. A Reynosa, Guadalupe',
     lat: 25.6611818,
-    lng: -100.1493921
+    lng: -100.1493921,
   },
   {
     nombre: 'Cedis Michelin',
@@ -229,7 +229,6 @@ const PARADAS = [
     lng: -100.1631919,
   },
 ] as const;
-
 
 const CAMIONES = [
   { codigo: 'T01', tipo: 'Van', placas: 'NLE-0101-A' },

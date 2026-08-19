@@ -12,18 +12,11 @@ interface Props {
 
 export function ModalIncidente({ visible, ocupado, onSeleccionar, onCancelar }: Props) {
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onCancelar}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancelar}>
       <View className="flex-1 items-center justify-center bg-black/30">
         <View className="mx-4 rounded-xl bg-white p-6 gap-4">
           <View className="gap-1">
-            <Text className="text-lg font-semibold text-foreground">
-              ¿Qué sucedió en la ruta?
-            </Text>
+            <Text className="text-lg font-semibold text-foreground">¿Qué sucedió en la ruta?</Text>
             <Text className="text-sm text-foreground-muted">
               Cuéntanos la razón por la que no pudiste completar esta ruta
             </Text>
@@ -40,11 +33,7 @@ export function ModalIncidente({ visible, ocupado, onSeleccionar, onCancelar }: 
             ))}
           </View>
 
-          <BotonPrimario
-            etiqueta="Cancelar"
-            onPress={onCancelar}
-            deshabilitado={ocupado}
-          />
+          <BotonPrimario etiqueta="Cancelar" onPress={onCancelar} deshabilitado={ocupado} />
         </View>
       </View>
     </Modal>
