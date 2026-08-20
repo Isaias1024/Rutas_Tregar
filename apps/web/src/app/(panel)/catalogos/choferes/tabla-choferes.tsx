@@ -29,6 +29,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { AvisoAccion } from '@/components/aviso-accion';
+import { BotonCopiar } from '@/components/boton-copiar';
 import { EstadoVacio } from '@/components/estado-vacio';
 import { EncabezadoPagina } from '@/components/shell/encabezado-pagina';
 import { Card } from '@/components/ui/card';
@@ -443,16 +444,36 @@ export function TablaChoferes({
             cambiar la contrasena en su primer ingreso.
           </p>
           <dl className="space-y-2 rounded-lg border border-border bg-surface p-4 text-sm">
-            <div className="flex justify-between gap-4">
+            <div className="flex items-center justify-between gap-4">
               <dt className="font-medium">Credencial</dt>
-              <dd className="font-mono">{credencialesNuevas?.credencial}</dd>
+              <dd className="flex items-center gap-1">
+                <span className="font-mono">{credencialesNuevas?.credencial}</span>
+                <BotonCopiar valor={credencialesNuevas?.credencial ?? ''} etiqueta="Credencial" />
+              </dd>
             </div>
-            <div className="flex justify-between gap-4">
+            <div className="flex items-center justify-between gap-4">
               <dt className="font-medium">Contrasena temporal</dt>
-              <dd className="font-mono">{credencialesNuevas?.passwordTemporal}</dd>
+              <dd className="flex items-center gap-1">
+                <span className="font-mono">{credencialesNuevas?.passwordTemporal}</span>
+                <BotonCopiar
+                  valor={credencialesNuevas?.passwordTemporal ?? ''}
+                  etiqueta="Contrasena temporal"
+                />
+              </dd>
             </div>
           </dl>
-          <DialogFooter>
+          <DialogFooter className="sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                void navigator.clipboard?.writeText(
+                  `Credencial: ${credencialesNuevas?.credencial}\nContrasena temporal: ${credencialesNuevas?.passwordTemporal}`,
+                )
+              }
+            >
+              Copiar los dos
+            </Button>
             <Button type="button" onClick={() => setCredencialesNuevas(null)}>
               Entendido
             </Button>
