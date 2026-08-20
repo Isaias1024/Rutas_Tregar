@@ -8,7 +8,7 @@ import { eq, type InferSelectModel } from 'drizzle-orm';
 
 export type UsuarioInvitado = InferSelectModel<typeof usuario>;
 
-function dominioDe(correo: string): string {
+export function dominioDe(correo: string): string {
   return correo.slice(correo.indexOf('@') + 1).toLowerCase();
 }
 

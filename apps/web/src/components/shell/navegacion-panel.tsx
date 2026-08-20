@@ -8,6 +8,7 @@ import {
   MapPinIcon,
   RouteIcon,
   ScrollTextIcon,
+  ShieldIcon,
   TruckIcon,
   UserCogIcon,
   UsersIcon,
@@ -32,9 +33,9 @@ interface Enlace {
   roles: readonly Rol[];
 }
 
-// Admin y supervisor ven exactamente el mismo menu: la unica diferencia
-// funcional entre ambos roles es 'crear_supervisor' en @/lib/authz/can, que
-// no tiene todavia ninguna pantalla asociada.
+// Admin y supervisor ven casi el mismo menu: la unica diferencia es
+// /catalogos/supervisores, que solo el admin ve — es la pantalla de
+// 'crear_supervisor' en @/lib/authz/can.
 const GRUPOS: ReadonlyArray<{ titulo: string; enlaces: readonly Enlace[] }> = [
   {
     titulo: 'Operacion',
@@ -73,6 +74,12 @@ const GRUPOS: ReadonlyArray<{ titulo: string; enlaces: readonly Enlace[] }> = [
         etiqueta: 'Choferes',
         icono: UsersIcon,
         roles: ['admin', 'supervisor'],
+      },
+      {
+        href: '/catalogos/supervisores',
+        etiqueta: 'Supervisores',
+        icono: ShieldIcon,
+        roles: ['admin'],
       },
       { href: '/rutas', etiqueta: 'Rutas', icono: RouteIcon, roles: ['admin', 'supervisor'] },
       { href: '/paradas', etiqueta: 'Paradas', icono: MapPinIcon, roles: ['admin', 'supervisor'] },

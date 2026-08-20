@@ -2,9 +2,9 @@
 
 // `@/lib/env` importa primero A PROPOSITO (ver invitacion.ts y proxy.ts):
 // su carga de `.env` tiene que correr antes de que `@rutas/shared/db` evalue
-// `process.env.DATABASE_URL` al importarse. Import de solo efecto: este
-// archivo no lee `env` directamente, solo necesita que se haya cargado.
-import '@/lib/env';
+// `process.env.DATABASE_URL` al importarse. Ademas de ese efecto, este
+// archivo si lee `env.GOOGLE_OAUTH_ALLOWED_DOMAIN` en `crearSupervisor`.
+import { env } from '@/lib/env';
 import {
   camionCrearSchema,
   camionEditarSchema,
@@ -14,10 +14,12 @@ import {
   clienteEditarSchema,
   idSchema,
   type Resultado,
+  supervisorCrearSchema,
 } from '@rutas/shared';
 import { camion, cliente, db, perfilPersonal, usuario } from '@rutas/shared/db';
 import { and, eq, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
+import { dominioDe } from '@/lib/auth/invitacion';
 import { can } from '@/lib/authz/can';
 import { registrarAuditoria } from '@/lib/audit/registrar';
 import { supabaseAdmin } from '@/lib/supabase/admin';
@@ -508,5 +510,158 @@ export async function borrarChofer(input: unknown): Promise<Resultado<{ id: stri
   });
 
   revalidatePath('/catalogos/choferes');
+  return { ok: true, data: { id: parseo.data } };
+}
+
+// === supervisor ====================================================================
+// El alta de admin/supervisor se hacia fuera del panel (§ apps/web/src/
+// lib/authz/can.ts, comentario historico de `crear_supervisor`). Esta es esa
+// pantalla: el admin da de alta un supervisor con nombre y correo
+// corporativo. Sin credencial que compartir ni contrasena que mostrar — el
+// panel entra por Google, y la cuenta de Auth solo existe para que el OAuth
+// tenga con que vincular quien es.
+
+async function actorPuedeCrearSupervisores() {
+  const actor = await obtenerUsuarioActual();
+  if (!actor || !can(actor, 'gestionar_usuarios') || !can(actor, 'crear_supervisor')) {
+    return null;
+  }
+  return actor;
+}
+
+const SIN_PERMISO_SUPERVISOR: Resultado<never> = {
+  ok: false,
+  error: { codigo: 'no_autorizado', mensaje: 'Solo un administrador puede crear supervisores.' },
+};
+
+export async function listarSupervisores() {
+  return db
+    .select({
+      id: usuario.id,
+      credencial: usuario.credencial,
+      correo: usuario.correo,
+      activo: usuario.activo,
+      nombre: perfilPersonal.nombre,
+    })
+    .from(usuario)
+    .leftJoin(perfilPersonal, eq(perfilPersonal.usuarioId, usuario.id))
+    .where(and(eq(usuario.rol, 'supervisor'), isNull(usuario.deletedAt)))
+    .orderBy(perfilPersonal.nombre);
+}
+
+export async function crearSupervisor(input: unknown): Promise<Resultado<{ id: string }>> {
+  const parseo = supervisorCrearSchema.safeParse(input);
+  if (!parseo.success) {
+    return errorValidacion(parseo.error.issues[0]?.message ?? 'Entrada invalida', 'nombre');
+  }
+
+  const actor = await actorPuedeCrearSupervisores();
+  if (!actor) {
+    return SIN_PERMISO_SUPERVISOR;
+  }
+
+  const { nombre, correo } = parseo.data;
+
+  // Verificado del lado del servidor, igual que en el callback de OAuth: si
+  // el correo no es del dominio permitido, Google jamas va a dejar entrar a
+  // este supervisor y la cuenta quedaria invitada para siempre sin poder
+  // usarse. Mejor rechazarlo aqui, con un mensaje que explica por que, que
+  // dejar que lo descubra el dia que intente entrar.
+  // `as string`: igual que en invitacion.ts, esta accion solo se ejecuta
+  // tras el paso 3 (§ apps/web/src/lib/env.ts), donde la variable ya es
+  // obligatoria y viene validada.
+  const dominioPermitido = env.GOOGLE_OAUTH_ALLOWED_DOMAIN as string;
+  if (dominioDe(correo) !== dominioPermitido.toLowerCase()) {
+    return errorValidacion(`El correo debe ser del dominio @${dominioPermitido}.`, 'correo');
+  }
+
+  const credencial = await generarCredencialUnica(nombre);
+  // Nunca se muestra ni se comparte: el supervisor entra por Google, no con
+  // esta contrasena. Existe solo porque `admin.createUser` la exige.
+  const passwordInservible = generarPasswordTemporal();
+
+  const { data: alta, error: errorAuth } = await supabaseAdmin.auth.admin.createUser({
+    email: correo,
+    password: passwordInservible,
+    email_confirm: true,
+  });
+
+  if (errorAuth || !alta.user) {
+    return errorValidacion(
+      `No se pudo crear la cuenta del supervisor: ${errorAuth?.message ?? 'error desconocido'}`,
+    );
+  }
+
+  const nuevoId = alta.user.id;
+
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(usuario).values({
+        id: nuevoId,
+        credencial,
+        rol: 'supervisor',
+        correo,
+        activo: true,
+        // Igual que admin/supervisor sembrados: entran por OAuth, el cambio
+        // obligatorio de contrasena es del flujo del chofer.
+        debeCambiarPassword: false,
+      });
+      await tx.insert(perfilPersonal).values({ usuarioId: nuevoId, nombre, correo });
+      await registrarAuditoria(tx, {
+        actor: actor.id,
+        accion: 'crear',
+        recurso: { tipo: 'usuario', id: nuevoId },
+        despues: { credencial, rol: 'supervisor', nombre, correo },
+      });
+    });
+  } catch (error) {
+    // Mismo caso que crearChofer: si Postgres falla, no dejamos un usuario
+    // de Auth huerfano sin fila en `usuario`.
+    await supabaseAdmin.auth.admin.deleteUser(nuevoId);
+    throw error;
+  }
+
+  revalidatePath('/catalogos/supervisores');
+  return { ok: true, data: { id: nuevoId } };
+}
+
+export async function desactivarSupervisor(input: unknown): Promise<Resultado<{ id: string }>> {
+  const parseo = idSchema.safeParse(input);
+  if (!parseo.success) {
+    return errorValidacion('Id invalido');
+  }
+
+  const actor = await actorPuedeCrearSupervisores();
+  if (!actor) {
+    return SIN_PERMISO_SUPERVISOR;
+  }
+
+  const [antes] = await db
+    .select({ credencial: usuario.credencial })
+    .from(usuario)
+    .where(
+      and(eq(usuario.id, parseo.data), eq(usuario.rol, 'supervisor'), isNull(usuario.deletedAt)),
+    )
+    .limit(1);
+  if (!antes) {
+    return NO_ENCONTRADO;
+  }
+
+  await db.transaction(async (tx) => {
+    // Borrado logico, igual que borrarChofer: la fila se conserva para el
+    // historico de auditoria (quien autorizo que en el pasado).
+    await tx
+      .update(usuario)
+      .set({ activo: false, deletedAt: new Date() })
+      .where(eq(usuario.id, parseo.data));
+    await registrarAuditoria(tx, {
+      actor: actor.id,
+      accion: 'borrar',
+      recurso: { tipo: 'usuario', id: parseo.data },
+      antes: { credencial: antes.credencial },
+    });
+  });
+
+  revalidatePath('/catalogos/supervisores');
   return { ok: true, data: { id: parseo.data } };
 }

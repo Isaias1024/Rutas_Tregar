@@ -19,6 +19,7 @@ pnpm dev          # desde la raiz — panel en http://127.0.0.1:3000
 | `(panel)` | `/monitor` | Estado en vivo de las rutas de hoy, con captura manual del supervisor y cierre por incidente |
 | | `/planeador` | Asignacion semanal de chofer y camion por horario |
 | | `/catalogos/clientes` · `/catalogos/camiones` · `/catalogos/choferes` | Altas y bajas |
+| | `/catalogos/supervisores` | Solo admin: alta de supervisores (entran por Google, sin credencial) |
 | | `/rutas` · `/paradas` | Recorridos, sus horarios por turno (editables mientras no haya arrancado el viaje de hoy), y los puntos con ubicacion |
 | | `/reportes/{cumplimiento,ocupacion,ejecuciones,cliente}` | Los cuatro reportes por periodo |
 | | `/bitacora` | Toda mutacion administrativa, paginada por cursor |
