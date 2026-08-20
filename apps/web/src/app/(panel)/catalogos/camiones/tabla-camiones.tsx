@@ -8,6 +8,7 @@ import {
   camionEditarSchema,
   ESTADOS_CAMION,
   type Resultado,
+  TIPOS_CAMION,
 } from '@rutas/shared';
 import { useState, useTransition } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -91,13 +92,13 @@ export function TablaCamiones({
 
   const formCrear = useForm<CamionCrear>({
     resolver: zodResolver(camionCrearSchema),
-    defaultValues: { codigo: '', tipo: '', placas: '', km: 0, estado: 'disponible' },
+    defaultValues: { codigo: '', tipo: 'Van', placas: '', km: 0, estado: 'disponible' },
   });
   const formEditar = useForm<CamionEditar>({ resolver: zodResolver(camionEditarSchema) });
 
   function abrirCrear() {
     setEditando(null);
-    formCrear.reset({ codigo: '', tipo: '', placas: '', km: 0, estado: 'disponible' });
+    formCrear.reset({ codigo: '', tipo: 'Van', placas: '', km: 0, estado: 'disponible' });
     setError(null);
     setDialogoAbierto(true);
   }
@@ -107,7 +108,11 @@ export function TablaCamiones({
     formEditar.reset({
       id: camion.id,
       codigo: camion.codigo,
-      tipo: camion.tipo,
+      // Un camion sembrado o creado antes del catalogo cerrado puede traer un
+      // tipo que ya no es opcion (p. ej. "Sprinter"): el cast es a proposito,
+      // el Select simplemente no lo encuentra y queda sin seleccion hasta que
+      // el supervisor elige uno de los tres validos para poder guardar.
+      tipo: camion.tipo as CamionEditar['tipo'],
       placas: camion.placas,
       km: camion.km,
       estado: camion.estado,
@@ -298,13 +303,24 @@ export function TablaCamiones({
                 <Input id="camion-codigo-editar" {...formEditar.register('codigo')} />
               </div>
               <div className="space-y-1">
-                <label htmlFor="camion-tipo-editar" className="text-sm font-medium">
-                  Tipo
-                </label>
-                <Input
-                  id="camion-tipo-editar"
-                  placeholder="Van, Autobus, Urban"
-                  {...formEditar.register('tipo')}
+                <span className="text-sm font-medium">Tipo</span>
+                <Controller
+                  control={formEditar.control}
+                  name="tipo"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="w-full" aria-label="Tipo">
+                        <SelectValue placeholder="Elige un tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIPOS_CAMION.map((tipo) => (
+                          <SelectItem key={tipo} value={tipo}>
+                            {tipo}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 />
               </div>
               <div className="space-y-1">
@@ -361,13 +377,24 @@ export function TablaCamiones({
                 <Input id="camion-codigo-crear" {...formCrear.register('codigo')} />
               </div>
               <div className="space-y-1">
-                <label htmlFor="camion-tipo-crear" className="text-sm font-medium">
-                  Tipo
-                </label>
-                <Input
-                  id="camion-tipo-crear"
-                  placeholder="Van, Autobus, Urban"
-                  {...formCrear.register('tipo')}
+                <span className="text-sm font-medium">Tipo</span>
+                <Controller
+                  control={formCrear.control}
+                  name="tipo"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="w-full" aria-label="Tipo">
+                        <SelectValue placeholder="Elige un tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIPOS_CAMION.map((tipo) => (
+                          <SelectItem key={tipo} value={tipo}>
+                            {tipo}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 />
               </div>
               <div className="space-y-1">

@@ -230,10 +230,13 @@ const PARADAS = [
   },
 ] as const;
 
+// Los tres tipos que el formulario ofrece hoy (`TIPOS_CAMION` en
+// packages/shared/src/catalogos.ts); la semilla no puede sembrar uno que el
+// panel no deje elegir.
 const CAMIONES = [
   { codigo: 'T01', tipo: 'Van', placas: 'NLE-0101-A' },
   { codigo: 'T02', tipo: 'Autobus', placas: 'NLE-0202-B' },
-  { codigo: 'T03', tipo: 'Sprinter', placas: 'NLE-0303-C' },
+  { codigo: 'T03', tipo: 'Urvan', placas: 'NLE-0303-C' },
 ] as const;
 
 // Cada ruta trae su horario porque en este sistema una ruta SIN horario no

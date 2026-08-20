@@ -16,9 +16,12 @@ export const clienteEditarSchema = clienteCrearSchema.extend({
 
 export const ESTADOS_CAMION = ['disponible', 'asignado', 'mantenimiento'] as const;
 
+/** El catalogo cerrado de tipos de camion de la flota. Nada de texto libre. */
+export const TIPOS_CAMION = ['Van', 'Urvan', 'Autobus'] as const;
+
 export const camionCrearSchema = z.object({
   codigo: z.string().trim().min(1, 'El codigo es obligatorio'),
-  tipo: z.string().trim().min(1, 'El tipo es obligatorio'),
+  tipo: z.enum(TIPOS_CAMION, { message: 'Elige un tipo de camion' }),
   placas: z.string().trim().min(1, 'Las placas son obligatorias'),
   // Sin coerce ni default: el formulario ya manda un `number` real
   // (`valueAsNumber` en el input) y ya trae `0`/`'disponible'` como valor
@@ -53,9 +56,21 @@ export const choferEditarSchema = z.object({
     .optional(),
 });
 
+// El admin da de alta un supervisor con nombre y correo corporativo — sin
+// contrasena ni credencial que compartir, porque el panel entra por Google
+// (§ apps/web/src/app/(auth)/auth/callback). El correo tiene que coincidir
+// con el dominio permitido para que el OAuth lo reconozca; esa comprobacion
+// vive en el servidor (`env.GOOGLE_OAUTH_ALLOWED_DOMAIN`), no aqui, porque
+// `packages/shared` no lee variables de entorno de una app en particular.
+export const supervisorCrearSchema = z.object({
+  nombre: z.string().trim().min(1, 'El nombre es obligatorio'),
+  correo: z.email('Correo invalido'),
+});
+
 export type ClienteCrear = z.infer<typeof clienteCrearSchema>;
 export type ClienteEditar = z.infer<typeof clienteEditarSchema>;
 export type CamionCrear = z.infer<typeof camionCrearSchema>;
 export type CamionEditar = z.infer<typeof camionEditarSchema>;
 export type ChoferCrear = z.infer<typeof choferCrearSchema>;
 export type ChoferEditar = z.infer<typeof choferEditarSchema>;
+export type SupervisorCrear = z.infer<typeof supervisorCrearSchema>;
