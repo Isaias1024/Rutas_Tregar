@@ -1,11 +1,20 @@
 import { randomUUID } from 'node:crypto';
+import { TZDate } from '@date-fns/tz';
 import { describe, expect, it } from 'vitest';
+import { ZONA_OPERATIVA } from './estado.ts';
 import { eventoManualSchema, incidenteManualSchema } from './eventos.ts';
 
 // La captura manual del supervisor tiene DOS entradas, no una: la secuencia
 // (`eventoManualSchema`) y la salida por incidente (`incidenteManualSchema`).
 // Estas pruebas fijan esa separacion — si alguien la colapsa en un solo
 // esquema, aqui se nota.
+
+/** 'YYYY-MM-DDTHH:mm' en America/Mexico_City, `minutos` desde ahora (negativo = pasado). */
+function horaLocalRelativa(minutos: number): string {
+  const instante = new TZDate(Date.now() + minutos * 60_000, ZONA_OPERATIVA);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${instante.getFullYear()}-${pad(instante.getMonth() + 1)}-${pad(instante.getDate())}T${pad(instante.getHours())}:${pad(instante.getMinutes())}`;
+}
 
 describe('eventoManualSchema — solo la secuencia', () => {
   it('acepta un paso de ORDEN_PASOS', () => {
@@ -36,6 +45,35 @@ describe('eventoManualSchema — solo la secuencia', () => {
     if (!parseo.success) {
       expect(parseo.error.issues[0]?.path).toContain('cantidad');
     }
+  });
+
+  it('rechaza una hora en el futuro: la captura manual registra algo que ya paso', () => {
+    const parseo = eventoManualSchema.safeParse({
+      asignacionId: randomUUID(),
+      tipo: 'vio_ruta',
+      ocurrioEnLocal: horaLocalRelativa(30),
+    });
+    expect(parseo.success).toBe(false);
+    if (!parseo.success) {
+      expect(parseo.error.issues.some((i) => i.path.includes('ocurrioEnLocal'))).toBe(true);
+    }
+  });
+
+  it('acepta el instante exacto de ahora y cualquier hora pasada', () => {
+    expect(
+      eventoManualSchema.safeParse({
+        asignacionId: randomUUID(),
+        tipo: 'vio_ruta',
+        ocurrioEnLocal: horaLocalRelativa(0),
+      }).success,
+    ).toBe(true);
+    expect(
+      eventoManualSchema.safeParse({
+        asignacionId: randomUUID(),
+        tipo: 'vio_ruta',
+        ocurrioEnLocal: horaLocalRelativa(-30),
+      }).success,
+    ).toBe(true);
   });
 });
 
@@ -91,5 +129,17 @@ describe('incidenteManualSchema — la salida por incidente', () => {
       razonIncidente: 'otro',
     });
     expect(parseo.success).toBe(false);
+  });
+
+  it('rechaza una hora en el futuro: mismo criterio que eventoManualSchema', () => {
+    const parseo = incidenteManualSchema.safeParse({
+      asignacionId: randomUUID(),
+      ocurrioEnLocal: horaLocalRelativa(45),
+      razonIncidente: 'choque',
+    });
+    expect(parseo.success).toBe(false);
+    if (!parseo.success) {
+      expect(parseo.error.issues.some((i) => i.path.includes('ocurrioEnLocal'))).toBe(true);
+    }
   });
 });

@@ -138,6 +138,9 @@ export function DialogoCapturaManual({ fila, onOpenChange }: Props) {
                 id="captura-manual-hora"
                 type="datetime-local"
                 className="tabular-nums"
+                // `max` es una ayuda del navegador, no la regla: el servidor
+                // vuelve a rechazar una hora futura con `eventoManualSchema`.
+                max={ahoraLocalTexto()}
                 {...form.register('ocurrioEnLocal')}
               />
             </div>

@@ -7,12 +7,12 @@ import '@/lib/env';
 import {
   eventoManualSchema,
   incidenteManualSchema,
+  interpretarHoraLocal,
   puedeRegistrar,
   requiereContador,
   type Resultado,
 } from '@rutas/shared';
 import { asignacion, camion, db, evento, horario, perfilPersonal, ruta } from '@rutas/shared/db';
-import { TZDate } from '@date-fns/tz';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { can } from '@/lib/authz/can';
@@ -34,27 +34,6 @@ async function actorAutorizado() {
     return null;
   }
   return actor;
-}
-
-/**
- * La hora de un `<input type="datetime-local">` ('YYYY-MM-DDTHH:mm', sin zona)
- * interpretada en `America/Mexico_City`. El servidor decide la zona, nunca el
- * host que procesa la peticion. `null` si el texto no trae una fecha completa.
- */
-function interpretarHoraLocal(ocurrioEnLocal: string): TZDate | null {
-  const [fechaTexto, horaTexto] = ocurrioEnLocal.split('T');
-  const [anio, mes, dia] = (fechaTexto ?? '').split('-').map(Number);
-  const [horas, minutos] = (horaTexto ?? '').split(':').map(Number);
-  if (
-    anio === undefined ||
-    mes === undefined ||
-    dia === undefined ||
-    horas === undefined ||
-    minutos === undefined
-  ) {
-    return null;
-  }
-  return new TZDate(anio, mes - 1, dia, horas, minutos, 0, 'America/Mexico_City');
 }
 
 // === consulta del dia ===============================================================
