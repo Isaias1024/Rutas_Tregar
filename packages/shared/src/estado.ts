@@ -79,7 +79,7 @@ export interface ResultadoEstado {
 }
 
 /** Minutos entre `instanteIso` y `horaEsperada` (HH:mm[:ss]), mismo dia de `instanteIso`. */
-function offsetEnMinutos(instanteIso: string, horaEsperada: string): number {
+export function offsetEnMinutos(instanteIso: string, horaEsperada: string): number {
   const instante = new TZDate(instanteIso, ZONA_OPERATIVA);
   const [horas, minutos] = horaEsperada.split(':').map(Number);
   const esperado = new TZDate(

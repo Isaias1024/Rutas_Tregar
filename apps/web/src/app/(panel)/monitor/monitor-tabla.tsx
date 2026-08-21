@@ -18,20 +18,20 @@ import { TarjetaRuta } from './tarjeta-ruta';
 import type { FilaMonitor } from './tipos';
 
 const REFRESH_MS = 30_000;
-const ORDEN_ESTADOS: EstadoSemaforo[] = [
-  'en_curso',
-  'tarde',
-  'a_tiempo',
-  'adelantado',
-  'pendiente',
-  'incidente',
-];
+const ORDEN_ESTADOS: EstadoSemaforo[] = ['en_curso', 'tarde', 'a_tiempo', 'pendiente', 'incidente'];
 
 function normalizar(texto: string): string {
   return texto
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase();
+}
+
+/** Terminada = cerro con `retorno` o con `fin_ruta_incidente` (§6 UI monitor). */
+function esRutaTerminada(fila: { eventos: { tipo: string }[] }): boolean {
+  return fila.eventos.some(
+    (evento) => evento.tipo === 'retorno' || evento.tipo === 'fin_ruta_incidente',
+  );
 }
 
 function ChipEstado({
@@ -54,7 +54,7 @@ function ChipEstado({
       type="button"
       onClick={onClick}
       aria-pressed={activo}
-      className="inline-flex h-8 items-center gap-2 rounded-full border px-3 text-xs font-semibold transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      className="inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       style={{
         color: activo ? fg : colores.fg,
         backgroundColor: activo ? bg : colores.background,
@@ -82,6 +82,53 @@ function ChipEstado({
   );
 }
 
+/**
+ * "Terminadas" no es un `EstadoSemaforo` — es otro eje (avance vs. puntualidad,
+ * §6 UI monitor) — por eso es un chip aparte en vez de sumarse a `ORDEN_ESTADOS`,
+ * y usa el mismo gris neutral que la pastilla "Terminada" de la tarjeta.
+ */
+function ChipTerminadas({
+  cantidad,
+  activo,
+  onClick,
+}: {
+  cantidad: number;
+  activo: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activo}
+      className="inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      style={{
+        color: activo ? colores.background : colores.fg,
+        backgroundColor: activo ? colores.fgMuted : colores.background,
+        borderColor: activo ? colores.fgMuted : colores.border,
+      }}
+    >
+      {activo ? null : (
+        <span
+          aria-hidden="true"
+          className="size-2 shrink-0 rounded-full"
+          style={{ backgroundColor: colores.fgMuted }}
+        />
+      )}
+      Terminadas
+      <span
+        className="rounded-full px-1.5 py-0.5 text-[0.6875rem] font-semibold tabular-nums"
+        style={{
+          backgroundColor: activo ? 'rgb(255 255 255 / 0.25)' : colores.surface,
+          color: activo ? colores.background : colores.fgMuted,
+        }}
+      >
+        {cantidad}
+      </span>
+    </button>
+  );
+}
+
 interface Props {
   fecha: string;
 }
@@ -96,6 +143,7 @@ export function MonitorTabla({ fecha }: Props) {
   const [incidentePara, setIncidentePara] = useState<FilaMonitor | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstados, setFiltroEstados] = useState<Set<EstadoSemaforo>>(new Set());
+  const [soloTerminadas, setSoloTerminadas] = useState(false);
 
   const filas = useMemo(
     () =>
@@ -130,39 +178,21 @@ export function MonitorTabla({ fecha }: Props) {
   }, [filas]);
 
   const resumenDia = useMemo(() => {
-    let pendientes = 0;
-    let enEjecucion = 0;
     let finalizadas = 0;
-    let conIncidente = 0;
     for (const fila of filas) {
-      const tiposRegistrados = new Set(fila.eventos.map((evento) => evento.tipo));
-      // Primero que cualquier otra cosa, igual que en derivarEstado(): el
-      // incidente es terminal y puede coexistir con inicio_ruta (paso a medio
-      // camino) o sin el (nunca arranco). Evaluarlo despues dejaba una ruta
-      // con incidente contada como "En ejecucion" para siempre.
-      if (tiposRegistrados.has('fin_ruta_incidente')) {
-        conIncidente += 1;
-      } else if (tiposRegistrados.size === 0) {
-        pendientes += 1;
-      } else if (tiposRegistrados.has('retorno')) {
+      if (esRutaTerminada(fila)) {
         finalizadas += 1;
-      } else if (tiposRegistrados.has('inicio_ruta')) {
-        enEjecucion += 1;
       }
     }
-    return {
-      total: filas.length,
-      pendientes,
-      enEjecucion,
-      finalizadas,
-      conIncidente,
-      tarde: conteos.tarde,
-    };
-  }, [filas, conteos.tarde]);
+    return { total: filas.length, finalizadas };
+  }, [filas]);
 
   const terminoBusqueda = normalizar(busqueda.trim());
   const filasFiltradas = filas.filter((fila) => {
     if (filtroEstados.size > 0 && !filtroEstados.has(fila.estado)) {
+      return false;
+    }
+    if (soloTerminadas && !esRutaTerminada(fila)) {
       return false;
     }
     if (terminoBusqueda === '') {
@@ -187,6 +217,7 @@ export function MonitorTabla({ fecha }: Props) {
   function limpiarFiltros() {
     setBusqueda('');
     setFiltroEstados(new Set());
+    setSoloTerminadas(false);
   }
 
   if (isLoading) {
@@ -206,28 +237,28 @@ export function MonitorTabla({ fecha }: Props) {
   }
 
   const actualizado = horaTexto(dataUpdatedAt);
-  const hayFiltro = filtroEstados.size > 0 || terminoBusqueda !== '';
+  const hayFiltro = filtroEstados.size > 0 || soloTerminadas || terminoBusqueda !== '';
 
   return (
-    <div className="flex flex-col gap-6">
-      <ResumenDia {...resumenDia} />
-
+    <div className="flex flex-col gap-4">
       <Card>
-        <CardContent className="flex flex-col gap-3 p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            {ORDEN_ESTADOS.map((estado) => (
-              <ChipEstado
-                key={estado}
-                estado={estado}
-                cantidad={conteos[estado]}
-                activo={filtroEstados.has(estado)}
-                onClick={() => alternarFiltro(estado)}
-              />
-            ))}
+        <CardContent className="flex flex-col gap-2.5 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <ResumenDia {...resumenDia} />
+            {actualizado ? (
+              <p className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
+                <span
+                  aria-hidden="true"
+                  className="size-1.5 rounded-full"
+                  style={{ backgroundColor: colores.success }}
+                />
+                Actualizado {actualizado}
+              </p>
+            ) : null}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="relative w-full max-w-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full max-w-xs">
               <SearchIcon
                 aria-hidden="true"
                 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
@@ -237,27 +268,35 @@ export function MonitorTabla({ fecha }: Props) {
                 value={busqueda}
                 onChange={(evento) => setBusqueda(evento.target.value)}
                 placeholder="Buscar ruta, chofer o camion"
-                className="pl-9"
+                className="h-8 pl-9"
                 aria-label="Buscar en el monitor"
               />
             </div>
-            <div className="flex items-center gap-3">
-              {hayFiltro ? (
-                <Button type="button" variant="ghost" size="sm" onClick={limpiarFiltros}>
-                  Limpiar filtros
-                </Button>
-              ) : null}
-              {actualizado ? (
-                <p className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
-                  <span
-                    aria-hidden="true"
-                    className="size-1.5 rounded-full"
-                    style={{ backgroundColor: colores.success }}
-                  />
-                  Actualizado {actualizado}
-                </p>
-              ) : null}
-            </div>
+            {ORDEN_ESTADOS.map((estado) => (
+              <ChipEstado
+                key={estado}
+                estado={estado}
+                cantidad={conteos[estado]}
+                activo={filtroEstados.has(estado)}
+                onClick={() => alternarFiltro(estado)}
+              />
+            ))}
+            <ChipTerminadas
+              cantidad={resumenDia.finalizadas}
+              activo={soloTerminadas}
+              onClick={() => setSoloTerminadas((previo) => !previo)}
+            />
+            {hayFiltro ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7"
+                onClick={limpiarFiltros}
+              >
+                Limpiar filtros
+              </Button>
+            ) : null}
           </div>
         </CardContent>
       </Card>
@@ -274,7 +313,7 @@ export function MonitorTabla({ fecha }: Props) {
           />
         </Card>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3 min-[1920px]:grid-cols-4">
           {filasFiltradas.map((fila) => (
             <TarjetaRuta
               key={fila.id}
