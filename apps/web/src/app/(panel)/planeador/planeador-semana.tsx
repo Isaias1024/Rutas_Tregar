@@ -50,7 +50,7 @@ interface AsignacionFila {
   choferNombre: string | null;
   camionId: string;
   camionCodigo: string;
-  completada: boolean;
+  bloqueada: boolean;
 }
 
 // El camion viene con el chofer, no aparte: es una propiedad suya
@@ -260,7 +260,7 @@ export function PlaneadorSemana({
                               <span>
                                 #{a.secuencia} · {a.choferNombre ?? 'Sin nombre'} · {a.camionCodigo}
                               </span>
-                              {diaEsPasado || a.completada ? null : (
+                              {diaEsPasado || a.bloqueada ? null : (
                                 <span className="flex gap-2">
                                   <Button
                                     type="button"

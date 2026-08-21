@@ -6,6 +6,7 @@ import {
   camion,
   cliente,
   db,
+  evento,
   horario,
   notificacionProgramada,
   parada,
@@ -624,6 +625,7 @@ describe('planeador-nucleo: la fecha decide, no la hora del horario', () => {
       .where(inArray(asignacion.choferId, [choferId, chofer2Id]));
     const ids = asignacionesCreadas.map((a) => a.id);
     if (ids.length > 0) {
+      await db.delete(evento).where(inArray(evento.asignacionId, ids));
       await db
         .delete(notificacionProgramada)
         .where(inArray(notificacionProgramada.asignacionId, ids));
@@ -660,6 +662,41 @@ describe('planeador-nucleo: la fecha decide, no la hora del horario', () => {
       .from(asignacion)
       .where(eq(asignacion.id, creada.data.id));
     expect(fila?.canceladaEn).not.toBeNull();
+  });
+
+  it('una asignacion de HOY terminada por incidente no se puede reasignar ni cancelar', async () => {
+    // Mismo bloqueo que un `retorno` normal (§rutas-nucleo): un incidente
+    // tambien cierra la asignacion, y antes solo la puntualidad (`retorno`)
+    // lo bloqueaba — el bug que este caso cubre.
+    const creada = await asignarNucleo(actorId, { horarioId, fecha: hoy, choferId });
+    expect(creada.ok).toBe(true);
+    if (!creada.ok) return;
+
+    await db.insert(evento).values({
+      id: randomUUID(),
+      asignacionId: creada.data.id,
+      tipo: 'fin_ruta_incidente',
+      ocurrioEn: new Date(),
+      origen: 'supervisor',
+      capturadoPor: actorId,
+      clientEventId: randomUUID(),
+      razonIncidente: 'otro',
+    });
+
+    const reasignada = await reasignarNucleo(actorId, {
+      asignacionId: creada.data.id,
+      choferId: chofer2Id,
+    });
+    expect(reasignada.ok).toBe(false);
+    if (!reasignada.ok) {
+      expect(reasignada.error.codigo).toBe('conflicto');
+    }
+
+    const cancelada = await cancelarNucleo(actorId, creada.data.id);
+    expect(cancelada.ok).toBe(false);
+    if (!cancelada.ok) {
+      expect(cancelada.error.codigo).toBe('conflicto');
+    }
   });
 
   it('una ruta de AYER no se puede crear, reasignar ni cancelar, sin importar la hora', async () => {

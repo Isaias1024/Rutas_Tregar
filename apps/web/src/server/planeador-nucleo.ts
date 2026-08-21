@@ -11,9 +11,10 @@ import {
   type Resultado,
   siguienteSecuencia,
 } from '@rutas/shared';
-import { asignacion, camion, db, horario, ruta, usuario } from '@rutas/shared/db';
-import { and, eq, isNull, ne, sql } from 'drizzle-orm';
+import { asignacion, camion, db, evento, horario, ruta, usuario } from '@rutas/shared/db';
+import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { registrarAuditoria } from '@/lib/audit/registrar';
+import { EVENTOS_QUE_BLOQUEAN_EDICION } from '@/server/rutas-nucleo';
 
 const NO_ENCONTRADO: Resultado<never> = {
   ok: false,
@@ -42,6 +43,30 @@ export const MENSAJE_CHOFER_INACTIVO = 'Este chofer esta inactivo o fue dado de 
 // decide — nunca hay que confiar en que el cliente no llame a la accion
 // directo.
 export const MENSAJE_DIA_PASADO = 'Este dia ya paso: la planeacion es de solo lectura.';
+
+// Mismo criterio que rutas-nucleo.ts para bloquear la edicion de una ruta u
+// horario ya en curso: `fin_ruta_incidente` cierra la asignacion igual que
+// `retorno` (§ tabla-rutas: "lo que ya ocurrio hoy no se edita"), asi que
+// Cancelar/Reasignar tienen que quedar tan bloqueados por un incidente como
+// por un regreso normal — no solo del lado del cliente, el servidor es quien
+// de verdad lo impone.
+export const MENSAJE_ASIGNACION_EN_CURSO =
+  'Esta asignacion ya tiene un viaje iniciado o terminado hoy. Espera a manana o edita despues de que termine el dia operativo.';
+
+/** `true` si esta asignacion ya registro un evento que cierra su ventana de edicion (§rutas-nucleo). */
+async function asignacionBloqueadaHoy(asignacionId: string): Promise<boolean> {
+  const [fila] = await db
+    .select({ id: evento.id })
+    .from(evento)
+    .where(
+      and(
+        eq(evento.asignacionId, asignacionId),
+        inArray(evento.tipo, EVENTOS_QUE_BLOQUEAN_EDICION),
+      ),
+    )
+    .limit(1);
+  return !!fila;
+}
 
 /**
  * El camion que le toca a un chofer AHORA, resuelto desde `usuario.camion_id`
@@ -241,6 +266,9 @@ export async function reasignarNucleo(
   if (esFechaPasada(antes.fecha)) {
     return errorValidacion(MENSAJE_DIA_PASADO, 'fecha');
   }
+  if (await asignacionBloqueadaHoy(asignacionId)) {
+    return errorConflicto(MENSAJE_ASIGNACION_EN_CURSO);
+  }
 
   const [horarioFila] = await db
     .select()
@@ -340,6 +368,9 @@ export async function cancelarNucleo(
   }
   if (esFechaPasada(antes.fecha)) {
     return errorValidacion(MENSAJE_DIA_PASADO, 'fecha');
+  }
+  if (await asignacionBloqueadaHoy(asignacionId)) {
+    return errorConflicto(MENSAJE_ASIGNACION_EN_CURSO);
   }
 
   // Nunca un DELETE: solo se desasigna al chofer marcando `cancelada_en`.

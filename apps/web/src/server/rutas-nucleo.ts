@@ -23,7 +23,7 @@ import { registrarAuditoria } from '@/lib/audit/registrar';
 // asignacion de hoy ya completada). `inicio_ruta` cuenta porque el chofer ya
 // salio siguiendo los datos viejos; `fin_ruta`/`fin_ruta_incidente` cuentan
 // porque la ruta de hoy ya termino.
-const EVENTOS_QUE_BLOQUEAN_EDICION = [
+export const EVENTOS_QUE_BLOQUEAN_EDICION = [
   'inicio_ruta',
   'fin_ruta',
   'fin_ruta_incidente',

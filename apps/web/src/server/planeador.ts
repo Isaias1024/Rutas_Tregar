@@ -76,7 +76,14 @@ export async function listarAsignacionesSemana(fechas: string[]) {
       choferNombre: perfilPersonal.nombre,
       camionId: asignacion.camionId,
       camionCodigo: asignacion.camionCodigo,
-      completada: sql<boolean>`exists(select 1 from ${evento} where ${evento.asignacionId} = ${asignacion.id} and ${evento.tipo} = 'retorno')`,
+      // Mismo criterio que planeador-nucleo.ts (`asignacionBloqueadaHoy`): un
+      // regreso normal y un cierre por incidente bloquean la edicion igual.
+      // Esto solo evita ofrecer un boton que el servidor iba a rechazar.
+      bloqueada: sql<boolean>`exists(
+        select 1 from ${evento}
+        where ${evento.asignacionId} = ${asignacion.id}
+          and ${evento.tipo} in ('inicio_ruta', 'fin_ruta', 'fin_ruta_incidente', 'retorno')
+      )`,
     })
     .from(asignacion)
     .leftJoin(perfilPersonal, eq(perfilPersonal.usuarioId, asignacion.choferId))
