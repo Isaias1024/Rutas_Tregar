@@ -401,10 +401,15 @@ El panel real solo deja entrar con una cuenta de Google de la empresa. En tu com
 esta **apagado a proposito**: encenderlo obligaria a dar de alta un cliente de OAuth real en Google
 Cloud solo para probar en local.
 
-Si presionas el boton vas a ver un error. **Es lo esperado.** El camino correcto para probar es el
-de abajo.
+Si presionas el boton vas a ver un error. **Es lo esperado.**
 
-### 6.2 El camino correcto: abrir el panel con una sesion de prueba
+**Alternativa mas simple: entra directo con correo y contrasena.** La pantalla de login tiene un
+segundo formulario, debajo del boton de Google, que no depende de OAuth. El seed (paso 4.6) ya deja
+usable a `admin@test.com` / `Admin123!` y a `supervisor@test.com` / `Supervisor123!` ahi mismo —
+sin pasar por ningun script. Si en cambio quieres probar el camino de un administrador de verdad
+(planeador ya abierto, sesion iniciada por ti), sigue con §6.2.
+
+### 6.2 El camino con script: abrir el panel con una sesion de prueba
 
 Abre una terminal **nueva** (o usa la ventana 1, que quedo libre), ponte en la carpeta (§2.2) y
 corre:
@@ -459,9 +464,9 @@ pnpm panel:sesion --rol supervisor
 | `supervisor` | Lo mismo, sin ninguna diferencia |
 
 **Los dos roles ven exactamente el mismo panel.** La unica accion que los distingue es
-`crear_supervisor` (en `apps/web/src/lib/authz/can.ts`), que todavia no tiene ninguna pantalla que
-la consuma. Si esperabas que el supervisor viera menos y ves lo mismo, esta bien: es el
-comportamiento actual, no un defecto de tu instalacion.
+`crear_supervisor` (en `apps/web/src/lib/authz/can.ts`): solo el admin ve **Nuevo supervisor** en
+**Catalogos → Supervisores**. Si esperabas que el supervisor viera menos en el resto del menu y ves
+lo mismo, esta bien: es el comportamiento actual, no un defecto de tu instalacion.
 
 El rol `chofer` es el unico que si queda fuera: el middleware le niega toda ruta del panel con
 "No tienes permiso para ver esta seccion."
@@ -958,8 +963,8 @@ Esto no reemplaza la prueba manual, pero es rapido y detecta lo que se rompio si
 
 | Comando | Que prueba | Cuanto tarda | Que debe salir hoy |
 |---|---|---|---|
-| `pnpm test` | La logica: semaforo, permisos, aislamiento de datos entre choferes | ~20 s | `Tests 161 passed (161)` |
-| `pnpm test:e2e` | El panel entero, manejado por un robot en un navegador | ~10 min | **28 pasan, 8 fallan** — pendiente conocido, ver abajo |
+| `pnpm test` | La logica: semaforo, permisos, aislamiento de datos entre choferes | ~25 s | `Tests 226 passed (226)` |
+| `pnpm test:e2e` | El panel entero, manejado por un robot en un navegador | ~10 min | **20 pasan, 12 fallan, 4 no corren** — pendiente conocido, ver abajo |
 | `pnpm test:mobile` | La app del chofer | ~25 s | **falla — ver abajo** |
 
 Las tres, en una terminal, con la base encendida:
@@ -972,12 +977,19 @@ pnpm test
 pnpm test:e2e
 ```
 
-> **8 pruebas e2e fallan hoy, y es un pendiente conocido del panel, no de tu instalacion.** Las
-> tres del **Planeador** hacen `getByLabel('Camion')` y la del **Monitor** hace `getByLabel('Paso')`
-> (cada una cuenta doble: corren en escritorio y en movil-375). Ninguno de esos dos controles existe
-> ya: el camion **se deriva del chofer** y se muestra como texto, y el paso de la captura manual lo
-> decide `siguientePaso()`. O sea, la interfaz mejoro y las pruebas se quedaron atras — hay que
-> reescribir esas cuatro contra la interfaz actual.
+> **12 pruebas e2e fallan hoy (4 mas no corren), y es un pendiente conocido del panel, no de tu
+> instalacion.** Dos causas, ambas en `tests/e2e/rutas.spec.ts` y `tests/e2e/planeador.spec.ts`
+> (cada una cuenta doble: corren en escritorio y en movil-375):
+>
+> 1. **Datos de fixture obsoletos.** `scripts/seed.ts` reemplazo los nombres genericos (`Test
+>    Client`, `Stop 1`, `Route 1`) por paradas y rutas reales de Monterrey, pero esos dos archivos
+>    de prueba siguen buscando los nombres viejos. Hay que reescribirlos contra los datos actuales
+>    del seed.
+> 2. **Las pruebas "sin llave de Maps" asumen un `.env` sin `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`.** Si
+>    tu `.env` local trae una llave real (por ejemplo porque la configuraste para probar el mapa a
+>    mano), el selector de parada muestra el mapa en vez de degradar a captura manual, y esas cuatro
+>    pruebas fallan — es el entorno, no un bug del panel. Quitala del `.env` antes de correr
+>    `pnpm test:e2e` si quieres ver la suite completa en verde.
 
 > **Las pruebas ensucian la base a proposito.** `pnpm test:e2e` crea sus propios usuarios
 > (`e2e-admin@example.com`, `e2e-supervisor@example.com`), un horario extra en `Route 1` y varias
@@ -1093,14 +1105,13 @@ persiguiendolas.
 
 | Cosa | Que pasa en local | Por que |
 |---|---|---|
-| **Entrar con Google al panel** | Da error | El proveedor de Google esta apagado en la configuracion local a proposito. Se usa `pnpm panel:sesion` en su lugar (§6.2) |
+| **Entrar con Google al panel** | Da error | El proveedor de Google esta apagado en la configuracion local a proposito. Se usa el login por correo y contrasena o `pnpm panel:sesion` en su lugar (§6.1, §6.2) |
 | **Notificaciones push al telefono** | Nunca llegan | Requieren una cuenta de Expo con proyecto dado de alta y un token que en local no existe. Lo que **si** puedes verificar es que los avisos se **programen**: mira la tabla `notificacion_programada` en Supabase Studio |
 | **Advertencia de notificaciones al entrar a la app** | Aparece un aviso en la consola de Expo | Consecuencia de lo anterior; la app funciona igual |
 | **Mapa al crear una parada** | No aparece el mapa | Falta la llave de Google Maps. El formulario **degrada a proposito** a captura manual de latitud y longitud, no se rompe |
 | **Correos** | No salen a internet | Quedan atrapados en Mailpit: <http://127.0.0.1:54324> |
-| **Opcion "Mi cuenta" del menu** | Da pagina no encontrada (404) | El enlace existe en el menu pero la pantalla todavia no esta construida. Es un pendiente real del proyecto, no un problema de tu instalacion |
 | **`pnpm test:mobile`** | 2 de 3 suites no arrancan | Pendiente conocido tras bajar a Expo SDK 54; ver §10 y `apps/mobile/README.md`. No forma parte de la comprobacion obligatoria |
-| **El supervisor ve lo mismo que el admin** | No hay diferencia en el menu | Es el comportamiento actual, no un defecto: la unica accion que separa los dos roles todavia no tiene pantalla (§6.2) |
+| **El supervisor ve lo mismo que el admin en el resto del menu** | No hay diferencia fuera de Catalogos → Supervisores | Es el comportamiento actual, no un defecto: `crear_supervisor` es la unica accion que distingue a los dos roles (§6.2) |
 | **Estados en gris al imprimir el PDF** | Los cinco se ven de tonos parecidos | La pastilla trae el nombre escrito, asi que se lee; el icono que los separaba en gris se quito en el rediseno de agosto 2026 (§8, paso 8) |
 | **Instalar la app como APK** | No aplica | La distribucion real se hace con EAS y Google Play; eso vive en `docs/runbook.md` §5 |
 

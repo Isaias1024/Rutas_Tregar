@@ -28,6 +28,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=no_invitado`);
   }
 
+  // Mismo motivo que en el login por contrasena: el redirect de aqui no
+  // vuelve a pasar por `proxy.ts`, asi que la compuerta de /cuenta se decide
+  // aqui tambien, no solo se espera del respaldo del proxy.
+  if (resultado.data.debeCambiarPassword) {
+    return NextResponse.redirect(`${origin}/cuenta`);
+  }
   const destino = resultado.data.rol === 'admin' ? '/planeador' : '/monitor';
   return NextResponse.redirect(`${origin}${destino}`);
 }

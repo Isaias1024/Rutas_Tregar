@@ -1,7 +1,15 @@
+// `@/lib/env` importa primero A PROPOSITO (ver invitacion.ts, proxy.ts y
+// server/catalogos.ts): su carga de `.env` tiene que correr antes de que
+// `@rutas/shared/db` evalue `process.env.DATABASE_URL` al importarse.
+import '@/lib/env';
+import { loginPasswordSchema } from '@rutas/shared';
+import { db, usuario } from '@rutas/shared/db';
+import { eq } from 'drizzle-orm';
 import Image from 'next/image';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { crearClienteServidor } from '@/lib/supabase/server';
 
 async function iniciarSesionConGoogle() {
@@ -25,10 +33,51 @@ async function iniciarSesionConGoogle() {
   redirect(data.url);
 }
 
+// El login por correo+contrasena no distingue si fallo el correo, la
+// contrasena o la cuenta esta inactiva: un solo mensaje generico, mismo
+// criterio que ya usa la app movil con credencial+contrasena del chofer.
+async function iniciarSesionConPassword(formData: FormData) {
+  'use server';
+
+  const parseo = loginPasswordSchema.safeParse({
+    correo: formData.get('correo'),
+    password: formData.get('password'),
+  });
+  if (!parseo.success) {
+    redirect('/login?error=credenciales_invalidas');
+  }
+
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: parseo.data.correo,
+    password: parseo.data.password,
+  });
+  if (error || !data.user) {
+    redirect('/login?error=credenciales_invalidas');
+  }
+
+  const [fila] = await db.select().from(usuario).where(eq(usuario.id, data.user.id)).limit(1);
+  if (!fila?.activo || fila.deletedAt !== null) {
+    await supabase.auth.signOut();
+    redirect('/login?error=credenciales_invalidas');
+  }
+
+  // El redirect() de una server action resuelve el destino dentro de la
+  // misma respuesta, sin pasar otra vez por `proxy.ts`: si se decidiera solo
+  // por rol, un primer ingreso con `debeCambiarPassword` en true se saltaria
+  // la compuerta de /cuenta. El proxy sigue siendo el respaldo para cualquier
+  // otra navegacion (URL escrita a mano, enlace, recarga).
+  if (fila.debeCambiarPassword) {
+    redirect('/cuenta');
+  }
+  redirect(fila.rol === 'admin' ? '/planeador' : '/monitor');
+}
+
 const MENSAJES_ERROR: Record<string, string> = {
   no_invitado:
     'Este correo no tiene una invitacion activa. Pide a un administrador que te de de alta.',
   oauth: 'No se pudo iniciar sesion con Google. Intenta de nuevo.',
+  credenciales_invalidas: 'Correo o contrasena incorrectos.',
 };
 
 export default async function PaginaLogin({
@@ -66,6 +115,30 @@ export default async function PaginaLogin({
         <form action={iniciarSesionConGoogle}>
           <Button type="submit" className="w-full">
             Entrar con Google
+          </Button>
+        </form>
+
+        <div className="flex items-center gap-3">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-xs text-muted-foreground">o</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+
+        <form action={iniciarSesionConPassword} className="space-y-3">
+          <div className="space-y-1">
+            <label htmlFor="login-correo" className="text-sm font-medium">
+              Correo
+            </label>
+            <Input id="login-correo" name="correo" type="email" required />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="login-password" className="text-sm font-medium">
+              Contrasena
+            </label>
+            <Input id="login-password" name="password" type="password" required />
+          </div>
+          <Button type="submit" variant="outline" className="w-full">
+            Entrar con correo y contrasena
           </Button>
         </form>
       </div>

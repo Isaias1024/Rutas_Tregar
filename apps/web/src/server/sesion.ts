@@ -10,6 +10,8 @@ export interface UsuarioSesion {
   id: string;
   rol: 'admin' | 'supervisor' | 'chofer';
   credencial: string;
+  correo: string | null;
+  debeCambiarPassword: boolean;
   nombre: string | null;
 }
 
@@ -34,6 +36,8 @@ export async function obtenerUsuarioActual(): Promise<UsuarioSesion | null> {
       id: usuario.id,
       rol: usuario.rol,
       credencial: usuario.credencial,
+      correo: usuario.correo,
+      debeCambiarPassword: usuario.debeCambiarPassword,
       nombre: perfilPersonal.nombre,
     })
     .from(usuario)

@@ -5,6 +5,7 @@ import { type Resultado, type SupervisorCrear, supervisorCrearSchema } from '@ru
 import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { AvisoAccion } from '@/components/aviso-accion';
+import { BotonCopiar } from '@/components/boton-copiar';
 import { EstadoVacio } from '@/components/estado-vacio';
 import { EncabezadoPagina } from '@/components/shell/encabezado-pagina';
 import { Badge } from '@/components/ui/badge';
@@ -36,12 +37,19 @@ interface Supervisor {
   nombre: string | null;
 }
 
+interface CredencialesNuevas {
+  credencial: string;
+  passwordTemporal: string;
+}
+
 interface Props {
   titulo: string;
   descripcion: string;
   supervisores: Supervisor[];
   esAdmin: boolean;
-  accionCrear: (input: unknown) => Promise<Resultado<{ id: string }>>;
+  accionCrear: (
+    input: unknown,
+  ) => Promise<Resultado<{ id: string; credencial: string; passwordTemporal: string }>>;
   accionDesactivar: (input: unknown) => Promise<Resultado<{ id: string }>>;
 }
 
@@ -59,6 +67,7 @@ export function TablaSupervisores({
   const [porDesactivar, setPorDesactivar] = useState<Supervisor | null>(null);
   const [errorDesactivar, setErrorDesactivar] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null);
+  const [credencialesNuevas, setCredencialesNuevas] = useState<CredencialesNuevas | null>(null);
 
   const form = useForm<SupervisorCrear>({
     resolver: zodResolver(supervisorCrearSchema),
@@ -80,7 +89,10 @@ export function TablaSupervisores({
         return;
       }
       setDialogoAbierto(false);
-      setExito(`Supervisor "${valores.nombre}" creado. Ya puede entrar con su cuenta de Google.`);
+      setCredencialesNuevas({
+        credencial: resultado.data.credencial,
+        passwordTemporal: resultado.data.passwordTemporal,
+      });
     });
   }
 
@@ -241,7 +253,8 @@ export function TablaSupervisores({
                 <p className="text-sm text-destructive">{form.formState.errors.correo.message}</p>
               ) : null}
               <p className="text-sm text-muted-foreground">
-                Entra con este correo por Google. No hay contrasena que compartir.
+                Puede entrar con este correo por Google, o con la credencial y contrasena temporal
+                que se muestran una sola vez al crearlo.
               </p>
             </div>
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -251,6 +264,54 @@ export function TablaSupervisores({
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={credencialesNuevas !== null} onOpenChange={() => setCredencialesNuevas(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supervisor creado</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Comparte estos datos con el supervisor ahora: no se van a volver a mostrar. Va a tener
+            que cambiar la contrasena en su primer ingreso. Tambien puede entrar con su cuenta de
+            Google, con el correo que capturaste.
+          </p>
+          <dl className="space-y-2 rounded-lg border border-border bg-surface p-4 text-sm">
+            <div className="flex items-center justify-between gap-4">
+              <dt className="font-medium">Credencial</dt>
+              <dd className="flex items-center gap-1">
+                <span className="font-mono">{credencialesNuevas?.credencial}</span>
+                <BotonCopiar valor={credencialesNuevas?.credencial ?? ''} etiqueta="Credencial" />
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="font-medium">Contrasena temporal</dt>
+              <dd className="flex items-center gap-1">
+                <span className="font-mono">{credencialesNuevas?.passwordTemporal}</span>
+                <BotonCopiar
+                  valor={credencialesNuevas?.passwordTemporal ?? ''}
+                  etiqueta="Contrasena temporal"
+                />
+              </dd>
+            </div>
+          </dl>
+          <DialogFooter className="sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                void navigator.clipboard?.writeText(
+                  `Credencial: ${credencialesNuevas?.credencial}\nContrasena temporal: ${credencialesNuevas?.passwordTemporal}`,
+                )
+              }
+            >
+              Copiar los dos
+            </Button>
+            <Button type="button" onClick={() => setCredencialesNuevas(null)}>
+              Entendido
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

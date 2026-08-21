@@ -517,9 +517,9 @@ export async function borrarChofer(input: unknown): Promise<Resultado<{ id: stri
 // El alta de admin/supervisor se hacia fuera del panel (§ apps/web/src/
 // lib/authz/can.ts, comentario historico de `crear_supervisor`). Esta es esa
 // pantalla: el admin da de alta un supervisor con nombre y correo
-// corporativo. Sin credencial que compartir ni contrasena que mostrar — el
-// panel entra por Google, y la cuenta de Auth solo existe para que el OAuth
-// tenga con que vincular quien es.
+// corporativo. El supervisor puede entrar por Google (con ese mismo correo)
+// o con la credencial y contrasena temporal que se muestran una sola vez,
+// igual que un chofer nuevo (`crearChofer`, arriba).
 
 async function actorPuedeCrearSupervisores() {
   const actor = await obtenerUsuarioActual();
@@ -549,7 +549,9 @@ export async function listarSupervisores() {
     .orderBy(perfilPersonal.nombre);
 }
 
-export async function crearSupervisor(input: unknown): Promise<Resultado<{ id: string }>> {
+export async function crearSupervisor(
+  input: unknown,
+): Promise<Resultado<{ id: string; credencial: string; passwordTemporal: string }>> {
   const parseo = supervisorCrearSchema.safeParse(input);
   if (!parseo.success) {
     return errorValidacion(parseo.error.issues[0]?.message ?? 'Entrada invalida', 'nombre');
@@ -576,13 +578,14 @@ export async function crearSupervisor(input: unknown): Promise<Resultado<{ id: s
   }
 
   const credencial = await generarCredencialUnica(nombre);
-  // Nunca se muestra ni se comparte: el supervisor entra por Google, no con
-  // esta contrasena. Existe solo porque `admin.createUser` la exige.
-  const passwordInservible = generarPasswordTemporal();
+  // Igual que crearChofer: una contrasena real, mostrada una sola vez. El
+  // supervisor puede usarla para entrar por credencial+contrasena, o seguir
+  // entrando por Google con este mismo correo — las dos quedan disponibles.
+  const passwordTemporal = generarPasswordTemporal();
 
   const { data: alta, error: errorAuth } = await supabaseAdmin.auth.admin.createUser({
     email: correo,
-    password: passwordInservible,
+    password: passwordTemporal,
     email_confirm: true,
   });
 
@@ -602,9 +605,10 @@ export async function crearSupervisor(input: unknown): Promise<Resultado<{ id: s
         rol: 'supervisor',
         correo,
         activo: true,
-        // Igual que admin/supervisor sembrados: entran por OAuth, el cambio
-        // obligatorio de contrasena es del flujo del chofer.
-        debeCambiarPassword: false,
+        // A diferencia del alta sembrada (que ya trae contrasena elegida a
+        // mano), esta contrasena la genero el sistema: se fuerza el cambio
+        // en el primer ingreso, misma compuerta que ya usa el chofer.
+        debeCambiarPassword: true,
       });
       await tx.insert(perfilPersonal).values({ usuarioId: nuevoId, nombre, correo });
       await registrarAuditoria(tx, {
@@ -622,7 +626,7 @@ export async function crearSupervisor(input: unknown): Promise<Resultado<{ id: s
   }
 
   revalidatePath('/catalogos/supervisores');
-  return { ok: true, data: { id: nuevoId } };
+  return { ok: true, data: { id: nuevoId, credencial, passwordTemporal } };
 }
 
 export async function desactivarSupervisor(input: unknown): Promise<Resultado<{ id: string }>> {

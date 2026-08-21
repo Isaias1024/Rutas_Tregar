@@ -139,6 +139,13 @@ export async function proxy(request: NextRequest) {
     return redirigirALogin();
   }
 
+  // El login por contrasena (crearSupervisor, y cualquier alta futura) deja
+  // debe_cambiar_password en true: no hay paso de la pantalla hasta que se
+  // cambie, misma compuerta que ya usa la app movil con sus choferes.
+  if (fila.debeCambiarPassword && pathname !== '/cuenta') {
+    return NextResponse.redirect(new URL('/cuenta', request.url));
+  }
+
   if (
     coincide(pathname, PREFIJOS_SUPERVISOR_ADMIN) &&
     fila.rol !== 'admin' &&

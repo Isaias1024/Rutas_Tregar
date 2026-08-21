@@ -14,22 +14,20 @@ pnpm dev          # desde la raiz — panel en http://127.0.0.1:3000
 
 | Grupo | Ruta | Que es |
 |---|---|---|
-| `(auth)` | `/login` | Entrada con Google. No crea cuentas: exige una fila previa en `usuario` |
+| `(auth)` | `/login` | Entrada con Google **o** con correo y contrasena. Ninguna de las dos crea cuentas: exige una fila previa en `usuario` |
 | | `/consentimiento` · `/privacidad` | Textos legales, publicos |
 | `(panel)` | `/monitor` | Estado en vivo de las rutas de hoy, con captura manual del supervisor y cierre por incidente |
 | | `/planeador` | Asignacion semanal de chofer y camion por horario |
 | | `/catalogos/clientes` · `/catalogos/camiones` · `/catalogos/choferes` | Altas y bajas |
-| | `/catalogos/supervisores` | Solo admin: alta de supervisores (entran por Google, sin credencial) |
+| | `/catalogos/supervisores` | Solo admin: alta de supervisores (entran por Google o por credencial+contrasena, mostrada una sola vez) |
 | | `/rutas` · `/paradas` | Recorridos, sus horarios por turno (editables mientras no haya arrancado el viaje de hoy), y los puntos con ubicacion |
 | | `/reportes/{cumplimiento,ocupacion,ejecuciones,cliente}` | Los cuatro reportes por periodo |
 | | `/bitacora` | Toda mutacion administrativa, paginada por cursor |
+| | `/cuenta` | Correo, credencial y rol de solo lectura, mas cambio de contrasena. Fuerza el paso aqui cuando `debe_cambiar_password` sigue en `true` |
 | `(imprimible)` | `/reportes/cliente/[id]/imprimible` | La pagina que el worker imprime a PDF con Chromium |
 | `api` | `/api/reportes/ejecuciones.csv` | CSV en streaming, sin acumular en memoria |
 | | `/api/reportes/pdf` | Proxy al worker, para no exponer `WORKER_SHARED_SECRET` al navegador |
 | | `/api/dispositivos` | Alta del token de push de la app |
-
-`/cuenta` aparece en el menu pero **todavia no existe como ruta**: da 404. Es un pendiente
-conocido del proyecto.
 
 ## Como esta armado
 

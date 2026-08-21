@@ -10,7 +10,7 @@ export default async function PaginaSupervisores() {
   return (
     <TablaSupervisores
       titulo="Supervisores"
-      descripcion="Quien mas administra el panel. Entran con su cuenta de Google corporativa."
+      descripcion="Quien mas administra el panel. Entran con su cuenta de Google corporativa o con credencial y contrasena."
       supervisores={supervisores}
       // `crear_supervisor` (@/lib/authz/can) solo lo tiene admin: esto es
       // nada mas para no ofrecer botones que el servidor va a rechazar. La
