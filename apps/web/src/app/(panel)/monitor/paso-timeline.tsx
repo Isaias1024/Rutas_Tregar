@@ -1,19 +1,36 @@
-import { ORDEN_PASOS, siguientePaso, type TipoEvento } from '@rutas/shared';
-import { AlertTriangleIcon, CheckIcon } from 'lucide-react';
+import {
+  horaEsperadaTexto,
+  ORDEN_PASOS,
+  siguientePaso,
+  type TipoEvento,
+  ubicacionEsCorrecta,
+} from '@rutas/shared';
+import { AlertTriangleIcon, CheckIcon, MapPinOffIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ETIQUETA_PASO, ICONO_PASO } from './etiquetas-paso';
 import { horaTexto } from './formato';
 
 type EstadoPaso = 'completado' | 'activo' | 'pendiente';
 
+interface EventoConUbicacion {
+  tipo: TipoEvento;
+  ocurrioEn: Date;
+  lat: number | null;
+  lng: number | null;
+  sinGps: boolean;
+}
+
 interface Props {
-  eventos: { tipo: TipoEvento; ocurrioEn: Date }[];
+  eventos: EventoConUbicacion[];
   horaInicioEsperada: string;
   horaFinEsperada: string;
   personasEsperadas: number;
   cntAbordaron: number | null;
   cntRetornaron: number | null;
   sospechoso: boolean;
+  /** Coordenadas de la parada de inicio y fin, solo para el flag de ubicacion. */
+  paradaInicio: { lat: number; lng: number };
+  paradaFin: { lat: number; lng: number };
 }
 
 function circulo(estado: EstadoPaso) {
@@ -26,18 +43,18 @@ function circulo(estado: EstadoPaso) {
   return 'border border-border bg-background text-muted-foreground';
 }
 
-/** `HH:mm` esperada de este paso, o `null` si el paso no tiene una (§2 UI monitor). */
+/** Hora esperada de este paso en 12h, o `null` si el paso no tiene una (§2 UI monitor). */
 function horaEsperadaDe(
   tipo: TipoEvento,
   horaInicioEsperada: string,
   horaFinEsperada: string,
 ): string | null {
-  if (tipo === 'inicio_ruta') return horaInicioEsperada.slice(0, 5);
-  if (tipo === 'fin_ruta') return horaFinEsperada.slice(0, 5);
+  if (tipo === 'inicio_ruta') return horaEsperadaTexto(horaInicioEsperada);
+  if (tipo === 'fin_ruta') return horaEsperadaTexto(horaFinEsperada);
   return null;
 }
 
-/** Texto compacto de personas para este paso: solo `fin_ruta` y `retorno` cuentan (§3-5 UI monitor). */
+/** Texto declarativo de personas para este paso: solo `fin_ruta` y `retorno` cuentan (§3-5 UI monitor). */
 function personasDe(
   tipo: TipoEvento,
   estado: EstadoPaso,
@@ -48,12 +65,28 @@ function personasDe(
   if (tipo === 'fin_ruta') {
     const reales = estado === 'completado' ? cntAbordaron : null;
     return reales !== null
-      ? `${personasEsperadas} esp. · ${reales} real`
-      : `Esperadas: ${personasEsperadas}`;
+      ? `Personas esperadas: ${personasEsperadas} · reales: ${reales}`
+      : `Personas esperadas: ${personasEsperadas}`;
   }
   if (tipo === 'retorno' && estado === 'completado' && cntRetornaron !== null) {
-    return `Reales: ${cntRetornaron}`;
+    return `Personas que regresan: ${cntRetornaron}`;
   }
+  return null;
+}
+
+/**
+ * Parada esperada de este paso para el flag de ubicacion: inicio para
+ * `listo_inicio` (el chofer deberia estar ya en el punto de partida) e
+ * `inicio_ruta`, fin para `fin_ruta`. Los demas pasos no tienen una
+ * ubicacion fija que exigir.
+ */
+function paradaEsperadaDe(
+  tipo: TipoEvento,
+  paradaInicio: { lat: number; lng: number },
+  paradaFin: { lat: number; lng: number },
+): { lat: number; lng: number } | null {
+  if (tipo === 'listo_inicio' || tipo === 'inicio_ruta') return paradaInicio;
+  if (tipo === 'fin_ruta') return paradaFin;
   return null;
 }
 
@@ -72,6 +105,8 @@ export function PasoTimeline({
   cntAbordaron,
   cntRetornaron,
   sospechoso,
+  paradaInicio,
+  paradaFin,
 }: Props) {
   const eventosPorTipo = new Map(eventos.map((evento) => [evento.tipo, evento]));
   const siguiente = siguientePaso(eventos.map((evento) => ({ tipo: evento.tipo })));
@@ -88,7 +123,7 @@ export function PasoTimeline({
         const esUltimo = indice === ORDEN_PASOS.length - 1;
         const Icono = ICONO_PASO[tipo];
 
-        const horaEsperadaTexto = horaEsperadaDe(tipo, horaInicioEsperada, horaFinEsperada);
+        const horaEsperadaDelPaso = horaEsperadaDe(tipo, horaInicioEsperada, horaFinEsperada);
         const horaRealTexto = cumplido ? horaTexto(cumplido.ocurrioEn.getTime()) : null;
         const personasTexto = personasDe(
           tipo,
@@ -97,6 +132,19 @@ export function PasoTimeline({
           cntAbordaron,
           cntRetornaron,
         );
+
+        // `false` explicito, nunca `undefined` (sin GPS, o la parada sin
+        // coordenadas): ahi no hay nada que contradecir.
+        const paradaEsperada = paradaEsperadaDe(tipo, paradaInicio, paradaFin);
+        const ubicacionDistinta =
+          cumplido && !cumplido.sinGps && paradaEsperada
+            ? ubicacionEsCorrecta(
+                cumplido.lat,
+                cumplido.lng,
+                paradaEsperada.lat,
+                paradaEsperada.lng,
+              ) === false
+            : false;
 
         return (
           <li
@@ -138,25 +186,25 @@ export function PasoTimeline({
               </p>
               <p className="text-[0.6875rem] tabular-nums text-muted-foreground">
                 {estado === 'completado' ? (
-                  horaEsperadaTexto ? (
+                  horaEsperadaDelPaso ? (
                     <>
-                      Esp. {horaEsperadaTexto}
+                      Hora esperada: {horaEsperadaDelPaso}
                       <span className="mx-1 text-border">·</span>
                       <span className="font-medium text-foreground">
-                        Real {horaRealTexto ?? '—'}
+                        real: {horaRealTexto ?? '—'}
                       </span>
                     </>
                   ) : (
                     (horaRealTexto ?? 'Completado')
                   )
                 ) : estado === 'activo' ? (
-                  horaEsperadaTexto ? (
-                    `Esperada ${horaEsperadaTexto}`
+                  horaEsperadaDelPaso ? (
+                    `Hora esperada: ${horaEsperadaDelPaso}`
                   ) : (
                     'En progreso'
                   )
-                ) : horaEsperadaTexto ? (
-                  `Esperada ${horaEsperadaTexto}`
+                ) : horaEsperadaDelPaso ? (
+                  `Hora esperada: ${horaEsperadaDelPaso}`
                 ) : (
                   'Sin registrar'
                 )}
@@ -170,6 +218,12 @@ export function PasoTimeline({
                 <p className="flex items-center gap-1 text-[0.6875rem] font-medium text-warning @xl:justify-center">
                   <AlertTriangleIcon aria-hidden="true" className="size-3 shrink-0" />
                   Hora distinta
+                </p>
+              ) : null}
+              {ubicacionDistinta ? (
+                <p className="flex items-center gap-1 text-[0.6875rem] font-medium text-warning @xl:justify-center">
+                  <MapPinOffIcon aria-hidden="true" className="size-3 shrink-0" />
+                  Otra ubicacion
                 </p>
               ) : null}
             </div>

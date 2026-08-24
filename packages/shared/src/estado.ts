@@ -66,6 +66,10 @@ export const UMBRAL_ADELANTADO_MIN = 15;
 export const UMBRAL_SOSPECHOSO_MIN = 5;
 /** El evento "llego en linea" si se recibio hace menos de 60 min. */
 export const VENTANA_EN_VIVO_MIN = 60;
+/** A mas de 100m de la parada esperada, la ubicacion del evento no cuadra. */
+export const UMBRAL_UBICACION_CORRECTA_M = 100;
+
+export type Puntualidad = 'a_tiempo' | 'tarde' | 'adelantado';
 
 export interface EventoParaEstado {
   tipo: TipoEvento;
@@ -76,6 +80,63 @@ export interface EventoParaEstado {
 export interface ResultadoEstado {
   estado: EstadoSemaforo;
   sospechoso: boolean;
+  /**
+   * Puntualidad de la salida (`inicio_ruta` vs. `horaEsperada`), calculada
+   * en cuanto la ruta arranca — independiente de si ya cerro. Mientras la
+   * ruta sigue activa, `estado` se queda en `en_curso` y este campo es lo
+   * que alimenta el flag de tarde/adelantado junto a esa pastilla; en
+   * cuanto cierra, `estado` pasa a ser este mismo valor (§ rediseno
+   * "en curso" del monitor).
+   */
+  puntualidadInicio: Puntualidad | null;
+}
+
+/**
+ * Distancia entre dos coordenadas en metros (formula haversine). Comparte
+ * este calculo el panel y la app: el chofer ya la usaba localmente en
+ * `apps/mobile/src/app/(chofer)/ruta/[id].tsx` para las mismas dos
+ * comparaciones (inicio contra `paradaInicio`, fin contra `paradaFin`).
+ */
+export function distanciaEnMetros(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const radioTierraM = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.asin(Math.sqrt(a));
+  return radioTierraM * c;
+}
+
+/**
+ * `true`/`false` si el evento cayo dentro de `UMBRAL_UBICACION_CORRECTA_M`
+ * de la parada esperada; `undefined` si falta alguna coordenada (sin GPS,
+ * o la parada no la trae).
+ */
+export function ubicacionEsCorrecta(
+  eventoLat: number | null | undefined,
+  eventoLng: number | null | undefined,
+  paradaLat: number | null | undefined,
+  paradaLng: number | null | undefined,
+): boolean | undefined {
+  if (
+    eventoLat === null ||
+    eventoLat === undefined ||
+    eventoLng === null ||
+    eventoLng === undefined ||
+    paradaLat === null ||
+    paradaLat === undefined ||
+    paradaLng === null ||
+    paradaLng === undefined
+  ) {
+    return undefined;
+  }
+  return (
+    distanciaEnMetros(eventoLat, eventoLng, paradaLat, paradaLng) <= UMBRAL_UBICACION_CORRECTA_M
+  );
 }
 
 /** Minutos entre `instanteIso` y `horaEsperada` (HH:mm[:ss]), mismo dia de `instanteIso`. */
@@ -137,22 +198,33 @@ export function derivarEstado({
   // casos es "incidente", nunca "en curso" ni "a tiempo/tarde/adelantado".
   const conIncidente = eventos.some((evento) => evento.tipo === 'fin_ruta_incidente');
   if (conIncidente) {
-    return { estado: 'incidente', sospechoso: false };
+    return { estado: 'incidente', sospechoso: false, puntualidadInicio: null };
   }
 
   const inicioRuta = eventos.find((evento) => evento.tipo === 'inicio_ruta');
 
   if (inicioRuta) {
+    const puntualidadInicio = estadoPorPuntualidad(
+      offsetEnMinutos(inicioRuta.ocurrioEn, horaEsperada),
+    );
+    // `retorno` es lo unico que cierra la ruta (§ rediseno "en curso" del
+    // monitor). Mientras no llegue, el estado se queda en `en_curso` sin
+    // importar que tan tarde o adelantado haya arrancado — esa puntualidad
+    // vive aparte en `puntualidadInicio`, para un flag junto a la pastilla,
+    // no como el estado principal. En cuanto cierra, el estado SI pasa a
+    // ser la puntualidad, exactamente como antes de este cambio.
+    const terminada = eventos.some((evento) => evento.tipo === 'retorno');
     return {
-      estado: estadoPorPuntualidad(offsetEnMinutos(inicioRuta.ocurrioEn, horaEsperada)),
+      estado: terminada ? puntualidadInicio : 'en_curso',
       sospechoso: esSospechoso(inicioRuta, ahora),
+      puntualidadInicio,
     };
   }
 
   if (eventos.length === 0) {
-    return { estado: 'pendiente', sospechoso: false };
+    return { estado: 'pendiente', sospechoso: false, puntualidadInicio: null };
   }
 
   // Hay progreso (vio_ruta y/o listo_inicio) pero todavia no sale.
-  return { estado: 'en_curso', sospechoso: false };
+  return { estado: 'en_curso', sospechoso: false, puntualidadInicio: null };
 }

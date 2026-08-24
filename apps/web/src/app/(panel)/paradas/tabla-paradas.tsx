@@ -231,7 +231,6 @@ export function TablaParadas({
                 <TableRow>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Direccion</TableHead>
-                  <TableHead className="text-right">Coordenadas</TableHead>
                   <TableHead className="w-0" />
                 </TableRow>
               </TableHeader>
@@ -240,9 +239,6 @@ export function TablaParadas({
                   <TableRow key={parada.id}>
                     <TableCell>{parada.nombre}</TableCell>
                     <TableCell>{parada.direccion}</TableCell>
-                    <TableCell className="text-right font-mono text-xs tabular-nums">
-                      {parada.lat.toFixed(5)}, {parada.lng.toFixed(5)}
-                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
@@ -281,9 +277,6 @@ export function TablaParadas({
                   <div>
                     <p className="font-medium text-foreground">{parada.nombre}</p>
                     <p className="text-sm text-muted-foreground">{parada.direccion}</p>
-                    <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
-                      {parada.lat.toFixed(5)}, {parada.lng.toFixed(5)}
-                    </p>
                   </div>
                   <div className="flex gap-2">
                     <Button

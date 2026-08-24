@@ -1,4 +1,4 @@
-import { offsetEnMinutos, puedeRegistrar, siguientePaso } from '@rutas/shared';
+import { horaEsperadaTexto, offsetEnMinutos, puedeRegistrar, siguientePaso } from '@rutas/shared';
 import { colores, type EstadoSemaforo, semaforo } from '@rutas/shared/tokens';
 import { TruckIcon, UserRoundIcon } from 'lucide-react';
 import { PastillaEstado } from '@/components/pastilla-estado';
@@ -69,27 +69,37 @@ export function FilaRuta({ fila, onRegistrar, onTerminarPorIncidente }: Props) {
   // retorno. El incidente ya trae su propio texto ("Terminada por
   // incidente") y no se separa en dos pastillas.
   const terminada = fila.eventos.some((evento) => evento.tipo === 'retorno');
-  const desempenoTexto = (() => {
-    if (!terminada || fila.estado === 'incidente' || fila.estado === 'pendiente') {
-      return null;
-    }
-    if (fila.estado === 'a_tiempo') {
-      return semaforo.a_tiempo.texto;
-    }
-    const inicioRuta = fila.eventos.find((evento) => evento.tipo === 'inicio_ruta');
-    if (!inicioRuta) {
-      return semaforo[fila.estado].texto;
-    }
+  const inicioRuta = fila.eventos.find((evento) => evento.tipo === 'inicio_ruta');
+
+  // Texto del flag de puntualidad ("Tarde +12 min" / "A tiempo"), leido de
+  // `puntualidadInicio` — que `derivarEstado()` calcula en cuanto arranca la
+  // ruta, este cerrada o no (§ rediseno "en curso" del monitor). El offset en
+  // minutos es el mismo dato en los dos casos: solo cambia si se muestra.
+  const puntualidadTexto = (() => {
+    if (!fila.puntualidadInicio) return null;
+    if (fila.puntualidadInicio === 'a_tiempo') return semaforo.a_tiempo.texto;
+    if (!inicioRuta) return semaforo[fila.puntualidadInicio].texto;
     const offset = offsetEnMinutos(inicioRuta.ocurrioEn.toISOString(), fila.horaInicioEsperada);
-    return `${semaforo[fila.estado].texto} ${offset > 0 ? '+' : ''}${offset} min`;
+    return `${semaforo[fila.puntualidadInicio].texto} ${offset > 0 ? '+' : ''}${offset} min`;
   })();
+
+  // Mientras la ruta sigue activa (arranco, no ha cerrado), el estado
+  // principal es "En curso" — nunca "Tarde"/"Adelantado" — y la puntualidad
+  // se ofrece nada mas como flag aparte, y solo si hay algo que avisar: "A
+  // tiempo" no compite con la pastilla, que ya lo da por hecho.
+  const activaConFlag =
+    !terminada &&
+    fila.estado === 'en_curso' &&
+    inicioRuta !== undefined &&
+    fila.puntualidadInicio !== null &&
+    fila.puntualidadInicio !== 'a_tiempo';
 
   // `fin_ruta_incidente` no pertenece a `ORDEN_PASOS`: no aparece en
   // `PasoTimeline`, y sin esto su hora no se veia en ningun lado de la fila.
   const incidente = fila.eventos.find((evento) => evento.tipo === 'fin_ruta_incidente');
   const horaIncidente = incidente ? horaTexto(incidente.ocurrioEn.getTime()) : null;
 
-  const horaInicioTexto = fila.horaInicioEsperada.slice(0, 5);
+  const horaInicioTexto = horaEsperadaTexto(fila.horaInicioEsperada);
 
   return (
     <li className="@container">
@@ -133,13 +143,21 @@ export function FilaRuta({ fila, onRegistrar, onTerminarPorIncidente }: Props) {
                   </span>
                 ) : null}
               </div>
-            ) : terminada && desempenoTexto ? (
+            ) : terminada && puntualidadTexto ? (
               <div className="flex flex-wrap items-center gap-1.5">
                 <PastillaTerminada />
-                <ChipDesempeno estado={fila.estado} texto={desempenoTexto} />
+                <ChipDesempeno
+                  estado={fila.puntualidadInicio ?? fila.estado}
+                  texto={puntualidadTexto}
+                />
               </div>
             ) : terminada ? (
               <PastillaTerminada />
+            ) : activaConFlag && fila.puntualidadInicio && puntualidadTexto ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <PastillaEstado estado={fila.estado} />
+                <ChipDesempeno estado={fila.puntualidadInicio} texto={puntualidadTexto} />
+              </div>
             ) : (
               <PastillaEstado estado={fila.estado} />
             )}
@@ -178,6 +196,8 @@ export function FilaRuta({ fila, onRegistrar, onTerminarPorIncidente }: Props) {
             cntAbordaron={fila.cntAbordaron}
             cntRetornaron={fila.cntRetornaron}
             sospechoso={fila.sospechoso}
+            paradaInicio={{ lat: fila.paradaInicioLat, lng: fila.paradaInicioLng }}
+            paradaFin={{ lat: fila.paradaFinLat, lng: fila.paradaFinLng }}
           />
         </div>
       </div>

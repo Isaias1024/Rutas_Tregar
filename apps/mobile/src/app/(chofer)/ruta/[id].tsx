@@ -1,13 +1,13 @@
-import { TZDate } from '@date-fns/tz';
 import {
   estadoRuta,
+  horaInstanteTexto,
   ORDEN_PASOS,
   puedeRegistrar,
   requiereContador,
   siguientePaso,
   type TipoIncidente,
+  ubicacionEsCorrecta,
 } from '@rutas/shared';
-import { format } from 'date-fns';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
@@ -27,39 +27,7 @@ import { registrarEvento } from '@/outbox/registrar';
 import { useSesion } from '../../_layout';
 
 function formatearHora(iso: string): string {
-  return format(new TZDate(iso, 'America/Mexico_City'), 'HH:mm');
-}
-
-function distanciaEnMetros(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371000; // Radio de la tierra en metros
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-  const c = 2 * Math.asin(Math.sqrt(a));
-  return R * c;
-}
-
-function ubicacionEsCorrecta(
-  eventoLat: number | undefined,
-  eventoLng: number | undefined,
-  paradaLat: number | undefined,
-  paradaLng: number | undefined,
-): boolean | undefined {
-  if (
-    eventoLat === undefined ||
-    eventoLng === undefined ||
-    paradaLat === undefined ||
-    paradaLng === undefined
-  ) {
-    return undefined;
-  }
-  const distancia = distanciaEnMetros(eventoLat, eventoLng, paradaLat, paradaLng);
-  return distancia <= 100; // Considera correcto si esta dentro de 100 metros
+  return horaInstanteTexto(new Date(iso));
 }
 
 export default function PaginaDetalleRuta() {

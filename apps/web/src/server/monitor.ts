@@ -12,8 +12,18 @@ import {
   requiereContador,
   type Resultado,
 } from '@rutas/shared';
-import { asignacion, camion, db, evento, horario, perfilPersonal, ruta } from '@rutas/shared/db';
+import {
+  asignacion,
+  camion,
+  db,
+  evento,
+  horario,
+  parada,
+  perfilPersonal,
+  ruta,
+} from '@rutas/shared/db';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { revalidatePath } from 'next/cache';
 import { can } from '@/lib/authz/can';
 import { registrarAuditoria } from '@/lib/audit/registrar';
@@ -38,6 +48,11 @@ async function actorAutorizado() {
 
 // === consulta del dia ===============================================================
 
+// Alias porque `ruta` referencia `parada` dos veces (inicio y fin) — mismo
+// patron que `apps/web/src/server/rutas.ts`.
+const paradaInicio = alias(parada, 'parada_inicio_monitor');
+const paradaFin = alias(parada, 'parada_fin_monitor');
+
 export async function listarMonitorDelDia(fecha: string) {
   // Monitor no guarda su propia copia de que ruta esta activa: consulta
   // `ruta`/`horario` en vivo en cada llamada. Si la ruta se borro o el
@@ -59,10 +74,18 @@ export async function listarMonitorDelDia(fecha: string) {
       choferNombre: perfilPersonal.nombre,
       camionCodigo: asignacion.camionCodigo,
       camionEstado: camion.estado,
+      // Solo para comparar contra el GPS del evento (§ flag "otra ubicacion"
+      // del rediseno de monitor) — nunca se pintan como texto.
+      paradaInicioLat: paradaInicio.lat,
+      paradaInicioLng: paradaInicio.lng,
+      paradaFinLat: paradaFin.lat,
+      paradaFinLng: paradaFin.lng,
     })
     .from(asignacion)
     .innerJoin(horario, eq(horario.id, asignacion.horarioId))
     .innerJoin(ruta, eq(ruta.id, horario.rutaId))
+    .innerJoin(paradaInicio, eq(paradaInicio.id, ruta.paradaInicioId))
+    .innerJoin(paradaFin, eq(paradaFin.id, ruta.paradaFinId))
     .leftJoin(perfilPersonal, eq(perfilPersonal.usuarioId, asignacion.choferId))
     .innerJoin(camion, eq(camion.id, asignacion.camionId))
     .where(
@@ -85,6 +108,9 @@ export async function listarMonitorDelDia(fecha: string) {
             tipo: evento.tipo,
             ocurrioEn: evento.ocurrioEn,
             recibidoEn: evento.recibidoEn,
+            lat: evento.lat,
+            lng: evento.lng,
+            sinGps: evento.sinGps,
           })
           .from(evento)
           .where(inArray(evento.asignacionId, asignacionIds))

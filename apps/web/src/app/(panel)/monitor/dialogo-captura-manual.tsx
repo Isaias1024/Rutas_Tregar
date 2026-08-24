@@ -1,7 +1,13 @@
 'use client';
 
 import { TZDate } from '@date-fns/tz';
-import { requiereContador, type Resultado, siguientePaso, type TipoEvento } from '@rutas/shared';
+import {
+  horaEsperadaTexto,
+  requiereContador,
+  type Resultado,
+  siguientePaso,
+  type TipoEvento,
+} from '@rutas/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -120,12 +126,12 @@ export function DialogoCapturaManual({ fila, onOpenChange }: Props) {
               <p className="text-base font-semibold text-foreground">{ETIQUETA_PASO[siguiente]}</p>
               {siguiente === 'inicio_ruta' && fila.horaInicioEsperada ? (
                 <p className="text-xs tabular-nums text-muted-foreground">
-                  Hora programada {fila.horaInicioEsperada.slice(0, 5)}
+                  Hora programada {horaEsperadaTexto(fila.horaInicioEsperada)}
                 </p>
               ) : null}
               {siguiente === 'fin_ruta' && fila.horaFinEsperada ? (
                 <p className="text-xs tabular-nums text-muted-foreground">
-                  Hora programada {fila.horaFinEsperada.slice(0, 5)}
+                  Hora programada {horaEsperadaTexto(fila.horaFinEsperada)}
                 </p>
               ) : null}
             </div>

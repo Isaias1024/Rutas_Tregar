@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { derivarEstado, type EventoParaEstado, interpretarHoraLocal } from './estado.ts';
+import {
+  derivarEstado,
+  distanciaEnMetros,
+  type EventoParaEstado,
+  interpretarHoraLocal,
+  ubicacionEsCorrecta,
+} from './estado.ts';
 
 const HORA_ESPERADA = '06:00:00';
 const AHORA = new Date('2026-08-10T13:00:00.000Z'); // 07:00 America/Mexico_City
@@ -12,6 +18,14 @@ function eventoInicioRuta(
     tipo: 'inicio_ruta',
     ocurrioEn: `2026-08-10T${ocurrioEnLocal}:00.000-06:00`,
     recibidoEn: `2026-08-10T${recibidoEnLocal}:00.000-06:00`,
+  };
+}
+
+function eventoRetorno(ocurrioEnLocal: string): EventoParaEstado {
+  return {
+    tipo: 'retorno',
+    ocurrioEn: `2026-08-10T${ocurrioEnLocal}:00.000-06:00`,
+    recibidoEn: `2026-08-10T${ocurrioEnLocal}:00.000-06:00`,
   };
 }
 
@@ -37,36 +51,49 @@ describe('derivarEstado', () => {
     expect(resultado.estado).toBe('en_curso');
   });
 
-  it('inicio_ruta 4 minutos despues de la hora esperada: a tiempo', () => {
-    const resultado = derivarEstado({
-      eventos: [eventoInicioRuta('06:04')],
-      horaEsperada: HORA_ESPERADA,
-      ahora: AHORA,
-    });
-    expect(resultado.estado).toBe('a_tiempo');
-  });
-
-  it('inicio_ruta 25 minutos despues de la hora esperada: tarde', () => {
+  it('inicio_ruta sin retorno: en_curso, con la puntualidad de arranque aparte', () => {
     const resultado = derivarEstado({
       eventos: [eventoInicioRuta('06:25')],
       horaEsperada: HORA_ESPERADA,
       ahora: AHORA,
     });
-    expect(resultado.estado).toBe('tarde');
+    expect(resultado.estado).toBe('en_curso');
+    expect(resultado.puntualidadInicio).toBe('tarde');
   });
 
-  it('inicio_ruta 20 minutos antes de la hora esperada: adelantado', () => {
+  it('inicio_ruta 4 minutos despues de la hora esperada + retorno: a tiempo', () => {
     const resultado = derivarEstado({
-      eventos: [eventoInicioRuta('05:40')],
+      eventos: [eventoInicioRuta('06:04'), eventoRetorno('07:00')],
+      horaEsperada: HORA_ESPERADA,
+      ahora: AHORA,
+    });
+    expect(resultado.estado).toBe('a_tiempo');
+    expect(resultado.puntualidadInicio).toBe('a_tiempo');
+  });
+
+  it('inicio_ruta 25 minutos despues de la hora esperada + retorno: tarde', () => {
+    const resultado = derivarEstado({
+      eventos: [eventoInicioRuta('06:25'), eventoRetorno('07:00')],
+      horaEsperada: HORA_ESPERADA,
+      ahora: AHORA,
+    });
+    expect(resultado.estado).toBe('tarde');
+    expect(resultado.puntualidadInicio).toBe('tarde');
+  });
+
+  it('inicio_ruta 20 minutos antes de la hora esperada + retorno: adelantado', () => {
+    const resultado = derivarEstado({
+      eventos: [eventoInicioRuta('05:40'), eventoRetorno('07:00')],
       horaEsperada: HORA_ESPERADA,
       ahora: AHORA,
     });
     expect(resultado.estado).toBe('adelantado');
+    expect(resultado.puntualidadInicio).toBe('adelantado');
   });
 
   it('borde exacto +10: sigue siendo a tiempo (mas de +10 es tarde, no +10 mismo)', () => {
     const resultado = derivarEstado({
-      eventos: [eventoInicioRuta('06:10')],
+      eventos: [eventoInicioRuta('06:10'), eventoRetorno('07:00')],
       horaEsperada: HORA_ESPERADA,
       ahora: AHORA,
     });
@@ -75,7 +102,7 @@ describe('derivarEstado', () => {
 
   it('borde exacto -15: sigue siendo a tiempo (menos de -15 es adelantado, no -15 mismo)', () => {
     const resultado = derivarEstado({
-      eventos: [eventoInicioRuta('05:45')],
+      eventos: [eventoInicioRuta('05:45'), eventoRetorno('07:00')],
       horaEsperada: HORA_ESPERADA,
       ahora: AHORA,
     });
@@ -147,6 +174,34 @@ describe('derivarEstado', () => {
       ahora: AHORA,
     });
     expect(resultado.estado).toBe('incidente');
+  });
+});
+
+describe('distanciaEnMetros / ubicacionEsCorrecta', () => {
+  // Dos puntos en Monterrey: uno a ~50m de la parada (dentro del umbral de
+  // 100m) y otro a varios kilometros (claramente fuera).
+  const PARADA_LAT = 25.6866;
+  const PARADA_LNG = -100.3161;
+  const CERCA_LAT = 25.68705;
+  const CERCA_LNG = -100.3161;
+  const LEJOS_LAT = 25.72;
+  const LEJOS_LNG = -100.35;
+
+  it('distancia cero entre el mismo punto', () => {
+    expect(distanciaEnMetros(PARADA_LAT, PARADA_LNG, PARADA_LAT, PARADA_LNG)).toBe(0);
+  });
+
+  it('ubicacion correcta dentro del umbral', () => {
+    expect(ubicacionEsCorrecta(CERCA_LAT, CERCA_LNG, PARADA_LAT, PARADA_LNG)).toBe(true);
+  });
+
+  it('ubicacion incorrecta fuera del umbral', () => {
+    expect(ubicacionEsCorrecta(LEJOS_LAT, LEJOS_LNG, PARADA_LAT, PARADA_LNG)).toBe(false);
+  });
+
+  it('undefined si falta alguna coordenada (sin GPS, o la parada no la trae)', () => {
+    expect(ubicacionEsCorrecta(null, null, PARADA_LAT, PARADA_LNG)).toBeUndefined();
+    expect(ubicacionEsCorrecta(CERCA_LAT, CERCA_LNG, undefined, undefined)).toBeUndefined();
   });
 });
 

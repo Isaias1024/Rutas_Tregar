@@ -1,4 +1,4 @@
-import { estadoRuta } from '@rutas/shared';
+import { estadoRuta, horaEsperadaTexto } from '@rutas/shared';
 import { colores } from '@rutas/shared/tokens';
 import { Pressable, Text, View } from 'react-native';
 import type { AsignacionDetallada } from '@/datos/asignaciones';
@@ -11,10 +11,6 @@ interface Props {
   /** Dias que no son hoy: se ven, no se marcan (§ movil-expo.md). */
   soloLectura?: boolean;
   onPress: () => void;
-}
-
-function recortar(hora: string): string {
-  return hora.slice(0, 5);
 }
 
 /**
@@ -41,7 +37,7 @@ export function TarjetaRuta({ asignacion, soloLectura, onPress }: Props) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${ruta.nombre}, ${recortar(horaInicioEsperada)} a ${recortar(horaFinEsperada)}`}
+      accessibilityLabel={`${ruta.nombre}, ${horaEsperadaTexto(horaInicioEsperada)} a ${horaEsperadaTexto(horaFinEsperada)}`}
       onPress={onPress}
       className="overflow-hidden rounded-app border border-border bg-surface active:opacity-80"
       testID="tarjeta-asignacion"
@@ -57,7 +53,7 @@ export function TarjetaRuta({ asignacion, soloLectura, onPress }: Props) {
               <View className="mt-1 flex-row items-center gap-1.5">
                 <Icono nombre="reloj" tamano={14} color={colores.fgMuted} />
                 <Text className="text-base tabular-nums text-foreground-muted">
-                  {recortar(horaInicioEsperada)} — {recortar(horaFinEsperada)}
+                  {horaEsperadaTexto(horaInicioEsperada)} — {horaEsperadaTexto(horaFinEsperada)}
                 </Text>
               </View>
             </View>

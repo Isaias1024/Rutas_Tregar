@@ -1,6 +1,6 @@
 'use client';
 
-import type { Resultado } from '@rutas/shared';
+import { horaEsperadaTexto, type Resultado } from '@rutas/shared';
 import { useEffect, useState } from 'react';
 import { DialogoConfirmar } from '@/components/ui/dialogo-confirmar';
 
@@ -155,7 +155,7 @@ function DetalleRutas({
           <li key={ruta.asignacionId} className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">{ruta.rutaNombre}</span> —{' '}
             {etiquetaFecha(ruta.fecha, hoy)}{' '}
-            <span className="tabular-nums">{ruta.horaInicioEsperada.slice(0, 5)}</span> ·{' '}
+            <span className="tabular-nums">{horaEsperadaTexto(ruta.horaInicioEsperada)}</span> ·{' '}
             {ruta.camionCodigo}
           </li>
         ))}

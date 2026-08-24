@@ -4,6 +4,7 @@ import {
   type Asignar,
   type Cancelar,
   hayTraslape,
+  horaEsperadaTexto,
   type Reasignar,
   type Resultado,
 } from '@rutas/shared';
@@ -78,10 +79,6 @@ interface Props {
 
 const TURNOS_ORDEN: readonly Turno[] = ['manana', 'tarde', 'noche'];
 const ETIQUETA_TURNO: Record<Turno, string> = { manana: 'Mañana', tarde: 'Tarde', noche: 'Noche' };
-
-function recortarHora(hora: string): string {
-  return hora.slice(0, 5);
-}
 
 function nombreDia(fechaISO: string): string {
   const fecha = new Date(`${fechaISO}T00:00:00`);
@@ -231,9 +228,9 @@ export function PlaneadorSemana({
                         <div>
                           <p className="font-medium text-foreground">{horario.rutaNombre}</p>
                           <p className="text-sm tabular-nums text-muted-foreground">
-                            {recortarHora(horario.horaInicioEsperada)}–
-                            {recortarHora(horario.horaFinEsperada)} · {horario.personasEsperadas}{' '}
-                            personas
+                            {horaEsperadaTexto(horario.horaInicioEsperada)}–
+                            {horaEsperadaTexto(horario.horaFinEsperada)} ·{' '}
+                            {horario.personasEsperadas} personas
                           </p>
                         </div>
                         {diaEsPasado ? null : (

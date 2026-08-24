@@ -86,7 +86,7 @@ export async function obtenerCumplimientoPorChofer(
       porChofer.set(fila.choferId, acumulado);
     }
 
-    const { estado } = derivarEstado({
+    const { puntualidadInicio } = derivarEstado({
       eventos: [
         {
           tipo: 'inicio_ruta',
@@ -100,7 +100,7 @@ export async function obtenerCumplimientoPorChofer(
 
     const bucket = fila.origen === 'app' ? acumulado.app : acumulado.supervisor;
     bucket.total += 1;
-    if (estado === 'a_tiempo') {
+    if (puntualidadInicio === 'a_tiempo') {
       bucket.aTiempo += 1;
     }
   }
@@ -204,7 +204,7 @@ export async function obtenerCumplimientoPorRutaDeCliente(
       porRuta.set(fila.rutaId, acumulado);
     }
 
-    const { estado } = derivarEstado({
+    const { puntualidadInicio } = derivarEstado({
       eventos: [
         {
           tipo: 'inicio_ruta',
@@ -218,13 +218,13 @@ export async function obtenerCumplimientoPorRutaDeCliente(
 
     const bucket = fila.origen === 'app' ? acumulado.app : acumulado.supervisor;
     bucket.total += 1;
-    if (estado === 'a_tiempo') {
+    if (puntualidadInicio === 'a_tiempo') {
       bucket.aTiempo += 1;
     }
 
     if (!acumulado.ultimaEjecucionEn || fila.ocurrioEn > acumulado.ultimaEjecucionEn) {
       acumulado.ultimaEjecucionEn = fila.ocurrioEn;
-      acumulado.ultimoEstado = estado;
+      acumulado.ultimoEstado = puntualidadInicio;
     }
   }
 
@@ -297,7 +297,7 @@ export async function obtenerResumenPorCliente(
     if (!acumulado) {
       continue;
     }
-    const { estado } = derivarEstado({
+    const { puntualidadInicio } = derivarEstado({
       eventos: [
         {
           tipo: 'inicio_ruta',
@@ -310,7 +310,7 @@ export async function obtenerResumenPorCliente(
     });
     const bucket = fila.origen === 'app' ? acumulado.app : acumulado.supervisor;
     bucket.total += 1;
-    if (estado === 'a_tiempo') {
+    if (puntualidadInicio === 'a_tiempo') {
       bucket.aTiempo += 1;
     }
   }

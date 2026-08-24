@@ -1,6 +1,6 @@
 'use client';
 
-import { derivarEstado, type EstadoSemaforo } from '@rutas/shared';
+import { derivarEstado, type EstadoSemaforo, type Puntualidad } from '@rutas/shared';
 import { colores, semaforo } from '@rutas/shared/tokens';
 import { useQuery } from '@tanstack/react-query';
 import { SearchIcon } from 'lucide-react';
@@ -18,7 +18,20 @@ import { ResumenDia } from './resumen-dia';
 import type { FilaMonitor } from './tipos';
 
 const REFRESH_MS = 30_000;
-const ORDEN_ESTADOS: EstadoSemaforo[] = ['en_curso', 'tarde', 'a_tiempo', 'pendiente', 'incidente'];
+
+type EstadoPrincipal = 'pendiente' | 'en_curso' | 'incidente' | 'terminada';
+
+// Estado principal: de que fase va la ruta. El desempeño (a tiempo / tarde /
+// adelantado) es un eje aparte — nunca reemplaza a "Terminada" ni a "En
+// curso" como filtro (§ rediseno filtros del monitor). Los tres valores de
+// aqui abajo tambien son `EstadoSemaforo` validos, que es lo que deja
+// reusar `ChipEstado` sin cambiarlo.
+const ORDEN_ESTADOS_PRINCIPALES: Exclude<EstadoPrincipal, 'terminada'>[] = [
+  'en_curso',
+  'pendiente',
+  'incidente',
+];
+const ORDEN_DESEMPENO: Puntualidad[] = ['a_tiempo', 'tarde', 'adelantado'];
 
 function normalizar(texto: string): string {
   return texto
@@ -32,6 +45,24 @@ function esRutaTerminada(fila: { eventos: { tipo: string }[] }): boolean {
   return fila.eventos.some(
     (evento) => evento.tipo === 'retorno' || evento.tipo === 'fin_ruta_incidente',
   );
+}
+
+/**
+ * El eje de filtro "estado" (§ rediseno filtros): "Terminada" gana sobre
+ * cualquier puntualidad en cuanto cierra, sea por `retorno` o por incidente
+ * — el desempeño de como cerro vive aparte, en `puntualidadInicio`.
+ */
+function estadoPrincipalDe(fila: {
+  estado: EstadoSemaforo;
+  eventos: { tipo: string }[];
+}): EstadoPrincipal {
+  if (fila.estado === 'incidente') {
+    return 'incidente';
+  }
+  if (esRutaTerminada(fila)) {
+    return 'terminada';
+  }
+  return fila.estado === 'pendiente' ? 'pendiente' : 'en_curso';
 }
 
 function ChipEstado({
@@ -83,9 +114,10 @@ function ChipEstado({
 }
 
 /**
- * "Terminadas" no es un `EstadoSemaforo` — es otro eje (avance vs. puntualidad,
- * §6 UI monitor) — por eso es un chip aparte en vez de sumarse a `ORDEN_ESTADOS`,
- * y usa el mismo gris neutral que la pastilla "Terminada" de la tarjeta.
+ * "Terminadas" no es un `EstadoSemaforo` — por eso es un chip aparte en vez
+ * de sumarse a `ORDEN_ESTADOS_PRINCIPALES`, pero pertenece al mismo eje
+ * (estado principal, § rediseno filtros del monitor) y usa el mismo gris
+ * neutral que la pastilla "Terminada" de la fila.
  */
 function ChipTerminadas({
   cantidad,
@@ -142,8 +174,8 @@ export function MonitorTabla({ fecha }: Props) {
   const [capturaPara, setCapturaPara] = useState<FilaMonitor | null>(null);
   const [incidentePara, setIncidentePara] = useState<FilaMonitor | null>(null);
   const [busqueda, setBusqueda] = useState('');
-  const [filtroEstados, setFiltroEstados] = useState<Set<EstadoSemaforo>>(new Set());
-  const [soloTerminadas, setSoloTerminadas] = useState(false);
+  const [filtroEstados, setFiltroEstados] = useState<Set<EstadoPrincipal>>(new Set());
+  const [filtroDesempeno, setFiltroDesempeno] = useState<Set<Puntualidad>>(new Set());
 
   const filas = useMemo(
     () =>
@@ -171,38 +203,59 @@ export function MonitorTabla({ fecha }: Props) {
     [data],
   );
 
-  const conteos = useMemo(() => {
-    const base: Record<EstadoSemaforo, number> = {
+  const conteosEstado = useMemo(() => {
+    const base: Record<EstadoPrincipal, number> = {
       pendiente: 0,
       en_curso: 0,
-      a_tiempo: 0,
-      tarde: 0,
-      adelantado: 0,
+      terminada: 0,
       incidente: 0,
     };
     for (const fila of filas) {
-      base[fila.estado] += 1;
+      base[estadoPrincipalDe(fila)] += 1;
     }
     return base;
   }, [filas]);
 
-  const resumenDia = useMemo(() => {
-    let finalizadas = 0;
+  // Solo cuenta rutas en curso: es lo mismo alcance que el filtro de
+  // desempeño aplica solo cuando "Terminadas" no esta activo (§5 rediseno
+  // filtros), asi el numero del chip nunca promete mas de lo que el filtro
+  // por si solo va a mostrar.
+  const conteosDesempeno = useMemo(() => {
+    const base: Record<Puntualidad, number> = { a_tiempo: 0, tarde: 0, adelantado: 0 };
     for (const fila of filas) {
-      if (esRutaTerminada(fila)) {
-        finalizadas += 1;
+      if (estadoPrincipalDe(fila) === 'en_curso' && fila.puntualidadInicio) {
+        base[fila.puntualidadInicio] += 1;
       }
     }
-    return { total: filas.length, finalizadas };
+    return base;
   }, [filas]);
+
+  const resumenDia = useMemo(
+    () => ({ total: filas.length, finalizadas: conteosEstado.terminada }),
+    [filas, conteosEstado],
+  );
 
   const terminoBusqueda = normalizar(busqueda.trim());
   const filasFiltradas = filas.filter((fila) => {
-    if (filtroEstados.size > 0 && !filtroEstados.has(fila.estado)) {
+    const principal = estadoPrincipalDe(fila);
+    const hayFiltroEstado = filtroEstados.size > 0;
+    const hayFiltroDesempeno = filtroDesempeno.size > 0;
+
+    if (hayFiltroEstado && !filtroEstados.has(principal)) {
       return false;
     }
-    if (soloTerminadas && !esRutaTerminada(fila)) {
-      return false;
+    if (hayFiltroDesempeno) {
+      // Un flag de desempeño sin un estado explicito seleccionado describe
+      // una ruta que sigue en curso (§2 rediseno filtros): "A tiempo" sola
+      // nunca mezcla rutas ya terminadas. Con un estado explicito (p. ej.
+      // "Terminadas") el flag se evalua sobre lo que ya filtro esa linea de
+      // arriba, sin agregar un alcance implicito extra.
+      if (!hayFiltroEstado && principal !== 'en_curso') {
+        return false;
+      }
+      if (!fila.puntualidadInicio || !filtroDesempeno.has(fila.puntualidadInicio)) {
+        return false;
+      }
     }
     if (terminoBusqueda === '') {
       return true;
@@ -211,7 +264,7 @@ export function MonitorTabla({ fecha }: Props) {
     return texto.includes(terminoBusqueda);
   });
 
-  function alternarFiltro(estado: EstadoSemaforo) {
+  function alternarFiltroEstado(estado: EstadoPrincipal) {
     setFiltroEstados((previo) => {
       const siguiente = new Set(previo);
       if (siguiente.has(estado)) {
@@ -223,10 +276,22 @@ export function MonitorTabla({ fecha }: Props) {
     });
   }
 
+  function alternarFiltroDesempeno(puntualidad: Puntualidad) {
+    setFiltroDesempeno((previo) => {
+      const siguiente = new Set(previo);
+      if (siguiente.has(puntualidad)) {
+        siguiente.delete(puntualidad);
+      } else {
+        siguiente.add(puntualidad);
+      }
+      return siguiente;
+    });
+  }
+
   function limpiarFiltros() {
     setBusqueda('');
     setFiltroEstados(new Set());
-    setSoloTerminadas(false);
+    setFiltroDesempeno(new Set());
   }
 
   if (isLoading) {
@@ -246,7 +311,7 @@ export function MonitorTabla({ fecha }: Props) {
   }
 
   const actualizado = horaTexto(dataUpdatedAt);
-  const hayFiltro = filtroEstados.size > 0 || soloTerminadas || terminoBusqueda !== '';
+  const hayFiltro = filtroEstados.size > 0 || filtroDesempeno.size > 0 || terminoBusqueda !== '';
 
   return (
     <div className="flex flex-col gap-4">
@@ -290,20 +355,30 @@ export function MonitorTabla({ fecha }: Props) {
                   aria-label="Buscar en el monitor"
                 />
               </div>
-              {ORDEN_ESTADOS.map((estado) => (
+              {ORDEN_ESTADOS_PRINCIPALES.map((estado) => (
                 <ChipEstado
                   key={estado}
                   estado={estado}
-                  cantidad={conteos[estado]}
+                  cantidad={conteosEstado[estado]}
                   activo={filtroEstados.has(estado)}
-                  onClick={() => alternarFiltro(estado)}
+                  onClick={() => alternarFiltroEstado(estado)}
                 />
               ))}
               <ChipTerminadas
-                cantidad={resumenDia.finalizadas}
-                activo={soloTerminadas}
-                onClick={() => setSoloTerminadas((previo) => !previo)}
+                cantidad={conteosEstado.terminada}
+                activo={filtroEstados.has('terminada')}
+                onClick={() => alternarFiltroEstado('terminada')}
               />
+              <span aria-hidden="true" className="h-5 w-px bg-border" />
+              {ORDEN_DESEMPENO.map((puntualidad) => (
+                <ChipEstado
+                  key={puntualidad}
+                  estado={puntualidad}
+                  cantidad={conteosDesempeno[puntualidad]}
+                  activo={filtroDesempeno.has(puntualidad)}
+                  onClick={() => alternarFiltroDesempeno(puntualidad)}
+                />
+              ))}
               {hayFiltro ? (
                 <Button
                   type="button"

@@ -1,4 +1,4 @@
-import type { EstadoRuta } from '@rutas/shared';
+import { horaEsperadaTexto, type EstadoRuta } from '@rutas/shared';
 import { colores } from '@rutas/shared/tokens';
 import { Text, View } from 'react-native';
 import type { AsignacionDetallada } from '@/datos/asignaciones';
@@ -51,7 +51,7 @@ export function CabeceraDetalleRuta({ asignacion, estado, horaInicioReal, horaFi
       <View className="flex-row gap-3 border-t border-border pt-3">
         <Dato
           etiqueta="Programado"
-          valor={`${horaInicioEsperada.slice(0, 5)}—${horaFinEsperada.slice(0, 5)}`}
+          valor={`${horaEsperadaTexto(horaInicioEsperada)}—${horaEsperadaTexto(horaFinEsperada)}`}
         />
         {horaInicioReal ? (
           <Dato
