@@ -5,7 +5,16 @@
 // `process.env.DATABASE_URL` al importarse. Import de solo efecto.
 import '@/lib/env';
 import { asignarSchema, cancelarSchema, type Resultado, reasignarSchema } from '@rutas/shared';
-import { asignacion, camion, db, evento, horario, perfilPersonal, ruta, usuario } from '@rutas/shared/db';
+import {
+  asignacion,
+  camion,
+  db,
+  evento,
+  horario,
+  perfilPersonal,
+  ruta,
+  usuario,
+} from '@rutas/shared/db';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { can } from '@/lib/authz/can';
