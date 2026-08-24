@@ -415,7 +415,7 @@ Abre una terminal **nueva** (o usa la ventana 1, que quedo libre), ponte en la c
 corre:
 
 ```powershell
-pnpm panel:sesion
+pnpm panel:sesion --rol admin
 ```
 
 **Que hace:** crea (si no existe) un usuario administrador de prueba, inicia sesion por ti y **abre

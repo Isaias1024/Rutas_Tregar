@@ -41,12 +41,15 @@ paths:
   `process.loadEnvFile('.env')` en sus primeras lineas. Nunca asumas que el shell ya lo trae.
 - **`scripts/seed.ts` es destructivo y de conjunto fijo.** Vacia las doce tablas con un `truncate` y
   borra las cuentas de Auth antes de sembrar: es idempotente por reconstruccion, no por
-  buscar-antes-de-insertar. Siembra 1 admin, 1 supervisor, 3 choferes, 6 paradas, 3 camiones y 3
-  rutas con un horario cada una, y **cero `asignacion` y cero `evento`** a proposito: el Planeador
-  tiene que poder programarse desde cero. Al final valida los conteos y sale distinto de cero si no
-  cuadran. Solo corre contra Supabase local, salvo `--forzar`. Si una prueba necesita datos que la
-  semilla no da, ese fixture va **en la prueba**, no en la semilla — es lo que hace
-  `tests/e2e/planeador.spec.ts` con su segundo horario.
+  buscar-antes-de-insertar. Siembra 1 admin, 1 supervisor, 3 choferes, 15 paradas, 3 camiones y 8
+  rutas con un horario cada una. Ademas siembra `asignacion` + `evento` para 3 dias de historial ya
+  cerrado (a tiempo, tarde, adelantado, incidente y cancelada), el dia de hoy (una ruta completada,
+  una en curso, el resto pendiente) y 2 dias de planeacion hacia adelante (sin eventos, libres para
+  reasignar). El conteo exacto de `asignacion`/`evento` se deriva en `validar()` de la lista
+  `ASIGNACIONES` del propio script, nunca un literal hardcodeado. Al final valida los conteos y sale
+  distinto de cero si no cuadran. Solo corre contra Supabase local, salvo `--forzar`. Si una prueba
+  necesita datos que la semilla no da, ese fixture va **en la prueba**, no en la semilla — es lo que
+  hace `tests/e2e/planeador.spec.ts` con su segundo horario.
 - `pnpm db:check` verifica que exista cada una de las doce tablas de `TABLAS_ESPERADAS` en
   `scripts/check-schema.ts`, y que `evento` no tenga politica de UPDATE ni de DELETE. Si agregas una
   tabla, agregala a esa lista en el mismo commit.

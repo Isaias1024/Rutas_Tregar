@@ -15,6 +15,8 @@ import {
   ruta,
   usuario,
 } from '../packages/shared/src/db/index.ts';
+import { fechaOperativa } from '../packages/shared/src/estado.ts';
+import type { TipoEvento, TipoIncidente } from '../packages/shared/src/flujo.ts';
 
 /**
  * Semilla de desarrollo: DESTRUCTIVA y de conjunto fijo.
@@ -24,9 +26,12 @@ import {
  * la version anterior, sino por reconstruccion: correrla N veces deja siempre
  * los mismos conteos.
  *
- * Lo que NO crea, a proposito: ninguna `asignacion` y ningun `evento`. Las tres
- * rutas quedan como plantillas libres, cada una con su horario, para que el
- * Planeador tenga que programarlas desde cero.
+ * Ademas de las plantillas de ruta, siembra `asignacion` + `evento` para tres
+ * dias hacia atras (historial ya cerrado: a tiempo, tarde, adelantado,
+ * incidente y cancelada), el dia de hoy (una completada, una en curso, el
+ * resto pendiente) y dos dias hacia adelante (planeacion, sin eventos). Los
+ * conteos exactos se derivan de `ASIGNACIONES` en `validar()`, no se
+ * hardcodean.
  */
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -273,7 +278,375 @@ const RUTAS = [
     horaFinEsperada: '21:00',
     personasEsperadas: 15,
   },
+  {
+    nombre: 'SEAH APODACA - SAN LUCAS',
+    inicio: 'C. San Lucas & Cam. A San Javier',
+    fin: 'SEAH Precision Apodaca',
+    turno: 'manana' as const,
+    horaInicioEsperada: '05:00',
+    horaFinEsperada: '06:00',
+    personasEsperadas: 22,
+  },
+  {
+    nombre: 'CEDIS MICHELIN - REAL PALMAS',
+    inicio: 'Fraccionamiento Real Palmas, Nuevo León, México',
+    fin: 'Cedis Michelin',
+    turno: 'tarde' as const,
+    horaInicioEsperada: '13:30',
+    horaFinEsperada: '14:30',
+    personasEsperadas: 16,
+  },
+  {
+    nombre: 'GRIFFITH - LINCOLN',
+    inicio: 'Av. Abraham Lincoln PTE - OTE (Parada de autobús)',
+    fin: 'Laboratorios Griffith',
+    turno: 'noche' as const,
+    horaInicioEsperada: '19:00',
+    horaFinEsperada: '20:00',
+    personasEsperadas: 14,
+  },
+  {
+    nombre: 'CEVA APODACA - BANORTE',
+    inicio: 'Banorte (Ciénega de Flores)',
+    fin: 'CEVA Apodaca',
+    turno: 'manana' as const,
+    horaInicioEsperada: '05:30',
+    horaFinEsperada: '06:30',
+    personasEsperadas: 19,
+  },
+  {
+    nombre: 'CEVA MTY - SMART GUADALUPE',
+    inicio: 'S-Mart (Carr. A Reynosa, Guadalupe)',
+    fin: 'CEVA Mty',
+    turno: 'tarde' as const,
+    horaInicioEsperada: '15:30',
+    horaFinEsperada: '16:30',
+    personasEsperadas: 17,
+  },
 ] as const;
+
+// --- historial y planeacion -----------------------------------------------
+// Configura que asignaciones sembrar por dia: `diasOffset` es relativo a HOY
+// (fechaOperativa). Negativo es historial ya cerrado, 0 es hoy, positivo es
+// planeacion futura. `resultado` decide que eventos se generan — ver
+// `eventosPorResultado` y `crearAsignacion`.
+type ResultadoAsignacion =
+  | 'a_tiempo'
+  | 'tarde'
+  | 'adelantado'
+  | 'incidente'
+  | 'cancelada'
+  | 'en_curso'
+  | 'pendiente';
+
+type ConfigAsignacion = {
+  diasOffset: number;
+  rutaNombre: (typeof RUTAS)[number]['nombre'];
+  choferCredencial: (typeof CHOFERES)[number]['credencial'];
+  camionCodigo: (typeof CAMIONES)[number]['codigo'];
+  resultado: ResultadoAsignacion;
+  incidente?: TipoIncidente;
+};
+
+const ASIGNACIONES: ConfigAsignacion[] = [
+  // --- historial: hace 3 dias ---
+  {
+    diasOffset: -3,
+    rutaNombre: 'CEVA - ESCOBEDO',
+    choferCredencial: 'driver1',
+    camionCodigo: 'T01',
+    resultado: 'a_tiempo',
+  },
+  {
+    diasOffset: -3,
+    rutaNombre: 'ROSENBERGER - CADEREYTA',
+    choferCredencial: 'driver2',
+    camionCodigo: 'T02',
+    resultado: 'tarde',
+  },
+  {
+    diasOffset: -3,
+    rutaNombre: 'CEVA GP - JUAREZ',
+    choferCredencial: 'driver3',
+    camionCodigo: 'T03',
+    resultado: 'adelantado',
+  },
+  {
+    diasOffset: -3,
+    rutaNombre: 'SEAH APODACA - SAN LUCAS',
+    choferCredencial: 'driver2',
+    camionCodigo: 'T02',
+    resultado: 'incidente',
+    incidente: 'choque',
+  },
+  {
+    diasOffset: -3,
+    rutaNombre: 'CEVA APODACA - BANORTE',
+    choferCredencial: 'driver3',
+    camionCodigo: 'T03',
+    resultado: 'cancelada',
+  },
+
+  // --- historial: hace 2 dias ---
+  {
+    diasOffset: -2,
+    rutaNombre: 'CEVA - ESCOBEDO',
+    choferCredencial: 'driver2',
+    camionCodigo: 'T02',
+    resultado: 'a_tiempo',
+  },
+  {
+    diasOffset: -2,
+    rutaNombre: 'CEDIS MICHELIN - REAL PALMAS',
+    choferCredencial: 'driver1',
+    camionCodigo: 'T01',
+    resultado: 'tarde',
+  },
+  {
+    diasOffset: -2,
+    rutaNombre: 'GRIFFITH - LINCOLN',
+    choferCredencial: 'driver3',
+    camionCodigo: 'T03',
+    resultado: 'a_tiempo',
+  },
+  {
+    diasOffset: -2,
+    rutaNombre: 'CEVA MTY - SMART GUADALUPE',
+    choferCredencial: 'driver1',
+    camionCodigo: 'T01',
+    resultado: 'adelantado',
+  },
+  {
+    diasOffset: -2,
+    rutaNombre: 'ROSENBERGER - CADEREYTA',
+    choferCredencial: 'driver3',
+    camionCodigo: 'T03',
+    resultado: 'a_tiempo',
+  },
+
+  // --- historial: ayer ---
+  {
+    diasOffset: -1,
+    rutaNombre: 'CEVA - ESCOBEDO',
+    choferCredencial: 'driver3',
+    camionCodigo: 'T03',
+    resultado: 'tarde',
+  },
+  {
+    diasOffset: -1,
+    rutaNombre: 'CEVA GP - JUAREZ',
+    choferCredencial: 'driver1',
+    camionCodigo: 'T01',
+    resultado: 'a_tiempo',
+  },
+  {
+    diasOffset: -1,
+    rutaNombre: 'SEAH APODACA - SAN LUCAS',
+    choferCredencial: 'driver2',
+    camionCodigo: 'T02',
+    resultado: 'a_tiempo',
+  },
+  {
+    diasOffset: -1,
+    rutaNombre: 'CEVA APODACA - BANORTE',
+    choferCredencial: 'driver1',
+    camionCodigo: 'T01',
+    resultado: 'a_tiempo',
+  },
+  {
+    diasOffset: -1,
+    rutaNombre: 'CEDIS MICHELIN - REAL PALMAS',
+    choferCredencial: 'driver2',
+    camionCodigo: 'T02',
+    resultado: 'incidente',
+    incidente: 'trafico',
+  },
+  {
+    diasOffset: -1,
+    rutaNombre: 'GRIFFITH - LINCOLN',
+    choferCredencial: 'driver3',
+    camionCodigo: 'T03',
+    resultado: 'cancelada',
+  },
+
+  // --- hoy ---
+  {
+    diasOffset: 0,
+    rutaNombre: 'CEVA - ESCOBEDO',
+    choferCredencial: 'driver1',
+    camionCodigo: 'T01',
+    resultado: 'a_tiempo',
+  },
+  {
+    diasOffset: 0,
+    rutaNombre: 'SEAH APODACA - SAN LUCAS',
+    choferCredencial: 'driver2',
+    camionCodigo: 'T02',
+    resultado: 'en_curso',
+  },
+  {
+    diasOffset: 0,
+    rutaNombre: 'CEVA APODACA - BANORTE',
+    choferCredencial: 'driver3',
+    camionCodigo: 'T03',
+    resultado: 'pendiente',
+  },
+  {
+    diasOffset: 0,
+    rutaNombre: 'ROSENBERGER - CADEREYTA',
+    choferCredencial: 'driver1',
+    camionCodigo: 'T01',
+    resultado: 'pendiente',
+  },
+  {
+    diasOffset: 0,
+    rutaNombre: 'CEDIS MICHELIN - REAL PALMAS',
+    choferCredencial: 'driver2',
+    camionCodigo: 'T02',
+    resultado: 'pendiente',
+  },
+  {
+    diasOffset: 0,
+    rutaNombre: 'CEVA GP - JUAREZ',
+    choferCredencial: 'driver3',
+    camionCodigo: 'T03',
+    resultado: 'pendiente',
+  },
+  {
+    diasOffset: 0,
+    rutaNombre: 'GRIFFITH - LINCOLN',
+    choferCredencial: 'driver1',
+    camionCodigo: 'T01',
+    resultado: 'pendiente',
+  },
+  {
+    diasOffset: 0,
+    rutaNombre: 'CEVA MTY - SMART GUADALUPE',
+    choferCredencial: 'driver2',
+    camionCodigo: 'T02',
+    resultado: 'pendiente',
+  },
+
+  // --- planeacion: manana ---
+  {
+    diasOffset: 1,
+    rutaNombre: 'CEVA - ESCOBEDO',
+    choferCredencial: 'driver1',
+    camionCodigo: 'T01',
+    resultado: 'pendiente',
+  },
+  {
+    diasOffset: 1,
+    rutaNombre: 'ROSENBERGER - CADEREYTA',
+    choferCredencial: 'driver2',
+    camionCodigo: 'T02',
+    resultado: 'pendiente',
+  },
+  {
+    diasOffset: 1,
+    rutaNombre: 'CEVA GP - JUAREZ',
+    choferCredencial: 'driver3',
+    camionCodigo: 'T03',
+    resultado: 'pendiente',
+  },
+  {
+    diasOffset: 1,
+    rutaNombre: 'SEAH APODACA - SAN LUCAS',
+    choferCredencial: 'driver2',
+    camionCodigo: 'T02',
+    resultado: 'pendiente',
+  },
+  {
+    diasOffset: 1,
+    rutaNombre: 'CEDIS MICHELIN - REAL PALMAS',
+    choferCredencial: 'driver1',
+    camionCodigo: 'T01',
+    resultado: 'pendiente',
+  },
+
+  // --- planeacion: pasado manana ---
+  {
+    diasOffset: 2,
+    rutaNombre: 'GRIFFITH - LINCOLN',
+    choferCredencial: 'driver3',
+    camionCodigo: 'T03',
+    resultado: 'pendiente',
+  },
+  {
+    diasOffset: 2,
+    rutaNombre: 'CEVA APODACA - BANORTE',
+    choferCredencial: 'driver1',
+    camionCodigo: 'T01',
+    resultado: 'pendiente',
+  },
+  {
+    diasOffset: 2,
+    rutaNombre: 'CEVA MTY - SMART GUADALUPE',
+    choferCredencial: 'driver2',
+    camionCodigo: 'T02',
+    resultado: 'pendiente',
+  },
+  {
+    diasOffset: 2,
+    rutaNombre: 'CEVA - ESCOBEDO',
+    choferCredencial: 'driver3',
+    camionCodigo: 'T03',
+    resultado: 'pendiente',
+  },
+];
+
+/** Minutos de offset sobre la hora esperada que produce cada resultado de puntualidad. */
+const OFFSET_MIN_POR_RESULTADO: Partial<Record<ResultadoAsignacion, number>> = {
+  a_tiempo: 0,
+  tarde: 22,
+  adelantado: -20,
+};
+
+function eventosPorResultado(resultado: ResultadoAsignacion): number {
+  switch (resultado) {
+    case 'cancelada':
+    case 'pendiente':
+      return 0;
+    case 'en_curso':
+      return 3;
+    case 'incidente':
+      return 4;
+    default:
+      return 5;
+  }
+}
+
+/** Suma dias de calendario a una fecha 'YYYY-MM-DD' (sin componente de hora). */
+function sumarDias(fecha: string, dias: number): string {
+  const d = new Date(`${fecha}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + dias);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * `fecha` + `horaHHMM` + `offsetMin`, como instante real en
+ * `America/Mexico_City`. Offset fijo -06:00 a proposito: Monterrey no esta en
+ * la franja fronteriza que Mexico dejo con horario de verano al abolirlo en
+ * 2022, asi que el area metropolitana no cambia de offset en ninguna epoca
+ * del anio.
+ */
+function horaEnFecha(fecha: string, horaHHMM: string, offsetMin = 0): Date {
+  const [horas, minutos] = horaHHMM.split(':').map(Number);
+  let totalMin = (horas ?? 0) * 60 + (minutos ?? 0) + offsetMin;
+  let diaOffset = 0;
+  while (totalMin < 0) {
+    totalMin += 1440;
+    diaOffset -= 1;
+  }
+  while (totalMin >= 1440) {
+    totalMin -= 1440;
+    diaOffset += 1;
+  }
+  const fechaFinal = diaOffset === 0 ? fecha : sumarDias(fecha, diaOffset);
+  const hh = String(Math.floor(totalMin / 60)).padStart(2, '0');
+  const mm = String(totalMin % 60).padStart(2, '0');
+  return new Date(`${fechaFinal}T${hh}:${mm}:00-06:00`);
+}
 
 const NOMBRE_CLIENTE = 'CEVA';
 
@@ -360,13 +733,16 @@ async function sembrar() {
     paradaIdPorNombre.set(p.nombre, id);
   }
 
+  const camionIdPorCodigo = new Map<string, string>();
   const camionIds: string[] = [];
   for (const c of CAMIONES) {
     const id = randomUUID();
     await db.insert(camion).values({ id, ...c });
     camionIds.push(id);
+    camionIdPorCodigo.set(c.codigo, id);
   }
 
+  let supervisorId = '';
   for (const u of USUARIOS_PANEL) {
     const id = await crearCuentaAuth(u.correo, u.password);
     await db.insert(usuario).values({
@@ -380,8 +756,12 @@ async function sembrar() {
       debeCambiarPassword: false,
     });
     await db.insert(perfilPersonal).values({ usuarioId: id, nombre: u.nombre, correo: u.correo });
+    if (u.rol === 'supervisor') {
+      supervisorId = id;
+    }
   }
 
+  const choferIdPorCredencial = new Map<string, string>();
   for (const [indice, c] of CHOFERES.entries()) {
     const id = await crearCuentaAuth(correoDeChofer(c.credencial), PASSWORD_CHOFER);
     await db.insert(usuario).values({
@@ -404,7 +784,16 @@ async function sembrar() {
       correo: c.correoContacto,
       telefono: c.telefono,
     });
+    choferIdPorCredencial.set(c.credencial, id);
   }
+
+  type InfoHorario = {
+    id: string;
+    horaInicioEsperada: string;
+    horaFinEsperada: string;
+    personasEsperadas: number;
+  };
+  const horarioPorRuta = new Map<string, InfoHorario>();
 
   for (const r of RUTAS) {
     const paradaInicioId = paradaIdPorNombre.get(r.inicio);
@@ -420,15 +809,130 @@ async function sembrar() {
       paradaInicioId,
       paradaFinId,
     });
+    const horarioId = randomUUID();
     await db.insert(horario).values({
-      id: randomUUID(),
+      id: horarioId,
       rutaId,
       turno: r.turno,
       horaInicioEsperada: r.horaInicioEsperada,
       horaFinEsperada: r.horaFinEsperada,
       personasEsperadas: r.personasEsperadas,
     });
+    horarioPorRuta.set(r.nombre, {
+      id: horarioId,
+      horaInicioEsperada: r.horaInicioEsperada,
+      horaFinEsperada: r.horaFinEsperada,
+      personasEsperadas: r.personasEsperadas,
+    });
   }
+
+  const hoy = fechaOperativa(new Date());
+  for (const cfg of ASIGNACIONES) {
+    await crearAsignacion(cfg, {
+      hoy,
+      horarioPorRuta,
+      choferIdPorCredencial,
+      camionIdPorCodigo,
+      supervisorId,
+    });
+  }
+}
+
+/**
+ * Una asignacion (dia + horario + chofer + camion) y, salvo `cancelada` /
+ * `pendiente`, la secuencia de `evento` que le corresponde. Misma pareja
+ * evento+contador que usa la captura manual del supervisor
+ * (`registrarEventoManual` en `apps/web/src/server/monitor.ts`): el contador
+ * de `fin_ruta`/`retorno` vive en `asignacion`, nunca en la fila del evento.
+ */
+async function crearAsignacion(
+  cfg: ConfigAsignacion,
+  ctx: {
+    hoy: string;
+    horarioPorRuta: Map<
+      string,
+      { id: string; horaInicioEsperada: string; horaFinEsperada: string; personasEsperadas: number }
+    >;
+    choferIdPorCredencial: Map<string, string>;
+    camionIdPorCodigo: Map<string, string>;
+    supervisorId: string;
+  },
+) {
+  const info = ctx.horarioPorRuta.get(cfg.rutaNombre);
+  const choferId = ctx.choferIdPorCredencial.get(cfg.choferCredencial);
+  const camionId = ctx.camionIdPorCodigo.get(cfg.camionCodigo);
+  if (!info || !choferId || !camionId) {
+    throw new Error(`ASIGNACIONES trae una referencia que no existe: ${JSON.stringify(cfg)}`);
+  }
+
+  const fecha = sumarDias(ctx.hoy, cfg.diasOffset);
+  const asignacionId = randomUUID();
+  const canceladaEn =
+    cfg.resultado === 'cancelada' ? horaEnFecha(fecha, info.horaInicioEsperada, -60) : null;
+
+  await db.insert(asignacion).values({
+    id: asignacionId,
+    horarioId: info.id,
+    fecha,
+    secuencia: 1,
+    choferId,
+    camionId,
+    camionCodigo: cfg.camionCodigo,
+    canceladaEn,
+    createdBy: ctx.supervisorId,
+  });
+
+  if (cfg.resultado === 'cancelada' || cfg.resultado === 'pendiente') {
+    return;
+  }
+
+  const offsetMin = OFFSET_MIN_POR_RESULTADO[cfg.resultado] ?? 0;
+
+  async function marcar(tipo: TipoEvento, ocurrioEn: Date) {
+    await db.insert(evento).values({
+      id: randomUUID(),
+      asignacionId,
+      tipo,
+      ocurrioEn,
+      recibidoEn: new Date(ocurrioEn.getTime() + 60_000),
+      lat: null,
+      lng: null,
+      gpsPrecisionM: null,
+      sinGps: false,
+      origen: 'app',
+      capturadoPor: choferId,
+      clientEventId: randomUUID(),
+      razonIncidente: tipo === 'fin_ruta_incidente' ? (cfg.incidente ?? 'otro') : null,
+    });
+  }
+
+  await marcar('vio_ruta', horaEnFecha(fecha, info.horaInicioEsperada, -30));
+  await marcar('listo_inicio', horaEnFecha(fecha, info.horaInicioEsperada, -10));
+
+  if (cfg.resultado === 'en_curso') {
+    await marcar('inicio_ruta', horaEnFecha(fecha, info.horaInicioEsperada, 2));
+    return;
+  }
+
+  await marcar('inicio_ruta', horaEnFecha(fecha, info.horaInicioEsperada, offsetMin));
+
+  if (cfg.resultado === 'incidente') {
+    await marcar('fin_ruta_incidente', horaEnFecha(fecha, info.horaInicioEsperada, offsetMin + 15));
+    return;
+  }
+
+  await marcar('fin_ruta', horaEnFecha(fecha, info.horaFinEsperada, offsetMin));
+  const abordaron = Math.max(1, info.personasEsperadas - 1);
+  await db
+    .update(asignacion)
+    .set({ cntAbordaron: abordaron })
+    .where(eq(asignacion.id, asignacionId));
+
+  await marcar('retorno', horaEnFecha(fecha, info.horaFinEsperada, offsetMin + 15));
+  await db
+    .update(asignacion)
+    .set({ cntRetornaron: abordaron })
+    .where(eq(asignacion.id, asignacionId));
 }
 
 // --- validacion ---------------------------------------------------------------
@@ -475,12 +979,12 @@ async function validar(): Promise<Verificacion[]> {
     {
       etiqueta: 'Scheduled / Assignments',
       obtenido: await contarFilas(db.select({ n: count() }).from(asignacion)),
-      esperado: 0,
+      esperado: ASIGNACIONES.length,
     },
     {
       etiqueta: 'Events',
       obtenido: await contarFilas(db.select({ n: count() }).from(evento)),
-      esperado: 0,
+      esperado: ASIGNACIONES.reduce((acc, cfg) => acc + eventosPorResultado(cfg.resultado), 0),
     },
   ];
 }
@@ -563,7 +1067,7 @@ async function principal() {
 
   imprimirCredenciales();
   imprimirResumen(verificaciones, true);
-  console.log('Ninguna ruta quedo programada: las 3 estan libres para el Planeador.');
+  console.log('3 dias de historial cerrado, hoy en curso y 2 dias de planeacion hacia adelante.');
   console.log('');
 }
 
