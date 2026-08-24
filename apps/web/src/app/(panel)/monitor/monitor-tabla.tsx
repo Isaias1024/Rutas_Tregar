@@ -13,8 +13,8 @@ import { listarMonitorDelDia } from '@/server/monitor';
 import { DialogoCapturaManual } from './dialogo-captura-manual';
 import { DialogoIncidenteManual } from './dialogo-incidente-manual';
 import { horaTexto } from './formato';
+import { FilaRuta } from './fila-ruta';
 import { ResumenDia } from './resumen-dia';
-import { TarjetaRuta } from './tarjeta-ruta';
 import type { FilaMonitor } from './tipos';
 
 const REFRESH_MS = 30_000;
@@ -147,18 +147,27 @@ export function MonitorTabla({ fecha }: Props) {
 
   const filas = useMemo(
     () =>
-      (data ?? []).map((fila) => {
-        const resultado = derivarEstado({
-          eventos: fila.eventos.map((evento) => ({
-            tipo: evento.tipo,
-            ocurrioEn: evento.ocurrioEn.toISOString(),
-            recibidoEn: evento.recibidoEn.toISOString(),
-          })),
-          horaEsperada: fila.horaInicioEsperada,
-          ahora: new Date(),
-        });
-        return { ...fila, ...resultado };
-      }),
+      (data ?? [])
+        .map((fila) => {
+          const resultado = derivarEstado({
+            eventos: fila.eventos.map((evento) => ({
+              tipo: evento.tipo,
+              ocurrioEn: evento.ocurrioEn.toISOString(),
+              recibidoEn: evento.recibidoEn.toISOString(),
+            })),
+            horaEsperada: fila.horaInicioEsperada,
+            ahora: new Date(),
+          });
+          return { ...fila, ...resultado };
+        })
+        // Orden = hora de inicio programada, no de llegada ni de estado; si
+        // dos rutas comparten horario, el nombre desempata para que el orden
+        // no salte entre refrescos (§2 rediseño monitor).
+        .sort(
+          (a, b) =>
+            a.horaInicioEsperada.localeCompare(b.horaInicioEsperada) ||
+            a.rutaNombre.localeCompare(b.rutaNombre),
+        ),
     [data],
   );
 
@@ -241,65 +250,75 @@ export function MonitorTabla({ fecha }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <CardContent className="flex flex-col gap-2.5 p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <ResumenDia {...resumenDia} />
-            {actualizado ? (
-              <p className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
-                <span
-                  aria-hidden="true"
-                  className="size-1.5 rounded-full"
-                  style={{ backgroundColor: colores.success }}
-                />
-                Actualizado {actualizado}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative w-full max-w-xs">
-              <SearchIcon
-                aria-hidden="true"
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                type="search"
-                value={busqueda}
-                onChange={(evento) => setBusqueda(evento.target.value)}
-                placeholder="Buscar ruta, chofer o camion"
-                className="h-8 pl-9"
-                aria-label="Buscar en el monitor"
-              />
+      {/* `top: 0` en un `sticky` se ancla al borde INTERNO del padding de
+          `main` (no al borde real donde recorta el scroll), asi que quedaba
+          un hueco del alto del padding donde la fila anterior seguia
+          asomando un instante antes de desaparecer. Un `top` negativo del
+          mismo alto que el padding de `main` (p-4 sm:p-6 xl:p-8 2xl:p-10)
+          empuja la tarjeta pegada justo hasta ese borde real, sin dejar
+          hueco. Solo cambia donde queda al pegarse — nunca antes de que
+          empiece a scrollear, que es cuando `top` no aplica. */}
+      <div className="sticky -top-4 z-10 bg-surface sm:-top-6 xl:-top-8 2xl:-top-10">
+        <Card>
+          <CardContent className="flex flex-col gap-2.5 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <ResumenDia {...resumenDia} />
+              {actualizado ? (
+                <p className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
+                  <span
+                    aria-hidden="true"
+                    className="size-1.5 rounded-full"
+                    style={{ backgroundColor: colores.success }}
+                  />
+                  Actualizado {actualizado}
+                </p>
+              ) : null}
             </div>
-            {ORDEN_ESTADOS.map((estado) => (
-              <ChipEstado
-                key={estado}
-                estado={estado}
-                cantidad={conteos[estado]}
-                activo={filtroEstados.has(estado)}
-                onClick={() => alternarFiltro(estado)}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-full max-w-xs">
+                <SearchIcon
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                />
+                <Input
+                  type="search"
+                  value={busqueda}
+                  onChange={(evento) => setBusqueda(evento.target.value)}
+                  placeholder="Buscar ruta, chofer o camion"
+                  className="h-8 pl-9"
+                  aria-label="Buscar en el monitor"
+                />
+              </div>
+              {ORDEN_ESTADOS.map((estado) => (
+                <ChipEstado
+                  key={estado}
+                  estado={estado}
+                  cantidad={conteos[estado]}
+                  activo={filtroEstados.has(estado)}
+                  onClick={() => alternarFiltro(estado)}
+                />
+              ))}
+              <ChipTerminadas
+                cantidad={resumenDia.finalizadas}
+                activo={soloTerminadas}
+                onClick={() => setSoloTerminadas((previo) => !previo)}
               />
-            ))}
-            <ChipTerminadas
-              cantidad={resumenDia.finalizadas}
-              activo={soloTerminadas}
-              onClick={() => setSoloTerminadas((previo) => !previo)}
-            />
-            {hayFiltro ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7"
-                onClick={limpiarFiltros}
-              >
-                Limpiar filtros
-              </Button>
-            ) : null}
-          </div>
-        </CardContent>
-      </Card>
+              {hayFiltro ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7"
+                  onClick={limpiarFiltros}
+                >
+                  Limpiar filtros
+                </Button>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {filasFiltradas.length === 0 ? (
         <Card>
@@ -313,16 +332,23 @@ export function MonitorTabla({ fecha }: Props) {
           />
         </Card>
       ) : (
-        <ul className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3 min-[1920px]:grid-cols-4">
-          {filasFiltradas.map((fila) => (
-            <TarjetaRuta
-              key={fila.id}
-              fila={fila}
-              onRegistrar={() => setCapturaPara(fila)}
-              onTerminarPorIncidente={() => setIncidentePara(fila)}
-            />
-          ))}
-        </ul>
+        <Card className="overflow-hidden">
+          <div className="hidden border-b border-border bg-surface px-2.5 py-1.5 text-[0.6875rem] font-semibold tracking-wide text-muted-foreground uppercase md:grid md:grid-cols-[72px_240px_1fr] md:gap-4">
+            <span>Horario</span>
+            <span>Ruta</span>
+            <span>Datos</span>
+          </div>
+          <ul className="divide-y divide-border">
+            {filasFiltradas.map((fila) => (
+              <FilaRuta
+                key={fila.id}
+                fila={fila}
+                onRegistrar={() => setCapturaPara(fila)}
+                onTerminarPorIncidente={() => setIncidentePara(fila)}
+              />
+            ))}
+          </ul>
+        </Card>
       )}
 
       <DialogoCapturaManual

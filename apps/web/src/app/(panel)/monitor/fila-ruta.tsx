@@ -1,9 +1,8 @@
-import { offsetEnMinutos, puedeRegistrar } from '@rutas/shared';
+import { offsetEnMinutos, puedeRegistrar, siguientePaso } from '@rutas/shared';
 import { colores, type EstadoSemaforo, semaforo } from '@rutas/shared/tokens';
 import { TruckIcon, UserRoundIcon } from 'lucide-react';
 import { PastillaEstado } from '@/components/pastilla-estado';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { horaTexto } from './formato';
 import { PasoTimeline } from './paso-timeline';
 import type { FilaMonitor } from './tipos';
@@ -44,8 +43,13 @@ function ChipDesempeno({ estado, texto }: { estado: EstadoSemaforo; texto: strin
   );
 }
 
-/** Una ruta del monitor: cabecera con su estado + los cinco hitos en detalle (§UI monitor). */
-export function TarjetaRuta({ fila, onRegistrar, onTerminarPorIncidente }: Props) {
+/**
+ * Una fila del monitor: Horario | Ruta | Datos (estado + los cinco hitos en
+ * detalle), §rediseño monitor. `@container` en el `<li>` es lo que deja que
+ * `PasoTimeline` decida vertical vs. horizontal segun el ancho real de la
+ * columna de datos, no el de la ventana.
+ */
+export function FilaRuta({ fila, onRegistrar, onTerminarPorIncidente }: Props) {
   // El incidente no es el siguiente paso de nada — se ofrece mientras la ruta
   // no haya cerrado ya, igual que en la app del chofer. `puedeRegistrar` es la
   // misma funcion que impone la regla en el servidor; esto solo evita ofrecer
@@ -54,6 +58,12 @@ export function TarjetaRuta({ fila, onRegistrar, onTerminarPorIncidente }: Props
     'fin_ruta_incidente',
     fila.eventos.map((evento) => ({ tipo: evento.tipo })),
   );
+
+  // Sin siguiente paso (retorno ya registrado, o cerrada por incidente): no
+  // hay nada que "Registrar evento" pueda ofrecer, y `siguientePaso` es la
+  // misma funcion que decide eso en el servidor.
+  const puedeRegistrarEvento =
+    siguientePaso(fila.eventos.map((evento) => ({ tipo: evento.tipo }))) !== null;
 
   // "Terminada" gana sobre la puntualidad de salida en cuanto se registra el
   // retorno. El incidente ya trae su propio texto ("Terminada por
@@ -75,38 +85,52 @@ export function TarjetaRuta({ fila, onRegistrar, onTerminarPorIncidente }: Props
   })();
 
   // `fin_ruta_incidente` no pertenece a `ORDEN_PASOS`: no aparece en
-  // `PasoTimeline`, y sin esto su hora no se veia en ningun lado de la tarjeta.
+  // `PasoTimeline`, y sin esto su hora no se veia en ningun lado de la fila.
   const incidente = fila.eventos.find((evento) => evento.tipo === 'fin_ruta_incidente');
   const horaIncidente = incidente ? horaTexto(incidente.ocurrioEn.getTime()) : null;
 
+  const horaInicioTexto = fila.horaInicioEsperada.slice(0, 5);
+
   return (
     <li className="@container">
-      <Card
-        className="overflow-hidden"
-        style={{ borderLeft: `3px solid ${semaforo[fila.estado].bg}` }}
+      <div
+        className="grid grid-cols-1 gap-2 border-l-[3px] p-3 md:grid-cols-[72px_240px_1fr] md:items-start md:gap-4 md:p-2.5"
+        style={{ borderLeftColor: semaforo[fila.estado].bg }}
       >
-        <CardContent className="flex flex-col gap-3 p-3">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">{fila.rutaNombre}</p>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <UserRoundIcon aria-hidden="true" className="size-3 shrink-0" />
-                  {ETIQUETA_TURNO[fila.turno] ?? fila.turno} · {fila.choferNombre ?? 'Sin nombre'}
-                </span>
-                <span className="flex items-center gap-1 tabular-nums">
-                  <TruckIcon aria-hidden="true" className="size-3 shrink-0" />
-                  {fila.camionCodigo}
-                </span>
-              </div>
-            </div>
+        <div className="flex items-center gap-2 md:block">
+          <p className="text-sm font-semibold tabular-nums text-foreground">{horaInicioTexto}</p>
+          <span className="text-[0.6875rem] text-muted-foreground md:hidden">
+            {ETIQUETA_TURNO[fila.turno] ?? fila.turno}
+          </span>
+        </div>
+
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{fila.rutaNombre}</p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
+            <span className="hidden items-center gap-1 md:flex">
+              <UserRoundIcon aria-hidden="true" className="size-3 shrink-0" />
+              {ETIQUETA_TURNO[fila.turno] ?? fila.turno}
+            </span>
+            <span className="flex items-center gap-1">
+              <UserRoundIcon aria-hidden="true" className="size-3 shrink-0 md:hidden" />
+              {fila.choferNombre ?? 'Sin nombre'}
+            </span>
+            <span className="flex items-center gap-1 tabular-nums">
+              <TruckIcon aria-hidden="true" className="size-3 shrink-0" />
+              {fila.camionCodigo}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             {fila.estado === 'incidente' ? (
-              <div className="flex flex-col items-end gap-1">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <PastillaEstado estado={fila.estado} />
                 {horaIncidente ? (
-                  <p className="text-[0.6875rem] tabular-nums text-muted-foreground">
+                  <span className="text-[0.6875rem] tabular-nums text-muted-foreground">
                     a las {horaIncidente}
-                  </p>
+                  </span>
                 ) : null}
               </div>
             ) : terminada && desempenoTexto ? (
@@ -119,6 +143,31 @@ export function TarjetaRuta({ fila, onRegistrar, onTerminarPorIncidente }: Props
             ) : (
               <PastillaEstado estado={fila.estado} />
             )}
+
+            <div className="flex flex-wrap justify-end gap-2">
+              {puedeTerminarPorIncidente ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={onTerminarPorIncidente}
+                >
+                  Terminar por incidente
+                </Button>
+              ) : null}
+              {puedeRegistrarEvento ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={onRegistrar}
+                >
+                  Registrar evento
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           <PasoTimeline
@@ -130,31 +179,8 @@ export function TarjetaRuta({ fila, onRegistrar, onTerminarPorIncidente }: Props
             cntRetornaron={fila.cntRetornaron}
             sospechoso={fila.sospechoso}
           />
-
-          <div className="flex flex-wrap justify-end gap-2">
-            {puedeTerminarPorIncidente ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-                onClick={onTerminarPorIncidente}
-              >
-                Terminar por incidente
-              </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={onRegistrar}
-            >
-              Registrar evento
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </li>
   );
 }
