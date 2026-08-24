@@ -21,6 +21,22 @@ SDK sin confirmar antes que Expo Go en las tiendas ya soporta la version nueva.
   | `react-native-gesture-handler` | `~2.28.0` | `3.1.0` | **API reescrita** — no compila |
   | `@react-native-async-storage/async-storage` | `2.2.0` | `3.1.1` | **salto de major** |
 
+- **Los cuatro scripts de `apps/mobile/package.json` que arrancan Expo (`start`, `android`, `ios`,
+  `web`) llevan `cross-env EXPO_NO_CACHE=1` a proposito** (`cross-env` es dependencia de esta app
+  solo por eso: pnpm en Windows corre estos scripts con `cmd.exe`, no con bash, asi que
+  `EXPO_NO_CACHE=1 expo start` a secas truena con "no se reconoce como un comando"). Sin la
+  variable, `expo start` puede morir al arrancar con
+  `TypeError: Body is unusable: Body has already been read` dentro de
+  `getNativeModuleVersionsAsync`. Es un bug de `@expo/cli`: `wrapFetchWithCache` le pasa el stream
+  del `Response` a `FileSystemResponseCache.set()`, que lo consume con `.tee()` para escribirlo a
+  disco: si esa escritura no deja el cache legible a tiempo (se ha visto con el cache de
+  `~/.expo/native-modules-cache` corrupto o con el disco lento en Windows), `cache.set()` devuelve
+  `undefined` y `wrapFetchWithCache` regresa el `Response` original — cuyo body ya se consumio — y el
+  `.json()` de despues truena. `EXPO_NO_CACHE=1` hace que `createCachedFetch` salte ese cache de
+  disco por completo para esta llamada; es la salida que el propio `@expo/cli` expone para esto, no
+  un parche a `node_modules`. Si vuelve a aparecer con el flag puesto, `rm -rf
+  ~/.expo/native-modules-cache` (Windows: `~/.expo` es `%USERPROFILE%\.expo`) descarta el cache
+  corrupto.
 - `tailwindcss` aqui es la linea `~3.4.19`, **no** la 4.x del panel: NativeWind 4 no habla Tailwind 4
   y NativeWind 5 sigue en preview. Nunca eleves `tailwindcss` a la raiz del monorepo. Lo unico que
   se comparte con el panel son los tokens como valores planos desde `@rutas/shared/tokens`, jamas el
