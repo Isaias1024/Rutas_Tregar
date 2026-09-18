@@ -219,13 +219,11 @@ Con Docker Desktop **abierto**:
 pnpm db:up
 ```
 
-La primera vez descarga varias imagenes: **puede tardar de 5 a 20 minutos** segun tu internet. Las
-siguientes veces tarda menos de un minuto.
+La primera vez descarga varias imagenes: **puede tardar de 5 a 20 minutos** segun tu internet. Las siguientes veces tarda menos de un minuto.
 
 **Que deberias ver al final:** un bloque que empieza con `Started supabase local development setup.`
 y una lista de direcciones (`API URL`, `DB URL`, `Studio URL`...). Tambien dice
-`Stopped services: [realtime, storage, ...]` — **eso es correcto y esta hecho a proposito**, no es
-un error.
+`Stopped services: [realtime, storage, ...]` — **eso es correcto y esta hecho a proposito**, no es un error.
 
 Comprobar en cualquier momento:
 
