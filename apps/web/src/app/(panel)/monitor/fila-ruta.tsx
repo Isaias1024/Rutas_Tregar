@@ -16,9 +16,8 @@ interface Props {
 }
 
 /**
- * Pastilla neutral para una ruta que ya termino: el hecho de que termino no
- * debe competir con la puntualidad de su arranque, que va aparte en
- * `ChipDesempeno` (§6 UI monitor).
+ * Pastilla neutral para una ruta terminada: no debe competir con la puntualidad
+ * de su arranque, que va aparte en `ChipDesempeno`.
  */
 function PastillaTerminada() {
   return (
@@ -44,37 +43,29 @@ function ChipDesempeno({ estado, texto }: { estado: EstadoSemaforo; texto: strin
 }
 
 /**
- * Una fila del monitor: Horario | Ruta | Datos (estado + los cinco hitos en
- * detalle), §rediseño monitor. `@container` en el `<li>` es lo que deja que
- * `PasoTimeline` decida vertical vs. horizontal segun el ancho real de la
- * columna de datos, no el de la ventana.
+ * Una fila del monitor. `@container` en el `<li>` deja que `PasoTimeline` decida
+ * vertical vs. horizontal por el ancho de la columna, no el de la ventana.
  */
 export function FilaRuta({ fila, onRegistrar, onTerminarPorIncidente }: Props) {
-  // El incidente no es el siguiente paso de nada — se ofrece mientras la ruta
-  // no haya cerrado ya, igual que en la app del chofer. `puedeRegistrar` es la
-  // misma funcion que impone la regla en el servidor; esto solo evita ofrecer
-  // un boton que iba a ser rechazado.
+  // El incidente no es el siguiente paso de nada: se ofrece mientras la ruta no
+  // haya cerrado. `puedeRegistrar` es la misma funcion que decide en el servidor.
   const puedeTerminarPorIncidente = puedeRegistrar(
     'fin_ruta_incidente',
     fila.eventos.map((evento) => ({ tipo: evento.tipo })),
   );
 
-  // Sin siguiente paso (retorno ya registrado, o cerrada por incidente): no
-  // hay nada que "Registrar evento" pueda ofrecer, y `siguientePaso` es la
-  // misma funcion que decide eso en el servidor.
+  // Sin siguiente paso no hay nada que "Registrar evento" pueda ofrecer;
+  // `siguientePaso` es la misma funcion que decide eso en el servidor.
   const puedeRegistrarEvento =
     siguientePaso(fila.eventos.map((evento) => ({ tipo: evento.tipo }))) !== null;
 
-  // "Terminada" gana sobre la puntualidad de salida en cuanto se registra el
-  // retorno. El incidente ya trae su propio texto ("Terminada por
-  // incidente") y no se separa en dos pastillas.
+  // "Terminada" gana sobre la puntualidad de salida; el incidente ya trae su
+  // propio texto y no se separa en dos pastillas.
   const terminada = fila.eventos.some((evento) => evento.tipo === 'retorno');
   const inicioRuta = fila.eventos.find((evento) => evento.tipo === 'inicio_ruta');
 
-  // Texto del flag de puntualidad ("Tarde +12 min" / "A tiempo"), leido de
-  // `puntualidadInicio` — que `derivarEstado()` calcula en cuanto arranca la
-  // ruta, este cerrada o no (§ rediseno "en curso" del monitor). El offset en
-  // minutos es el mismo dato en los dos casos: solo cambia si se muestra.
+  // `puntualidadInicio` ya esta calculada desde que arranca la ruta, cerrada o
+  // no: el offset es el mismo dato, solo cambia si se muestra.
   const puntualidadTexto = (() => {
     if (!fila.puntualidadInicio) return null;
     if (fila.puntualidadInicio === 'a_tiempo') return semaforo.a_tiempo.texto;
@@ -83,10 +74,8 @@ export function FilaRuta({ fila, onRegistrar, onTerminarPorIncidente }: Props) {
     return `${semaforo[fila.puntualidadInicio].texto} ${offset > 0 ? '+' : ''}${offset} min`;
   })();
 
-  // Mientras la ruta sigue activa (arranco, no ha cerrado), el estado
-  // principal es "En curso" — nunca "Tarde"/"Adelantado" — y la puntualidad
-  // se ofrece nada mas como flag aparte, y solo si hay algo que avisar: "A
-  // tiempo" no compite con la pastilla, que ya lo da por hecho.
+  // Con la ruta activa el estado principal es "En curso", y la puntualidad solo
+  // se muestra como flag si hay algo que avisar: "A tiempo" se da por hecho.
   const activaConFlag =
     !terminada &&
     fila.estado === 'en_curso' &&
@@ -94,8 +83,8 @@ export function FilaRuta({ fila, onRegistrar, onTerminarPorIncidente }: Props) {
     fila.puntualidadInicio !== null &&
     fila.puntualidadInicio !== 'a_tiempo';
 
-  // `fin_ruta_incidente` no pertenece a `ORDEN_PASOS`: no aparece en
-  // `PasoTimeline`, y sin esto su hora no se veia en ningun lado de la fila.
+  // `fin_ruta_incidente` no pertenece a `ORDEN_PASOS`: sin esto su hora no se
+  // veria en ningun lado de la fila.
   const incidente = fila.eventos.find((evento) => evento.tipo === 'fin_ruta_incidente');
   const horaIncidente = incidente ? horaTexto(incidente.ocurrioEn.getTime()) : null;
 

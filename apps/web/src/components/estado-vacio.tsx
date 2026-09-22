@@ -8,10 +8,8 @@ interface Props {
 }
 
 /**
- * El estado vacio comun a toda superficie asincrona del panel (§6).
- *
- * Sin borde ni fondo propios: siempre se pinta dentro de una `Card`, que es
- * quien pone la superficie. Un recuadro aqui dibujaria una caja dentro de otra.
+ * El estado vacio comun a toda superficie asincrona del panel. Sin borde ni
+ * fondo propios: siempre se pinta dentro de una `Card`, que pone la superficie.
  */
 export function EstadoVacio({ titulo, descripcion, accion }: Props) {
   return (

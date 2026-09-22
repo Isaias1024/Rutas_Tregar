@@ -1,7 +1,5 @@
-// Sin `'use server'` a proposito (ver rutas-nucleo.ts): el nucleo recibe el
-// actor ya autorizado y no toca `next/headers`, para que `planeador.ts` sea
-// el unico endpoint real y este archivo se pueda probar contra Postgres sin
-// una peticion real de Next.
+// Sin `'use server'` a proposito (ver rutas-nucleo.ts): recibe el actor ya
+// autorizado y no toca `next/headers`, asi se prueba contra Postgres sin Next.
 import {
   type Asignar,
   camionDisponible,
@@ -38,18 +36,12 @@ export const MENSAJE_CHOFER_SIN_CAMION =
   'Este chofer no tiene un camion asignado. Asignaselo en Catalogos > Choferes antes de planearlo.';
 export const MENSAJE_CHOFER_INACTIVO = 'Este chofer esta inactivo o fue dado de baja.';
 
-// La pantalla ya oculta estos botones en un dia pasado (planeador-semana.tsx);
-// esto es la misma regla del lado del servidor, que es el que de verdad
-// decide — nunca hay que confiar en que el cliente no llame a la accion
-// directo.
+// La pantalla ya oculta estos botones en un dia pasado, pero el servidor es
+// quien de verdad decide: el cliente puede llamar la accion directo.
 export const MENSAJE_DIA_PASADO = 'Este dia ya paso: la planeacion es de solo lectura.';
 
-// Mismo criterio que rutas-nucleo.ts para bloquear la edicion de una ruta u
-// horario ya en curso: `fin_ruta_incidente` cierra la asignacion igual que
-// `retorno` (§ tabla-rutas: "lo que ya ocurrio hoy no se edita"), asi que
-// Cancelar/Reasignar tienen que quedar tan bloqueados por un incidente como
-// por un regreso normal — no solo del lado del cliente, el servidor es quien
-// de verdad lo impone.
+// `fin_ruta_incidente` cierra la asignacion igual que `retorno`, asi que
+// bloquea Cancelar/Reasignar lo mismo que un regreso normal.
 export const MENSAJE_ASIGNACION_EN_CURSO =
   'Esta asignacion ya tiene un viaje iniciado o terminado hoy. Espera a manana o edita despues de que termine el dia operativo.';
 
@@ -69,14 +61,8 @@ async function asignacionBloqueadaHoy(asignacionId: string): Promise<boolean> {
 }
 
 /**
- * El camion que le toca a un chofer AHORA, resuelto desde `usuario.camion_id`
- * — nunca desde lo que mande el cliente. Es la unica autoridad sobre el par
- * chofer/camion: si Juan pasa de CAM-001 a CAM-010, la siguiente asignacion
- * usa CAM-010 sin que nadie lo escriba en ningun formulario.
- *
- * Valida de paso lo que exige el planeador antes de asignar: que el chofer
- * exista, tenga rol `chofer`, siga activo y sin baja, tenga camion, y que ese
- * camion no este borrado ni en mantenimiento.
+ * El camion que le toca a un chofer AHORA, desde `usuario.camion_id` y nunca del
+ * cliente. Valida de paso rol, alta, baja y que el camion no este en taller.
  */
 async function resolverCamionDelChofer(
   choferId: string,
@@ -100,10 +86,8 @@ async function resolverCamionDelChofer(
   if (!fila.choferActivo) {
     return errorValidacion(MENSAJE_CHOFER_INACTIVO, 'choferId');
   }
-  // `camionCodigo` nulo con `camionId` no nulo significa que el leftJoin no
-  // encontro el camion: la FK es `on delete set null`, asi que en la practica
-  // solo pasa si la fila se borro duro fuera de la app. Se trata igual que
-  // "sin camion" en vez de reventar mas abajo con un codigo indefinido.
+  // `camionCodigo` nulo con `camionId` no nulo solo pasa si la fila se borro
+  // duro fuera de la app (la FK es `on delete set null`): se trata como sin camion.
   if (!fila.camionId || !fila.camionCodigo) {
     return errorValidacion(MENSAJE_CHOFER_SIN_CAMION, 'choferId');
   }
@@ -127,13 +111,8 @@ export async function asignarNucleo(
     return errorValidacion(MENSAJE_DIA_PASADO, 'fecha');
   }
 
-  // Mismo filtro que `listarHorariosActivos` (planeador.ts): un horario
-  // desactivado o de una ruta ya borrada no es un horario asignable, aunque
-  // la fila todavia exista. Sin el join a `ruta` y el `activo = true`, esta
-  // funcion aceptaba una asignacion nueva contra un horario que el panel ya
-  // no ofrece — la unica razon por la que no se veia el problema es que la
-  // pantalla no deja llegar hasta aqui con ese id, no que el nucleo lo
-  // rechace.
+  // Mismo filtro que `listarHorariosActivos`: un horario desactivado o de una
+  // ruta borrada no es asignable aunque la fila siga existiendo.
   const [horarioFila] = await db
     .select({
       id: horario.id,
@@ -163,27 +142,12 @@ export async function asignarNucleo(
 
   const id = crypto.randomUUID();
   return db.transaction(async (tx) => {
-    // Auditoria de seguridad: `hayTraslape` es puramente en memoria — leia
-    // fuera de cualquier bloqueo y decidia antes de escribir, asi que dos
-    // peticiones concurrentes de asignar/reasignar al MISMO chofer el MISMO
-    // dia (dos horarios distintos, dos supervisores a la vez, o un
-    // doble-clic) podian pasar esta comprobacion las dos ANTES de que
-    // cualquiera insertara, dejando al chofer doble-agendado en el mismo
-    // turno sin que ninguna violara ninguna restriccion de la base. Un
-    // advisory lock con alcance de transaccion (`_xact_`, se libera solo al
-    // hacer commit o rollback — nunca hay que soltarlo a mano) serializa
-    // cualquier otra transaccion que intente lo mismo para este chofer y
-    // esta fecha: la segunda espera a que la primera termine, y para
-    // entonces ya ve la asignacion que la primera dejo.
+    // `hayTraslape` decide en memoria, fuera de cualquier bloqueo: sin este
+    // lock dos peticiones concurrentes doble-agendan al chofer en el mismo turno.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${choferId} || ${fecha}), 1)`);
 
-    // No cuenta una asignacion cuyo horario ya se desactivo o cuya ruta ya
-    // se borro: esa ejecucion dejo de ser real (§ Reglas para Backend — "una
-    // asignacion obsoleta no debe bloquear al chofer"), asi que no debe
-    // ocupar hueco en su calendario. Se consulta el estado actual de
-    // `horario`/`ruta` en cada llamada — nunca una copia — para que esto se
-    // arregle solo el dia que alguien borra o desactiva la ruta A y no haga
-    // falta ninguna migracion de datos para las asignaciones que ya existian.
+    // Una asignacion bajo un horario desactivado o una ruta borrada dejo de ser
+    // real y no debe ocupar hueco en el calendario del chofer.
     const asignacionesDelDia = await tx
       .select({
         horaInicioEsperada: horario.horaInicioEsperada,
@@ -221,9 +185,8 @@ export async function asignarNucleo(
       secuencia,
       choferId,
       camionId,
-      // Fotografia historica (§13): se congela el codigo que de verdad se uso
-      // ese dia. Si Juan cambia de camion despues, esta fila sigue diciendo
-      // cual manejo — el derivado en vivo solo gobierna las asignaciones nuevas.
+      // Fotografia historica: se congela el camion que de verdad se uso ese dia;
+      // el derivado en vivo solo gobierna las asignaciones nuevas.
       camionCodigo,
       createdBy: actorId,
     });
@@ -233,12 +196,8 @@ export async function asignarNucleo(
       recurso: { tipo: 'asignacion', id },
       despues: { horarioId, fecha, secuencia, choferId, camionId, camionCodigo },
     });
-    // "Se crea O reasigna" (paso 14, Done-when): reasignarNucleo ya
-    // encolaba esto desde el paso 7; a la creacion inicial le faltaba.
-    // `on conflict ... do nothing` sobre el indice parcial (igual que
-    // `encolarSiNoExiste` en apps/worker/src/push/programar.ts) porque esta
-    // fila recien creada no puede tener ya una pendiente — pero el mismo
-    // patron evita que un reasignar inmediato despues choque (ver abajo).
+    // `on conflict do nothing` sobre el indice parcial: evita que un reasignar
+    // inmediato despues de crear encole una segunda pendiente.
     await tx.execute(
       sql`insert into notificacion_programada (id, asignacion_id, tipo, enviar_en)
           values (${crypto.randomUUID()}, ${id}, 'asignacion_nueva', now())
@@ -280,9 +239,7 @@ export async function reasignarNucleo(
   }
 
   // El camion del chofer NUEVO, resuelto igual que en asignarNucleo: al
-  // reasignar de Juan a Pedro, la fila pasa a traer el camion de Pedro sin
-  // que nadie lo elija. Reasignar es justo donde una asignacion podia quedar
-  // con el camion del chofer anterior.
+  // reasignar, la fila deja de quedarse con el camion del chofer anterior.
   const camionDelChofer = await resolverCamionDelChofer(choferId);
   if (!camionDelChofer.ok) {
     return camionDelChofer;
@@ -290,15 +247,12 @@ export async function reasignarNucleo(
   const { id: camionId, codigo: camionCodigo } = camionDelChofer.data;
 
   return db.transaction(async (tx) => {
-    // Mismo advisory lock que asignarNucleo, y por la misma razon:
-    // `hayTraslape` decidia fuera de cualquier bloqueo, asi que una
-    // reasignacion concurrente al mismo chofer/fecha podia colarse en la
-    // ventana entre el SELECT y el INSERT/UPDATE.
+    // Mismo advisory lock que asignarNucleo y por la misma razon: `hayTraslape`
+    // decide fuera de cualquier bloqueo.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${choferId} || ${antes.fecha}), 1)`);
 
-    // Mismo criterio que asignarNucleo: una asignacion bajo un horario ya
-    // desactivado o una ruta ya borrada no cuenta contra el calendario del
-    // chofer.
+    // Mismo criterio que asignarNucleo: una asignacion bajo un horario
+    // desactivado o una ruta borrada no cuenta contra el calendario.
     const asignacionesDelDia = await tx
       .select({
         horaInicioEsperada: horario.horaInicioEsperada,
@@ -338,12 +292,8 @@ export async function reasignarNucleo(
       },
       despues: { choferId, camionId, camionCodigo },
     });
-    // Reasignar de ultimo minuto se le avisa al chofer nuevo: la cola del
-    // worker la recoge por `enviar_en <= now()` (paso 13). `on conflict do
-    // nothing`: si asignarNucleo (u otro reasignar) ya dejo una fila
-    // pendiente para esta asignacion, no hace falta una segunda — al
-    // enviarla, destinatariosDe() en apps/worker/src/push/enviar.ts resuelve
-    // el chofer actual desde `asignacion` en ese momento, no desde esta fila.
+    // `on conflict do nothing`: basta una pendiente por asignacion — al enviar,
+    // `destinatariosDe` resuelve el chofer actual, no el de esta fila.
     await tx.execute(
       sql`insert into notificacion_programada (id, asignacion_id, tipo, enviar_en)
           values (${crypto.randomUUID()}, ${asignacionId}, 'asignacion_nueva', now())
@@ -373,21 +323,15 @@ export async function cancelarNucleo(
     return errorConflicto(MENSAJE_ASIGNACION_EN_CURSO);
   }
 
-  // Nunca un DELETE: solo se desasigna al chofer marcando `cancelada_en`.
-  // La ruta, el horario, las paradas y los eventos ya marcados se conservan
-  // intactos — esta fila es UNICAMENTE el vinculo chofer+camion+fecha, y es
-  // lo unico que se suelta. El horario queda libre para otro chofer porque
-  // todas las consultas del planeador filtran por `cancelada_en is null`.
+  // Nunca un DELETE: cancelar solo suelta el vinculo chofer+camion+fecha. El
+  // horario queda libre porque todo el planeador filtra `cancelada_en is null`.
   await db.transaction(async (tx) => {
     await tx
       .update(asignacion)
       .set({ canceladaEn: new Date() })
       .where(eq(asignacion.id, asignacionId));
-    // Sin esto, el chofer recien desasignado seguia recibiendo el push:
-    // `destinatariosDe` en apps/worker/src/push/enviar.ts resuelve el chofer
-    // desde `asignacion` al momento de enviar y no mira `cancelada_en`, asi
-    // que una fila pendiente encolada por asignar/reasignar sobrevivia a la
-    // cancelacion. Solo las pendientes: las ya enviadas son historial.
+    // `destinatariosDe` resuelve el chofer al momento de enviar y no mira
+    // `cancelada_en`: sin esto el chofer desasignado seguia recibiendo el push.
     await tx.execute(
       sql`delete from notificacion_programada
           where asignacion_id = ${asignacionId} and enviado_en is null`,

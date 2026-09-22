@@ -114,8 +114,7 @@ describe('estadoRuta', () => {
 
   it('cancelada gana sobre cualquier avance previo', () => {
     // Una ruta cancelada a media ejecucion sigue trayendo sus eventos: si el
-    // avance ganara, la tarjeta diria "en curso" para una ruta que ya nadie
-    // va a manejar.
+    // avance ganara, diria "en curso" para algo que ya nadie va a manejar.
     expect(
       estadoRuta(eventos('vio_ruta', 'listo_inicio', 'inicio_ruta'), '2026-08-14T10:00:00Z'),
     ).toBe('cancelada');

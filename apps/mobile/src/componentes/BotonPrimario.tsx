@@ -13,13 +13,8 @@ interface Props {
 }
 
 /**
- * El unico boton de accion de una pantalla (§ movil-expo.md: "un solo objetivo
- * tactil activo por pantalla"). Ancho completo, 72px de alto y texto de 20px
- * semibold — medidas fijas del sistema, no decorativas: se toca con guante y
- * de reojo, con el telefono en una mano.
- *
- * `minHeight` en vez de `height`: si el usuario del telefono subio el tamano de
- * fuente del sistema, el boton crece en lugar de recortar la etiqueta.
+ * El unico boton de accion de una pantalla: medidas del sistema, no decorativas.
+ * `minHeight` y no `height`, para que crezca con la fuente en vez de recortar.
  */
 export function BotonPrimario({
   etiqueta,

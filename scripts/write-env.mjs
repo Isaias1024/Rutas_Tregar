@@ -1,23 +1,7 @@
 #!/usr/bin/env node
 /**
- * Genera `.env` a partir de `.env.example` mas los valores reales que imprime
- * `supabase status -o env`.
- *
- * Dos propiedades que este script tiene que cumplir, y que fallo antes:
- *
- * 1. IDEMPOTENTE. Si `.env` ya existe NO lo toca y sale 0. El bloque Bootstrap se
- *    corre dos veces seguidas y la segunda no puede pisar secretos editados a mano.
- *
- * 2. RUIDOSO AL FALLAR. Un `.env` con `DATABASE_URL` vacia NO es un estado valido
- *    de este proyecto: es un build muerto que todavia no lo sabe. `DATABASE_URL` es
- *    obligatoria desde el paso 2 y nada vuelve a correr este script, asi que
- *    escribir campos vacios y salir 0 convierte un fallo duro en uno silencioso que
- *    reaparece tres pasos despues como "drizzle-kit no crea nada".
- *    Si Supabase no responde, este script SALE 1 y dice que hacer.
- *
- * Escribir la plantilla con valores vacios es legitimo en exactamente un caso: que
- * alguien quiera el archivo sin levantar Supabase. Eso se pide a proposito con
- * `--sin-supabase`; nunca ocurre por accidente.
+ * Genera `.env` desde `.env.example` mas `supabase status`. No toca un `.env` ya
+ * existente, y sale 1 si Supabase no responde (`--sin-supabase` para la plantilla).
  */
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -36,16 +20,8 @@ if (!existsSync('.env.example')) {
 }
 
 /**
- * Lee el estado del stack local.
- *
- * Se usa `execSync` con una cadena de comando y NO `execFileSync('pnpm', [...])`:
- * en Windows `pnpm` no es un ejecutable sino un shim `.cmd`, y `execFileSync` sin
- * shell no puede lanzarlo — falla con `spawnSync pnpm ENOENT`. Comprobado
- * ejecutandolo en Windows 11. `execSync` pasa por el shell y resuelve el shim.
- * La cadena es una constante literal, sin interpolar nada, asi que no hay
- * superficie de inyeccion; y a diferencia de `shell: true` no dispara DEP0190.
- *
- * @returns {Record<string,string>}
+ * `execSync` y no `execFileSync`: en Windows `pnpm` es un shim `.cmd` que sin
+ * shell falla con ENOENT. @returns {Record<string,string>}
  */
 function estadoSupabase() {
   const salida = execSync('pnpm exec supabase status -o env', {

@@ -3,21 +3,8 @@ import path from 'node:path';
 import { z } from 'zod';
 
 /**
- * Validacion de entorno del panel que DEGRADA POR PASO (§10, columna "Requerida
- * a partir del paso"). `BUILD_STEP` (default 99, es decir "build terminado")
- * decide cuales de estas variables son obligatorias hoy; el resto puede faltar
- * sin que el import lance. Nadie mas en el panel lee `process.env` directo.
- *
- * Next solo carga `.env*` desde la raiz de `apps/web`, pero el unico `.env`
- * del proyecto vive en la raiz del monorepo, y los workers que Next levanta
- * para recolectar datos de pagina no reevaluan `next.config.ts`. Por eso la
- * carga tiene que pasar por aqui — el mismo patron que usan drizzle.config.ts,
- * vitest.setup.ts y los scripts de `scripts/` con `process.loadEnvFile('.env')`.
- * Next (dev, build y cada worker) siempre corre con cwd = apps/web, asi que
- * la raiz del monorepo esta dos niveles arriba. Bajo Vitest, cwd ya es la
- * raiz (vitest.setup.ts corre primero y ya dejo `.env` cargado), asi que esta
- * ruta no existe ahi y el guard no hace nada. En produccion tampoco existe
- * este archivo: las variables llegan ya puestas por la plataforma.
+ * Validacion que DEGRADA POR PASO (`BUILD_STEP`) y unico lugar que lee
+ * `process.env`: Next solo busca `.env` en apps/web y sus workers no lo recargan.
  */
 const ENV_RAIZ = path.resolve(process.cwd(), '../../.env');
 if (existsSync(ENV_RAIZ)) {
@@ -34,10 +21,8 @@ const ESPECIFICACION = [
   { clave: 'SUPABASE_SERVICE_ROLE_KEY', desdePaso: 3 },
   { clave: 'GOOGLE_OAUTH_ALLOWED_DOMAIN', desdePaso: 3 },
   { clave: 'E2E_BASE_URL', desdePaso: 5 },
-  // `desdePaso: 6` documenta desde cuando §10 la pide en un despliegue real,
-  // pero NUNCA se exige aqui (ver CLAVES_OPCIONALES abajo): el propio paso 6
-  // pide que, sin ella, el formulario de parada degrade a captura manual de
-  // coordenadas en vez de romper el build o la pantalla.
+  // `desdePaso: 6` documenta desde cuando se pide en un despliegue real, pero
+  // nunca se exige aqui: sin ella la parada degrada a captura manual.
   { clave: 'NEXT_PUBLIC_GOOGLE_MAPS_API_KEY', desdePaso: 6 },
   { clave: 'EXPO_PUBLIC_SUPABASE_URL', desdePaso: 8 },
   { clave: 'EXPO_PUBLIC_SUPABASE_ANON_KEY', desdePaso: 8 },
@@ -45,22 +30,17 @@ const ESPECIFICACION = [
   { clave: 'WORKER_BASE_URL', desdePaso: 13 },
   { clave: 'WORKER_SHARED_SECRET', desdePaso: 13 },
   { clave: 'EXPO_ACCESS_TOKEN', desdePaso: 14 },
-  // No la lee el panel, la lee la app: se valida aqui igual que
-  // EXPO_PUBLIC_SUPABASE_URL/ANON_KEY, porque `pnpm build` del panel es la
-  // compuerta que confirma que el `.env` de todo el proyecto esta completo
-  // para el paso actual, no solo lo que este proceso importa.
+  // La lee la app, no el panel: `pnpm build` es la compuerta que confirma que el
+  // `.env` del proyecto entero esta completo, no solo lo que este proceso importa.
   { clave: 'EXPO_PUBLIC_PANEL_BASE_URL', desdePaso: 14 },
-  // No la lee el panel tampoco: la lee el worker (Playwright imprimiendo
-  // /reportes/cliente/[id]/imprimible), pero por la misma razon que la
-  // anterior este gate valida que exista igual.
+  // La lee el worker, no el panel, pero se valida aqui por la misma razon.
   { clave: 'PANEL_BASE_URL', desdePaso: 15 },
 ] as const;
 
 type Clave = (typeof ESPECIFICACION)[number]['clave'];
 
-// La unica variable de la tabla que §10 documenta "requerida desde el paso N"
-// sin que este modulo la exija nunca: su propio paso de origen (6) pide
-// degradar a captura manual en vez de fallar cuando falta.
+// La unica variable requerida en la documentacion que este modulo nunca exige:
+// su paso de origen pide degradar a captura manual en vez de fallar.
 const CLAVES_OPCIONALES = new Set<Clave>(['NEXT_PUBLIC_GOOGLE_MAPS_API_KEY']);
 
 const esquemaCrudo = z.object(

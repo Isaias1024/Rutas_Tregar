@@ -13,12 +13,8 @@ import { useAsignaciones } from '@/datos/useAsignaciones';
 const DIAS_VISIBLES = 7;
 
 /**
- * La semana del chofer: siete dias desde hoy, uno seleccionable a la vez.
- *
- * Es pantalla de consulta (§7). Un dia que no es hoy abre el detalle en solo
- * lectura — no se marca el futuro porque no ha pasado, y no se marca el pasado
- * porque `evento` es append-only y llegar tarde a registrarlo falsearia la
- * hora. Ambas restricciones las vuelve a imponer el servidor.
+ * La semana del chofer, de consulta: no se marca el futuro porque no ha pasado,
+ * ni el pasado porque falsearia la hora de un `evento` append-only.
  */
 export default function PaginaSemana() {
   const hoy = fechaOperativaHoy();

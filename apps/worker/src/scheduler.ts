@@ -5,10 +5,8 @@ import type { Logger } from 'pino';
 import { enviarNotificacion } from './push/enviar.ts';
 import { programarAlertasRetraso, programarRecordatorios } from './push/programar.ts';
 
-// croner en America/Mexico_City, barriendo notificacion_programada cada
-// minuto (§13, § worker-y-reportes.md). Idempotente por diseno: enviado_en
-// se marca ANTES de enviar, y is null es el filtro de recogida, para que un
-// reinicio a media tanda no duplique avisos.
+// Barre `notificacion_programada` cada minuto. Idempotente por diseno:
+// `enviado_en` se marca ANTES de enviar, asi un reinicio no duplica avisos.
 
 export interface NotificacionPendiente {
   id: string;
@@ -19,10 +17,8 @@ export interface NotificacionPendiente {
 export type EnviarNotificacion = (notificacion: NotificacionPendiente) => Promise<void>;
 
 /**
- * Sin entrega inyectada, no envia nada (solo demuestra que enviado_en se
- * marca ANTES de "enviar"). `iniciarScheduler` siempre pasa la entrega real
- * (`enviarNotificacion`, paso 14); este placeholder queda como default para
- * quien llame `barrerNotificacionesPendientes` sin especificarla.
+ * Entrega por default que no envia nada: solo demuestra que `enviado_en` se marca
+ * ANTES de "enviar". `iniciarScheduler` siempre pasa la entrega real.
  */
 const enviarPlaceholder: EnviarNotificacion = async () => {};
 

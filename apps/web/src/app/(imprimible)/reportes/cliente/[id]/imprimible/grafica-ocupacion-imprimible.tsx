@@ -10,13 +10,8 @@ interface Fila {
   retornaronPromedio: number | null;
 }
 
-// Sin `ResponsiveContainer` A PROPOSITO: ese componente mide su contenedor
-// con un `ResizeObserver` que solo dispara DESPUES del primer paint, asi que
-// el SVG llega vacio (0x0) hasta un segundo render. Chromium llama
-// `page.pdf()` sin saber que hay que esperar ese segundo render, asi que la
-// grafica saldria en blanco. Dimensiones fijas = un solo render sincrono,
-// con la grafica ya pintada (§6: "se montan sincronamente para que Chromium
-// encuentre el SVG ya pintado al llamar page.pdf()").
+// Sin `ResponsiveContainer` A PROPOSITO: mide con un `ResizeObserver` posterior
+// al primer paint, y `page.pdf()` no espera ese segundo render.
 export function GraficaOcupacionImprimible({ datos }: { datos: Fila[] }) {
   return (
     <BarChart width={700} height={320} data={datos}>

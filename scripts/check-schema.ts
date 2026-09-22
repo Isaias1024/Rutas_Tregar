@@ -1,14 +1,13 @@
 import { sql } from 'drizzle-orm';
 
-// Carga entorno en las primeras lineas, antes de cualquier import propio que
-// abra una conexion — por eso el cliente compartido se importa dinamico, DESPUES
-// de esta linea.
+// Carga entorno antes de cualquier import propio que abra conexion: por eso el
+// cliente compartido se importa dinamico, despues de esta linea.
 process.loadEnvFile('.env');
 
 const { db } = await import('../packages/shared/src/db/index.ts');
 
-// Las doce tablas de la §4 del blueprint, por nombre. No se cuenta filas de un
-// catalogo: un conteo se desincroniza en cuanto alguien agrega una tabla.
+// Las doce tablas por nombre. No se cuentan filas de un catalogo: un conteo se
+// desincroniza en cuanto alguien agrega una tabla.
 const TABLAS_ESPERADAS = [
   'cliente',
   'usuario',

@@ -2,10 +2,8 @@ import Link from 'next/link';
 
 export const dynamic = 'force-static';
 
-// Publica (RUTAS_PUBLICAS en proxy.ts), enlazada desde la app del chofer
-// (§9 paso 16). No es un formulario que se firma en la app: es la pantalla
-// que explica, en el mismo idioma que el aviso de privacidad, que confirmar
-// los cinco hitos implica registrar hora y, en dos de ellos, ubicacion.
+// Publica (RUTAS_PUBLICAS en proxy.ts), enlazada desde la app del chofer: explica
+// que confirmar los hitos registra hora y, en dos de ellos, ubicacion.
 export default function PaginaConsentimiento() {
   return (
     <main className="mx-auto max-w-[720px] space-y-6 p-6 text-foreground">

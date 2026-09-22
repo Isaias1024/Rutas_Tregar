@@ -3,20 +3,13 @@ import { differenceInMinutes } from 'date-fns';
 import type { TipoEvento } from './flujo.ts';
 import type { EstadoSemaforo } from './tokens.ts';
 
-// La derivacion del semaforo (paso 12). El estado NUNCA se guarda en
-// ninguna columna: siempre se calcula a partir de los eventos.
+// El estado nunca se persiste: siempre se deriva de los eventos.
 
 export const ZONA_OPERATIVA = 'America/Mexico_City';
 
 /**
- * El dia de operacion (`YYYY-MM-DD`) que corresponde a `ahora` en la zona
- * operativa — el mismo formato que la columna `asignacion.fecha`.
- *
- * Existe para poder preguntar "que rutas de hoy en adelante trae este chofer"
- * comparando texto contra `date`, sin convertir la columna. Se calcula por
- * zona IANA y nunca por offset fijo: a las 23:00 del 1 de enero en Monterrey
- * ya es dia 2 en UTC, y `new Date().toISOString().slice(0, 10)` devolveria el
- * dia equivocado justo en el turno de noche, que es cuando esto mas importa.
+ * El dia de operacion (`YYYY-MM-DD`) de `ahora`, comparable como texto contra
+ * `asignacion.fecha`. Por zona IANA: en turno de noche el dia UTC ya es otro.
  */
 export function fechaOperativa(ahora: Date): string {
   const local = new TZDate(ahora, ZONA_OPERATIVA);
@@ -26,21 +19,16 @@ export function fechaOperativa(ahora: Date): string {
 }
 
 /**
- * `true` si `fecha` (YYYY-MM-DD) ya paso segun el dia de operacion actual —
- * es decir, es estrictamente anterior a hoy en `America/Mexico_City`. Hoy
- * mismo NO cuenta como pasado: la planeacion sigue siendo editable durante
- * todo el dia de operacion.
+ * Hoy NO cuenta como pasado: la planeacion sigue siendo editable durante todo
+ * el dia de operacion.
  */
 export function esFechaPasada(fecha: string, ahora: Date = new Date()): boolean {
   return fecha < fechaOperativa(ahora);
 }
 
 /**
- * La hora de un `<input type="datetime-local">` ('YYYY-MM-DDTHH:mm', sin
- * zona) interpretada en `America/Mexico_City` — el servidor decide la zona,
- * nunca el host que procesa la peticion. `null` si el texto no trae una
- * fecha completa. Unica fuente: la captura manual del supervisor (eventos e
- * incidentes) y su validacion comparten este parseo, no cada quien el suyo.
+ * Interpreta un `datetime-local` (sin zona) en la zona operativa: la zona la
+ * decide el servidor, no el host que atiende la peticion. `null` si falta fecha.
  */
 export function interpretarHoraLocal(ocurrioEnLocal: string): TZDate | null {
   const [fechaTexto, horaTexto] = ocurrioEnLocal.split('T');
@@ -81,22 +69,13 @@ export interface ResultadoEstado {
   estado: EstadoSemaforo;
   sospechoso: boolean;
   /**
-   * Puntualidad de la salida (`inicio_ruta` vs. `horaEsperada`), calculada
-   * en cuanto la ruta arranca — independiente de si ya cerro. Mientras la
-   * ruta sigue activa, `estado` se queda en `en_curso` y este campo es lo
-   * que alimenta el flag de tarde/adelantado junto a esa pastilla; en
-   * cuanto cierra, `estado` pasa a ser este mismo valor (§ rediseno
-   * "en curso" del monitor).
+   * Puntualidad de la salida, ya disponible con la ruta en curso; al cerrar,
+   * `estado` toma este mismo valor.
    */
   puntualidadInicio: Puntualidad | null;
 }
 
-/**
- * Distancia entre dos coordenadas en metros (formula haversine). Comparte
- * este calculo el panel y la app: el chofer ya la usaba localmente en
- * `apps/mobile/src/app/(chofer)/ruta/[id].tsx` para las mismas dos
- * comparaciones (inicio contra `paradaInicio`, fin contra `paradaFin`).
- */
+/** Distancia entre dos coordenadas en metros (haversine); la comparten panel y app. */
 export function distanciaEnMetros(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const radioTierraM = 6371000;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -111,11 +90,7 @@ export function distanciaEnMetros(lat1: number, lng1: number, lat2: number, lng2
   return radioTierraM * c;
 }
 
-/**
- * `true`/`false` si el evento cayo dentro de `UMBRAL_UBICACION_CORRECTA_M`
- * de la parada esperada; `undefined` si falta alguna coordenada (sin GPS,
- * o la parada no la trae).
- */
+/** `undefined` cuando falta alguna coordenada: sin GPS o parada sin ubicacion. */
 export function ubicacionEsCorrecta(
   eventoLat: number | null | undefined,
   eventoLng: number | null | undefined,
@@ -166,10 +141,8 @@ function estadoPorPuntualidad(offsetMin: number): 'a_tiempo' | 'tarde' | 'adelan
 }
 
 /**
- * Sospechoso cuando el reloj del dispositivo y el del servidor discrepan
- * mas alla del umbral, PERO solo si el evento "llego en linea" — se evalua
- * cerca de cuando se recibio, no una relectura de historial viejo (`ahora`
- * es lo que distingue una cosa de la otra).
+ * Solo aplica a eventos recien recibidos: una relectura de historial viejo
+ * siempre discrepa y no es sospechosa.
  */
 function esSospechoso(evento: EventoParaEstado, ahora: Date): boolean {
   const llegoEnVivo =
@@ -192,10 +165,8 @@ export function derivarEstado({
   horaEsperada: string;
   ahora: Date;
 }): ResultadoEstado {
-  // Terminal y primero que cualquier otra cosa: una ruta con incidente no
-  // habla de puntualidad, y puede llevar `inicio_ruta` (el incidente ocurrio
-  // a medio camino) o no llevarlo (ni siquiera pudo arrancar). En los dos
-  // casos es "incidente", nunca "en curso" ni "a tiempo/tarde/adelantado".
+  // Terminal y con prioridad sobre todo lo demas: con o sin `inicio_ruta`, una
+  // ruta con incidente no habla de puntualidad.
   const conIncidente = eventos.some((evento) => evento.tipo === 'fin_ruta_incidente');
   if (conIncidente) {
     return { estado: 'incidente', sospechoso: false, puntualidadInicio: null };
@@ -207,12 +178,8 @@ export function derivarEstado({
     const puntualidadInicio = estadoPorPuntualidad(
       offsetEnMinutos(inicioRuta.ocurrioEn, horaEsperada),
     );
-    // `retorno` es lo unico que cierra la ruta (§ rediseno "en curso" del
-    // monitor). Mientras no llegue, el estado se queda en `en_curso` sin
-    // importar que tan tarde o adelantado haya arrancado — esa puntualidad
-    // vive aparte en `puntualidadInicio`, para un flag junto a la pastilla,
-    // no como el estado principal. En cuanto cierra, el estado SI pasa a
-    // ser la puntualidad, exactamente como antes de este cambio.
+    // `retorno` es lo unico que cierra la ruta; antes de eso el estado es
+    // `en_curso` por tarde que haya salido.
     const terminada = eventos.some((evento) => evento.tipo === 'retorno');
     return {
       estado: terminada ? puntualidadInicio : 'en_curso',

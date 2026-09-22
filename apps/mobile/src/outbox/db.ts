@@ -1,8 +1,8 @@
 import type { TipoEvento, TipoIncidente } from '@rutas/shared';
 import * as SQLite from 'expo-sqlite';
 
-// Esquema local del outbox (paso 11). "Offline es requisito, no mejora":
-// cada toque escribe primero aqui, nunca directo a Supabase.
+// "Offline es requisito, no mejora": cada toque escribe primero aqui, nunca
+// directo a Supabase.
 
 export interface PayloadEvento {
   client_event_id: string;
@@ -30,10 +30,8 @@ export interface FilaPendiente {
 }
 
 /**
- * El almacen es una interfaz inyectable a proposito: `registrar.ts` y
- * `flusher.ts` reciben uno en vez de importar `expo-sqlite` directo, para
- * poder probarse con un almacen en memoria sin el modulo nativo (que no
- * existe fuera de un dispositivo o emulador real).
+ * El almacen es inyectable a proposito: asi `registrar.ts` y `flusher.ts` se
+ * prueban con uno en memoria, sin el modulo nativo de `expo-sqlite`.
  */
 export interface AlmacenPendientes {
   agregar: (fila: FilaPendiente) => Promise<void>;

@@ -1,15 +1,11 @@
-// Sin 'use server' a proposito: esto NO es un server action, es el nucleo
-// que llama el route handler real (apps/web/src/app/api/dispositivos/route.ts).
-// La app movil habla HTTP puro con Bearer token, no el mecanismo de RPC de
-// Next para server actions, asi que el endpoint tiene que ser una ruta de
-// verdad bajo app/api/.
+// Sin 'use server' a proposito: no es un server action sino el nucleo que llama
+// el route handler, porque la app movil habla HTTP puro con Bearer token.
 import type { DispositivoRegistrar } from '@rutas/shared';
 import { db, dispositivo } from '@rutas/shared/db';
 
 /**
- * Re-registrar reemplaza, no duplica (paso 14): el mismo (usuario_id,
- * expo_push_token) hace upsert sobre `ultima_vez`, `plataforma` y
- * `app_version` en vez de insertar una fila nueva.
+ * Re-registrar reemplaza, no duplica: el mismo (usuario_id, expo_push_token)
+ * hace upsert sobre `ultima_vez`, `plataforma` y `app_version`.
  */
 export async function registrarDispositivo(
   usuarioId: string,

@@ -1,9 +1,8 @@
 import { z } from 'zod';
 import { idSchema } from './catalogos.ts';
 
-// Logica pura de asignacion (§paso 7) + los esquemas de entrada de
-// asignar/reasignar/cancelar. Sin acceso a base ni a sesion: reciben datos
-// ya consultados y devuelven una decision, para poder probarse sin Postgres.
+// Logica pura: sin acceso a base ni a sesion, recibe datos ya consultados para
+// poder probarse sin Postgres.
 
 /** Las horas llegan como `HH:MM` (zod) o `HH:MM:SS` (columna `time` de Postgres). */
 export interface IntervaloHorario {
@@ -21,16 +20,8 @@ function aMinutos(hora: string): number {
 }
 
 /**
- * El intervalo del horario dentro del dia, en minutos desde medianoche y
- * medio abierto: `[inicio, fin)`. Medio abierto es justo lo que hace que
- * 08:00–10:00 y 10:00–11:00 NO cuenten como conflicto: la primera termina
- * exactamente donde arranca la segunda.
- *
- * `horarioSchema` ya exige `fin > inicio`, asi que el caso `fin <= inicio`
- * solo puede venir de una fila vieja que cruza medianoche. Ahi el horario
- * ocupa dos tramos del mismo dia — la cola despues del inicio y la cabeza
- * antes del fin — y se devuelven los dos: preferimos marcar un conflicto de
- * mas que dejar a un chofer doble-agendado de madrugada.
+ * El intervalo en minutos desde medianoche, medio abierto: por eso 08:00-10:00 y
+ * 10:00-11:00 no chocan. Cruzar medianoche devuelve dos tramos, por prudencia.
  */
 function tramosDelDia(horario: IntervaloHorario): Array<[number, number]> {
   const inicio = aMinutos(horario.horaInicioEsperada);
@@ -49,15 +40,8 @@ function tramosSeSuperponen(a: [number, number], b: [number, number]): boolean {
 }
 
 /**
- * Traslape real de horarios, no de turnos: un chofer puede tener CUANTAS
- * rutas quepan en su dia mientras ninguna se encime con otra. La regla vieja
- * comparaba `turno`, lo que en la practica era "un chofer, una ruta por
- * turno" y bloqueaba el caso normal de 04:00–05:00 mas 08:00–09:00.
- *
- * Quien llama filtra por chofer y por fecha, y excluye la propia fila cuando
- * reasigna. Aqui solo se comparan intervalos: dos asignaciones del MISMO
- * horario (una segunda vuelta) tienen las mismas horas y por lo tanto si se
- * superponen — el mismo chofer no puede manejar las dos.
+ * Traslape real de horarios, no de turnos. Quien llama filtra por chofer y fecha
+ * y excluye la propia fila al reasignar.
  */
 export function hayTraslape(
   asignacionesDelDia: AsignacionDelDiaParaChofer[],
@@ -77,10 +61,8 @@ export function camionDisponible(estado: string): boolean {
 }
 
 /**
- * La siguiente `secuencia` para un horario ya asignado ese dia: 1 si nadie lo
- * ha tomado, o la mas alta existente + 1. Es lo que permite una segunda
- * vuelta del mismo horario el mismo dia sin violar el unico
- * `(horario_id, fecha, secuencia)`.
+ * La siguiente `secuencia` del horario ese dia: permite una segunda vuelta sin
+ * violar el unico `(horario_id, fecha, secuencia)`.
  */
 export function siguienteSecuencia(secuenciasExistentes: number[]): number {
   return secuenciasExistentes.length === 0 ? 1 : Math.max(...secuenciasExistentes) + 1;
@@ -88,12 +70,8 @@ export function siguienteSecuencia(secuenciasExistentes: number[]): number {
 
 const fechaSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha invalida (YYYY-MM-DD)');
 
-// Sin `camionId` A PROPOSITO: el camion es una propiedad del chofer
-// (`usuario.camion_id`), no una eleccion del planeador. Quien asigna elige
-// UNICAMENTE el chofer y el servidor resuelve que camion le toca — es lo que
-// impide una asignacion "Juan + CAM-005" cuando Juan trae CAM-001. Aceptar
-// aqui un `camionId` del cliente seria justo la puerta por la que entra esa
-// inconsistencia, asi que el campo no existe en la entrada.
+// Sin `camionId` A PROPOSITO: el camion es propiedad del chofer
+// (`usuario.camion_id`); aceptarlo del cliente permitiria "Juan + CAM-005".
 export const asignarSchema = z.object({
   horarioId: idSchema,
   fecha: fechaSchema,

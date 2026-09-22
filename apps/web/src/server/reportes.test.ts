@@ -109,9 +109,8 @@ describe('reportes (paso 15) contra Postgres real', () => {
       },
     ]);
 
-    // A1: a tiempo (06:05, dentro de la tolerancia de ±10 min), origen app,
-    // y CON contadores — es la unica fila que debe entrar al promedio de
-    // ocupacion.
+    // A1: a tiempo, origen app y CON contadores — la unica fila que debe entrar
+    // al promedio de ocupacion.
     await db.insert(asignacion).values({
       id: asignacionA1Id,
       horarioId: horarioTempranoId,
@@ -134,9 +133,8 @@ describe('reportes (paso 15) contra Postgres real', () => {
       clientEventId: randomUUID(),
     });
 
-    // A2: mismo horario, otro dia del rango, SIN eventos y SIN contadores
-    // (cnt_abordaron/cnt_retornaron nulos) — la fila que un `sum()/count(*)`
-    // contaria mal como cero.
+    // A2: otro dia del rango, sin eventos ni contadores — la fila que un
+    // `sum()/count(*)` contaria mal como cero.
     await db.insert(asignacion).values({
       id: asignacionA2Id,
       horarioId: horarioTempranoId,
@@ -148,8 +146,7 @@ describe('reportes (paso 15) contra Postgres real', () => {
       createdBy: choferId,
     });
 
-    // B1: tarde (08:20 contra 08:00 esperado), origen supervisor, sin
-    // contadores tampoco — separa el desglose de origen del de A1.
+    // B1: tarde, origen supervisor y sin contadores — separa el desglose de A1.
     await db.insert(asignacion).values({
       id: asignacionB1Id,
       horarioId: horarioTardioId,
@@ -196,8 +193,8 @@ describe('reportes (paso 15) contra Postgres real', () => {
       const filas = await obtenerCumplimientoPorChofer(desde, hasta);
       const fila = filas.find((f) => f.choferId === choferId);
       expect(fila).toBeDefined();
-      // Si el codigo sumara los origenes en un solo contador, cualquiera de
-      // estas dos aserciones fallaria (el total combinado seria 2, no 1).
+      // Si el codigo sumara los origenes en un solo contador, el total combinado
+      // seria 2 y no 1.
       expect(fila?.app).toEqual({ total: 1, aTiempo: 1 });
       expect(fila?.supervisor).toEqual({ total: 1, aTiempo: 0 });
     });
@@ -229,13 +226,8 @@ describe('reportes (paso 15) contra Postgres real', () => {
   });
 
   describe('4. bitacora de ejecuciones — pantalla paginada', () => {
-    // Las pruebas de este describe no filtran por cliente ni por ruta a
-    // proposito — `listarBitacoraEjecuciones` es una consulta global por
-    // rango de fechas, igual que la produce el reporte real. Por eso nunca
-    // asumen un total EXACTO de filas (otro archivo de prueba corriendo en
-    // paralelo contra la misma base puede sembrar asignaciones en el mismo
-    // rango): solo verifican que las 3 filas propias aparecen, cada una una
-    // sola vez, recorriendo tantas paginas como haga falta.
+    // `listarBitacoraEjecuciones` es global por rango, y otro archivo puede sembrar
+    // en el mismo rango: nunca se asume un total exacto, solo las 3 filas propias.
     it('pagina por cursor: recorre todas las paginas sin repetir ninguna fila propia', async () => {
       const idsVistos: string[] = [];
       let cursor: string | undefined;
@@ -272,9 +264,8 @@ describe('reportes (paso 15) contra Postgres real', () => {
       expect(primerChunk.done).toBe(false);
       const textoPrimerChunk = decodificador.decode(primerChunk.value);
       expect(textoPrimerChunk.startsWith('fecha,ruta,turno,chofer,camion,')).toBe(true);
-      // El encabezado se encola en una sola pieza, antes de que el cursor de
-      // Postgres pida el primer lote: en este punto todavia no hay ninguna
-      // fila de datos en el chunk que se acaba de leer.
+      // El encabezado se encola antes de que el cursor pida el primer lote: aqui
+      // todavia no hay ninguna fila de datos.
       expect(textoPrimerChunk.split('\n').filter(Boolean)).toHaveLength(1);
 
       await lector.cancel();
@@ -297,10 +288,8 @@ describe('reportes (paso 15) contra Postgres real', () => {
           'inicio_ruta_en,inicio_ruta_origen,fin_ruta_en,fin_ruta_origen,cnt_abordaron,' +
           'retorno_en,retorno_origen,cnt_retornaron',
       );
-      // No se asume un total exacto de lineas (ver el comentario del
-      // describe anterior): solo que las 3 propias, identificadas por el
-      // nombre de ruta unico de este archivo, esten ahi con los datos
-      // correctos.
+      // No se asume un total exacto (ver el describe anterior): solo que las 3
+      // propias esten ahi con sus datos.
       const lineasPropias = lineas.filter((l) => l.includes('Ruta de prueba (reportes)'));
       expect(lineasPropias).toHaveLength(3);
       const filaConAbordaron = lineasPropias.find((l) => l.includes(',18,'));

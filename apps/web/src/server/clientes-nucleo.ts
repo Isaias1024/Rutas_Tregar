@@ -1,7 +1,5 @@
-// Sin `'use server'` a proposito (ver rutas-nucleo.ts, paradas-nucleo.ts): el
-// nucleo recibe el actor ya autorizado y no toca `next/headers`, para que
-// `catalogos.ts` sea el unico endpoint real y esta regla se pueda probar
-// contra Postgres sin una peticion real de Next.
+// Sin `'use server'` a proposito (ver rutas-nucleo.ts): recibe el actor ya
+// autorizado y no toca `next/headers`, asi se prueba contra Postgres sin Next.
 import type { Resultado } from '@rutas/shared';
 import { cliente, db, ruta } from '@rutas/shared/db';
 import { and, asc, eq, isNull } from 'drizzle-orm';
@@ -25,10 +23,8 @@ export async function borrarClienteNucleo(
   actorId: string,
   id: string,
 ): Promise<Resultado<{ id: string }>> {
-  // `isNull(deleted_at)` no es decorativo: sin el, borrar dos veces la misma
-  // fila respondia `ok` la segunda vez y el panel acusaba "eliminado
-  // correctamente" sobre algo que ya no existia. Pasa de verdad: dos pestanas
-  // abiertas, o una lista que quedo vieja.
+  // Sin `isNull(deleted_at)`, borrar dos veces respondia `ok` la segunda y el
+  // panel acusaba "eliminado" sobre algo que ya no existia.
   const [antes] = await db
     .select()
     .from(cliente)
@@ -38,10 +34,8 @@ export async function borrarClienteNucleo(
     return NO_ENCONTRADO;
   }
 
-  // Un cliente con rutas vivas no se borra: cada una de esas rutas quedaria
-  // apuntando (via FK `restrict`) a un cliente que ninguna pantalla resuelve,
-  // y los reportes por cliente perderian su encabezado. Un cliente cuyas rutas
-  // ya se retiraron si se puede ir.
+  // Un cliente con rutas vivas no se borra: esas rutas quedarian apuntando a un
+  // cliente que ninguna pantalla resuelve y los reportes perderian encabezado.
   const enUso = await rutasDeCliente(id);
   if (enUso.length > 0) {
     const nombres = enUso.map((r) => r.nombre).join(', ');

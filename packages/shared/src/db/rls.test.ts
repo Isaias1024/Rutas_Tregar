@@ -5,15 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { db } from './index.ts';
 import { asignacion, camion, cliente, evento, horario, parada, ruta, usuario } from './schema.ts';
 
-// Pruebas de aislamiento (§8, §9 paso 2): el chofer A jamas debe leer ni
-// escribir datos del chofer B, y ningun rol — ni siquiera el dueno de un
-// evento — puede actualizarlo o borrarlo. Las cuatro operaciones deben
-// fallar.
-//
-// Se simula lo que hace PostgREST al recibir un JWT (fija `request.jwt.claims`
-// y opera como el rol `authenticated`) en una conexion Postgres nueva, sin
-// pasar por HTTP ni por el servicio de Auth: es la misma comprobacion, mucho
-// mas rapida y sin flakiness de red.
+// Pruebas de aislamiento: el chofer A jamas debe leer ni escribir datos del
+// chofer B, y ningun rol puede actualizar ni borrar un evento.
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -45,8 +38,8 @@ describe('rls: aislamiento entre choferes', () => {
   const eventoAId = randomUUID();
 
   beforeAll(async () => {
-    // Fixtures creados con el cliente de servicio: es el dueno de las
-    // tablas y por lo tanto bypassa RLS, igual que el panel en produccion.
+    // Fixtures con el cliente de servicio: es dueno de las tablas y bypassa
+    // RLS, igual que el panel en produccion.
     await db.execute(sql`insert into auth.users (id) values (${choferAId}), (${choferBId})`);
 
     await db.insert(cliente).values({ id: clienteId, nombre: 'Cliente de prueba RLS' });
@@ -124,10 +117,8 @@ describe('rls: aislamiento entre choferes', () => {
   });
 
   afterAll(async () => {
-    // Por rango, no por `eventoAId`: el grupo de auditoria de seguridad (mas
-    // abajo) inserta sus propios eventos y filas de `audit_log` via el
-    // trigger `asignacion_auditar_contadores`, con ids que este bloque no
-    // conoce.
+    // Por rango, no por `eventoAId`: el grupo de auditoria de mas abajo inserta
+    // sus propias filas de `audit_log` con ids que este bloque no conoce.
     await db.execute(
       sql`delete from audit_log where recurso_id in (${asignacionAId}, ${asignacionBId})`,
     );
@@ -197,12 +188,8 @@ describe('rls: aislamiento entre choferes', () => {
   });
 
   it('el chofer A puede registrar cnt_abordaron en su propia asignacion, DESPUES de marcar fin_ruta', async () => {
-    // Refleja el flujo real de dos pasos del outbox
-    // (apps/mobile/src/outbox/flusher.ts): primero el evento, aparte el
-    // contador. `asignacion_update_contadores_propios` (auditoria de
-    // seguridad, post paso 16) exige que el evento ya exista antes de
-    // aceptar el contador — sin este insert previo, la prueba de abajo
-    // fallaria contra la politica nueva, no solo contra la vieja.
+    // Refleja el flujo de dos pasos del outbox: primero el evento, aparte el
+    // contador, que la politica solo acepta si el evento ya existe.
     await db.insert(evento).values({
       id: randomUUID(),
       asignacionId: asignacionAId,
@@ -239,12 +226,8 @@ describe('rls: aislamiento entre choferes', () => {
   });
 
   it('el chofer B NO puede registrar cnt_abordaron en su PROPIA asignacion sin haber marcado fin_ruta', async () => {
-    // asignacionB no tiene ningun evento sembrado: prueba el hueco en si
-    // (contador sin evento), separado de la prueba de aislamiento
-    // cross-chofer de mas abajo. A diferencia de un `USING` que excluye la
-    // fila (0 filas, sin error), aqui la fila SI es visible/editable por
-    // `USING` — es el `WITH CHECK` sobre el resultado el que la rechaza, y
-    // eso Postgres lo reporta como una excepcion, no como 0 filas.
+    // asignacionB no tiene eventos: `USING` deja ver la fila y es el `WITH CHECK`
+    // el que la rechaza, por eso Postgres lanza excepcion en vez de 0 filas.
     const comoB = await comoUsuario(choferBId);
     await expect(
       comoB`update asignacion set cnt_abordaron = 7 where id = ${asignacionBId}`,
@@ -277,11 +260,8 @@ describe('rls: aislamiento entre choferes', () => {
   });
 });
 
-// Auditoria de seguridad (post paso 16): el `evento_insert_chofer` original
-// solo comprobaba la propiedad de la asignacion, nunca `origen` ni
-// `capturado_por` ni el orden de los cinco pasos — un JWT de chofer robado, o
-// un cliente movil modificado, podia mandar directo a PostgREST un evento con
-// `origen: 'supervisor'`, `capturado_por` de otra persona, o fuera de orden.
+// Auditoria de seguridad: `evento_insert_chofer` solo comprobaba la propiedad
+// de la asignacion, no `origen`, `capturado_por` ni el orden de los pasos.
 describe('rls: el trigger de evento fuerza origen/capturado_por y el orden', () => {
   const clienteId = randomUUID();
   const paradaInicioId = randomUUID();
@@ -376,7 +356,7 @@ describe('rls: el trigger de evento fuerza origen/capturado_por y el orden', () 
 
   it('un evento con capturado_por de otra persona queda forzado al propio auth.uid()', async () => {
     // El "vio_ruta" de la prueba anterior ya ocupo ese paso; este usa el
-    // siguiente de la secuencia (listo_inicio) para no chocar con el orden.
+    // siguiente de la secuencia para no chocar con el orden.
     const comoChofer = await comoUsuario(choferId);
     await comoChofer`
       insert into evento (asignacion_id, tipo, ocurrio_en, origen, capturado_por, client_event_id)
@@ -389,8 +369,7 @@ describe('rls: el trigger de evento fuerza origen/capturado_por y el orden', () 
   });
 
   it('un chofer no puede saltarse un paso (marcar fin_ruta sin inicio_ruta)', async () => {
-    // Van registrados vio_ruta y listo_inicio (pruebas anteriores); falta
-    // inicio_ruta antes de fin_ruta.
+    // Van registrados vio_ruta y listo_inicio; falta inicio_ruta antes de fin_ruta.
     const comoChofer = await comoUsuario(choferId);
     await expect(
       comoChofer`
@@ -402,12 +381,8 @@ describe('rls: el trigger de evento fuerza origen/capturado_por y el orden', () 
   });
 
   it('un chofer no puede repetir un paso ya marcado (vio_ruta otra vez)', async () => {
-    // Rechazado por el UNIQUE evento_asignacion_tipo_key, no por el trigger
-    // de orden: un `tipo` que ya existe se deja pasar sin validar orden a
-    // proposito (es el mismo camino que produce un reintento idempotente del
-    // outbox), asi que este repetido cae en el mismo mecanismo de siempre —
-    // el resultado final (rechazado) es igual, cambia solo cual restriccion
-    // lo atrapa.
+    // Lo atrapa el UNIQUE evento_asignacion_tipo_key, no el trigger de orden: un
+    // `tipo` repetido se deja pasar sin validar orden (reintento del outbox).
     const comoChofer = await comoUsuario(choferId);
     await expect(
       comoChofer`
@@ -431,10 +406,8 @@ describe('rls: el trigger de evento fuerza origen/capturado_por y el orden', () 
   });
 
   it('la captura manual del supervisor (connection de servicio) NO pasa por el trigger de orden ni de origen', async () => {
-    // auth.uid() es null en la connection de servicio: el trigger deja
-    // origen/capturado_por/orden tal cual los mando la server action — esto
-    // es lo que permite que apps/web/src/server/monitor.ts rellene un hueco
-    // fuera de orden con origen='supervisor' a proposito.
+    // auth.uid() es null en la conexion de servicio: el trigger respeta
+    // origen/capturado_por/orden, que es como monitor.ts rellena huecos.
     const idEvento = randomUUID();
     await db.insert(evento).values({
       id: idEvento,
@@ -451,14 +424,8 @@ describe('rls: el trigger de evento fuerza origen/capturado_por y el orden', () 
   });
 });
 
-// Regresion: `tipo_evento` declara fin_ruta_incidente entre fin_ruta y
-// retorno, y el computo ordinal de "siguiente paso esperado" en
-// evento_validar_insert_chofer() lo trataba como un paso mas de la
-// secuencia. Consecuencia real: tras un fin_ruta normal, el trigger insistia
-// en que el siguiente evento tenia que ser fin_ruta_incidente y rechazaba
-// TODO retorno normal con "evento fuera de orden" — ninguna ruta se podia
-// cerrar sin incidente por este camino. Cada test usa su propia asignacion
-// para no interferir con la secuencia del describe de arriba.
+// Regresion: el ordinal de "siguiente paso esperado" contaba
+// fin_ruta_incidente, y asi ningun retorno normal podia cerrar una ruta.
 describe('rls: fin_ruta_incidente es una excepcion al orden, no un paso mas', () => {
   const clienteId = randomUUID();
   const paradaInicioId = randomUUID();
@@ -549,9 +516,8 @@ describe('rls: fin_ruta_incidente es una excepcion al orden, no un paso mas', ()
       `;
     }
 
-    // Esta es la regresion exacta del bug: antes de la correccion, el
-    // trigger rechazaba este insert porque calculaba fin_ruta_incidente
-    // como el "siguiente paso esperado".
+    // La regresion exacta: el trigger esperaba fin_ruta_incidente como
+    // siguiente paso y rechazaba este insert.
     await comoChofer`
       insert into evento (asignacion_id, tipo, ocurrio_en, origen, capturado_por, client_event_id)
       values (${asignacionId}, 'retorno', now(), 'app', ${choferId}, ${randomUUID()})
@@ -621,9 +587,8 @@ describe('rls: fin_ruta_incidente es una excepcion al orden, no un paso mas', ()
   });
 });
 
-// Auditoria de seguridad (post paso 16): antes, un chofer podia corregir sus
-// propios contadores via PostgREST sin dejar ningun rastro en `audit_log` —
-// solo el camino del panel (server action) lo auditaba.
+// Auditoria de seguridad: un chofer podia corregir sus contadores via PostgREST
+// sin rastro en `audit_log`; solo el camino del panel auditaba.
 describe('rls: el trigger de auditoria registra las correcciones directas del chofer', () => {
   const clienteId = randomUUID();
   const paradaInicioId = randomUUID();
@@ -726,9 +691,8 @@ describe('rls: el trigger de auditoria registra las correcciones directas del ch
   });
 
   it('una escritura del panel (connection de servicio) NO dispara el trigger de auditoria por duplicado', async () => {
-    // auth.uid() es null: el trigger no inserta nada, porque esa escritura
-    // ya pasa por registrarAuditoria() en la misma transaccion de TypeScript
-    // — insertar aqui tambien duplicaria la bitacora.
+    // auth.uid() es null: el trigger no inserta nada porque registrarAuditoria()
+    // ya audita esa escritura en la misma transaccion.
     await db.update(asignacion).set({ cntRetornaron: 20 }).where(sql`id = ${asignacionId}`);
     const filas = await db.execute<{ accion: string }>(
       sql`select accion from audit_log where recurso_tipo = 'asignacion' and recurso_id = ${asignacionId}`,
@@ -738,11 +702,8 @@ describe('rls: el trigger de auditoria registra las correcciones directas del ch
   });
 });
 
-// Auditoria de seguridad (post paso 16): antes, dar de baja a un chofer
-// (apps/web/src/server/baja-nucleo.ts) solo bloqueaba el panel web
-// (`proxy.ts`); nada en RLS comprobaba `usuario.activo`/`deleted_at`, asi que
-// un JWT ya emitido seguia funcionando contra PostgREST hasta que expirara
-// por su cuenta o el baneo (best-effort, con error silenciado) tuviera exito.
+// Auditoria de seguridad: nada en RLS comprobaba `usuario.activo`/`deleted_at`,
+// asi que un JWT ya emitido seguia sirviendo contra PostgREST tras la baja.
 describe('rls: una cuenta desactivada pierde acceso de inmediato, sin depender del baneo de Auth', () => {
   const clienteId = randomUUID();
   const paradaInicioId = randomUUID();

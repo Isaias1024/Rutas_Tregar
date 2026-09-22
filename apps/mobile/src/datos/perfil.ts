@@ -1,12 +1,8 @@
 import { supabase } from '@/lib/supabase';
 
 /**
- * El perfil que la app puede mostrar, y nada mas.
- *
- * No hay correo a proposito: el chofer entra con credencial y el correo
- * determinista que exige Supabase se sintetiza en `lib/credencial.ts` — no
- * aparece jamas en la UI (§ movil-expo.md). Tampoco hay foto: `perfil_personal`
- * no guarda ninguna, asi que el avatar se dibuja con las iniciales.
+ * El perfil que la app puede mostrar. Sin correo (el chofer entra con credencial)
+ * y sin foto: `perfil_personal` no guarda ninguna, el avatar son las iniciales.
  */
 export interface PerfilChofer {
   nombre: string;
@@ -21,11 +17,8 @@ interface FilaUsuario {
 }
 
 /**
- * `perfil_personal` y `usuario` se consultan por separado porque son dos
- * politicas RLS distintas (`perfil_personal_select_propio` y
- * `usuario_select_propio`), cada una con su propio `auth.uid()`. Un fallo en
- * cualquiera de las dos deja el campo vacio en vez de tumbar la pantalla: el
- * perfil es informativo y no vale reventarlo por un dato faltante.
+ * `perfil_personal` y `usuario` van por separado porque son dos politicas RLS
+ * distintas. Un fallo en una deja el campo vacio en vez de tumbar la pantalla.
  */
 export async function obtenerPerfil(usuarioId: string): Promise<PerfilChofer | null> {
   const [respuestaPerfil, respuestaUsuario] = await Promise.all([
@@ -56,8 +49,7 @@ export async function obtenerPerfil(usuarioId: string): Promise<PerfilChofer | n
 
 /**
  * El telefono es la UNICA columna que el chofer puede escribir de su perfil:
- * `grant update (telefono) on perfil_personal` en rls.sql. Intentar cualquier
- * otra la rechaza Postgres, no esta funcion.
+ * cualquier otra la rechaza Postgres, no esta funcion.
  */
 export async function actualizarTelefono(
   usuarioId: string,

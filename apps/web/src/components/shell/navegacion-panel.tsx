@@ -33,9 +33,8 @@ interface Enlace {
   roles: readonly Rol[];
 }
 
-// Admin y supervisor ven casi el mismo menu: la unica diferencia es
-// /catalogos/supervisores, que solo el admin ve — es la pantalla de
-// 'crear_supervisor' en @/lib/authz/can.
+// La unica diferencia entre el menu de admin y el de supervisor es
+// /catalogos/supervisores, la pantalla de 'crear_supervisor'.
 const GRUPOS: ReadonlyArray<{ titulo: string; enlaces: readonly Enlace[] }> = [
   {
     titulo: 'Operacion',

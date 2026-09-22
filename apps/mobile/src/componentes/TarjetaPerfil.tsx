@@ -27,14 +27,8 @@ interface Props {
 }
 
 /**
- * Identidad del chofer y su camion.
- *
- * El avatar son iniciales sobre el verde de marca: `perfil_personal` no guarda
- * ninguna foto, y pedir una para llenar un hueco visual seria pedir un dato
- * personal que la operacion no necesita.
- *
- * No aparece ningun correo: el chofer entra con credencial y el correo
- * sintetico que exige Supabase no se muestra jamas (§ movil-expo.md).
+ * El avatar son iniciales: pedir una foto seria pedir un dato personal que la
+ * operacion no necesita. Y el correo sintetico de Supabase no se muestra jamas.
  */
 export function TarjetaPerfil({ perfil }: Props) {
   return (

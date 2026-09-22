@@ -2,9 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import { correoDesdeCredencial } from './credencial';
 
-// Unico cliente de Supabase de la app. La sesion vive en expo-secure-store
-// (cifrado por el sistema operativo), nunca en AsyncStorage: es lo que deja
-// reabrir la app sin volver a pedir credenciales (Done-when del paso 8).
+// Unico cliente de Supabase de la app. La sesion vive en expo-secure-store,
+// nunca en AsyncStorage: es lo que deja reabrir la app sin pedir credenciales.
 const almacenSeguro = {
   getItem: (clave: string) => SecureStore.getItemAsync(clave),
   setItem: (clave: string, valor: string) => SecureStore.setItemAsync(clave, valor),
@@ -29,10 +28,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// El chofer solo teclea credencial y contrasena — la sintesis del correo
-// interno queda encapsulada aqui para que `login.tsx` nunca tenga que
-// nombrarla (Verify del paso 8 lo comprueba: `login.tsx` no puede mencionar
-// "correo" en ningun lado, ni siquiera en el nombre de un import).
+// El chofer solo teclea credencial y contrasena: la sintesis del correo interno
+// queda encapsulada aqui para que `login.tsx` nunca tenga que nombrarla.
 export function iniciarSesionConCredencial(credencial: string, contrasena: string) {
   return supabase.auth.signInWithPassword({
     email: correoDesdeCredencial(credencial),

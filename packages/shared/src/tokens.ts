@@ -1,8 +1,6 @@
 /**
- * Tokens del sistema de diseno (§7) como valores planos.
- *
- * Nunca un archivo de config de Tailwind compartido: el panel usa Tailwind 4 y la
- * app Tailwind 3.4, y lo unico que puede cruzar esa frontera son numeros y cadenas.
+ * Tokens del sistema de diseno como valores planos: el panel usa Tailwind 4 y la
+ * app Tailwind 3.4, y lo unico que cruza esa frontera son numeros y cadenas.
  */
 
 export const colores = {
@@ -60,16 +58,8 @@ export const sombra = {
 } as const;
 
 /**
- * Los seis estados del semaforo, como pastilla solida de color pleno.
- *
- * `bg` es el relleno y `fg` el texto encima; el par ya viene contrastado, no se
- * mezclan con otro. `icono` se conserva como parte del vocabulario compartido y
- * lo usa la app del chofer; el panel pinta solo texto sobre el relleno.
- *
- * Los cinco primeros describen puntualidad o avance. `incidente` es de otra
- * naturaleza: es terminal y no habla de la hora — la ruta se cerro sin
- * completarse. Por eso lleva el rojo mas oscuro del sistema y no el `#DC2626`
- * de `tarde`: una ruta tarde llego, esta no.
+ * Los seis estados como pastilla solida, con `bg`/`fg` ya contrastados.
+ * `incidente` es terminal y no habla de la hora: por eso el rojo mas oscuro.
  */
 export type EstadoSemaforo =
   | 'pendiente'

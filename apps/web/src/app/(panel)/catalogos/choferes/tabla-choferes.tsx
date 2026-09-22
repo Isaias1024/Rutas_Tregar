@@ -87,9 +87,8 @@ export function TablaChoferes({
   const [pendiente, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [credencialesNuevas, setCredencialesNuevas] = useState<CredencialesNuevas | null>(null);
-  // Las dos acciones destructivas comparten un solo dialogo: `borrar` es la
-  // baja logica del catalogo y `dar_de_baja` es la de la LFPDPPP, que ademas
-  // borra los datos personales. Se distinguen aqui, no en dos estados sueltos.
+  // Un solo dialogo para las dos acciones destructivas: `borrar` es la baja del
+  // catalogo y `dar_de_baja` la de la LFPDPPP, que ademas borra datos personales.
   const [porConfirmar, setPorConfirmar] = useState<{
     chofer: Chofer;
     tipo: 'borrar' | 'baja';

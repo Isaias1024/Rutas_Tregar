@@ -6,10 +6,8 @@ import { listarMonitorDelDia, registrarIncidenteManual } from './monitor.ts';
 import { asignarNucleo } from './planeador-nucleo.ts';
 import { borrarRutaNucleo, desactivarHorarioNucleo } from './rutas-nucleo.ts';
 
-// "Reglas para Backend — Rutas, Asignaciones y Monitoreo", Caso 2: una ruta
-// eliminada (o un horario desactivado) no debe seguir apareciendo en Monitor
-// aunque su asignacion siga con `cancelada_en` nulo — Monitor consulta el
-// estado actual de `ruta`/`horario` en vivo, nunca una copia.
+// Una ruta eliminada o un horario desactivado no debe seguir apareciendo en
+// Monitor, aunque su asignacion siga con `cancelada_en` nulo.
 describe('monitor: una ruta borrada o un horario desactivado desaparece del monitor del dia', () => {
   const actorId = randomUUID();
   const choferId = randomUUID();
@@ -95,8 +93,8 @@ describe('monitor: una ruta borrada o un horario desactivado desaparece del moni
     const borrado = await borrarRutaNucleo(actorId, rutaId);
     expect(borrado.ok).toBe(true);
 
-    // La fila sigue existiendo y sigue sin cancelar: es la fuente unica de
-    // verdad la que cambio (la ruta), no la asignacion.
+    // La fila sigue existiendo y sin cancelar: lo que cambio es la ruta, que es
+    // la fuente de verdad.
     const [filaAsignacion] = await db
       .select({ canceladaEn: asignacion.canceladaEn })
       .from(asignacion)
@@ -198,11 +196,8 @@ describe('monitor: desactivar un horario tambien lo saca de Monitor sin tocar la
   });
 });
 
-// `registrarIncidenteManual` parsea con zod ANTES de resolver el actor
-// (`obtenerUsuarioActual`, que necesita `next/headers` y no existe fuera de
-// una peticion real de Next). Con entrada invalida la funcion nunca llega a
-// intentar leer la sesion, asi que se puede probar aqui — mismo truco que
-// usa rutas.test.ts.
+// `registrarIncidenteManual` parsea con zod ANTES de resolver el actor, asi que
+// con entrada invalida nunca llega a `next/headers` y se puede probar aqui.
 describe('registrarIncidenteManual: rechaza entrada invalida antes de tocar sesion o base', () => {
   it('exige la razon del incidente', async () => {
     const resultado = await registrarIncidenteManual({

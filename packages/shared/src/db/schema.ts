@@ -20,18 +20,15 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-// FUENTE UNICA del esquema (§4). Doce tablas, seis enums.
+// FUENTE UNICA del esquema: doce tablas, seis enums.
 
-// --- Referencia de solo lectura a auth.users ---------------------------------
-// Drizzle solo administra el esquema `public` (drizzle.config.ts, schemaFilter).
-// Esta declaracion existe unicamente para que `usuario.id` pueda referenciar la
-// fila real que crea Supabase Auth; drizzle-kit jamas emite DDL para ella.
+// Drizzle solo administra el esquema `public`: esta declaracion existe para que
+// `usuario.id` referencie la fila de Supabase Auth, y nunca emite DDL.
 const authSchema = pgSchema('auth');
 export const authUsers = authSchema.table('users', {
   id: uuid('id').primaryKey(),
 });
 
-// --- Enums --------------------------------------------------------------------
 export const rolEnum = pgEnum('rol', ['admin', 'supervisor', 'chofer']);
 export const turnoEnum = pgEnum('turno', ['manana', 'tarde', 'noche']);
 export const estadoCamionEnum = pgEnum('estado_camion', [
@@ -61,7 +58,6 @@ export const tipoNotificacionEnum = pgEnum('tipo_notificacion', [
   'alerta_retraso',
 ]);
 
-// --- cliente --------------------------------------------------------------
 export const cliente = pgTable('cliente', {
   id: uuid('id').primaryKey().defaultRandom(),
   nombre: text('nombre').notNull(),
@@ -70,7 +66,6 @@ export const cliente = pgTable('cliente', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// --- camion -----------------------------------------------------------------
 // Declarado antes de `usuario` porque `usuario.camion_id` lo referencia.
 export const camion = pgTable('camion', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -82,7 +77,6 @@ export const camion = pgTable('camion', {
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
-// --- usuario ------------------------------------------------------------------
 // `id` ES `auth.users.id`: una sola identidad, no dos tablas que se sincronizan.
 export const usuario = pgTable('usuario', {
   id: uuid('id')
@@ -98,7 +92,6 @@ export const usuario = pgTable('usuario', {
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
-// --- perfil_personal ----------------------------------------------------------
 // Tabla separada a proposito: la baja vacia esta tabla y conserva `usuario`.
 export const perfilPersonal = pgTable('perfil_personal', {
   usuarioId: uuid('usuario_id')
@@ -110,7 +103,6 @@ export const perfilPersonal = pgTable('perfil_personal', {
   actualizadoEn: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// --- parada ---------------------------------------------------------------
 export const parada = pgTable('parada', {
   id: uuid('id').primaryKey().defaultRandom(),
   nombre: text('nombre').notNull(),
@@ -121,9 +113,7 @@ export const parada = pgTable('parada', {
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
-// --- ruta -----------------------------------------------------------------
-// La plantilla del trayecto: cliente, nombre y las dos paradas. Turno, horas
-// esperadas y cupo viven en `horario`.
+// La plantilla del trayecto. Turno, horas esperadas y cupo viven en `horario`.
 export const ruta = pgTable('ruta', {
   id: uuid('id').primaryKey().defaultRandom(),
   clienteId: uuid('cliente_id')
@@ -140,10 +130,8 @@ export const ruta = pgTable('ruta', {
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
-// --- horario ----------------------------------------------------------------
-// Una salida programada de una ruta. Una ruta puede tener varios horarios,
-// incluso dentro del mismo turno (la ruta 10 a las 06:00 y otra vez a las
-// 08:00, ambas en `manana`, cada una con su propio chofer via `asignacion`).
+// Una salida programada. Una ruta puede tener varios horarios, incluso dentro
+// del mismo turno, cada uno con su chofer via `asignacion`.
 export const horario = pgTable(
   'horario',
   {
@@ -161,7 +149,6 @@ export const horario = pgTable(
   (t) => [index('horario_ruta_id_idx').on(t.rutaId)],
 );
 
-// --- asignacion -----------------------------------------------------------
 // Una ejecucion concreta de un horario, un dia, por un chofer, en un camion.
 export const asignacion = pgTable(
   'asignacion',
@@ -196,9 +183,7 @@ export const asignacion = pgTable(
   ],
 );
 
-// --- evento -----------------------------------------------------------------
-// El hito marcado. Append-only: jamas un UPDATE, jamas un DELETE (impuesto por
-// RLS en rls.sql, no solo por convencion).
+// Append-only: jamas un UPDATE, jamas un DELETE (impuesto por RLS en rls.sql).
 export const evento = pgTable(
   'evento',
   {
@@ -227,7 +212,6 @@ export const evento = pgTable(
   ],
 );
 
-// --- dispositivo --------------------------------------------------------------
 // El telefono registrado para push. Re-registrar reemplaza, no duplica.
 export const dispositivo = pgTable(
   'dispositivo',
@@ -244,9 +228,7 @@ export const dispositivo = pgTable(
   (t) => [unique('dispositivo_usuario_id_token_key').on(t.usuarioId, t.expoPushToken)],
 );
 
-// --- notificacion_programada ---------------------------------------------
-// La cola del worker. `enviado_en` se marca ANTES de enviar: un reinicio no
-// duplica.
+// La cola del worker. `enviado_en` se marca ANTES de enviar: un reinicio no duplica.
 export const notificacionProgramada = pgTable(
   'notificacion_programada',
   {
@@ -269,7 +251,6 @@ export const notificacionProgramada = pgTable(
   ],
 );
 
-// --- audit_log ------------------------------------------------------------
 // Append-only, escrito en la misma transaccion que la mutacion que registra.
 export const auditLog = pgTable(
   'audit_log',

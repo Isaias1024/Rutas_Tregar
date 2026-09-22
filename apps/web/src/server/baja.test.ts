@@ -81,8 +81,8 @@ describe('bajaEmpleadoNucleo (paso 16) contra Postgres real', () => {
   }
 
   beforeAll(async () => {
-    // `actorId` es estable en toda la suite: tiene que ser un `usuario` real
-    // porque `audit_log.actor_id` lleva FK NOT NULL contra esa tabla.
+    // `actorId` tiene que ser un `usuario` real: `audit_log.actor_id` lleva FK
+    // NOT NULL contra esa tabla.
     await db.execute(sql`insert into auth.users (id) values (${actorId})`);
     await db.insert(usuario).values({
       id: actorId,
@@ -202,11 +202,8 @@ describe('bajaEmpleadoNucleo (paso 16) contra Postgres real', () => {
     const { choferId, asignacionId } = await sembrarEmpleado();
     const actorInexistente = randomUUID();
 
-    // `audit_log.actor_id` tiene FK NOT NULL contra `usuario.id`: un actor
-    // sin fila ahi hace que el INSERT de la bitacora, ultimo paso de la
-    // transaccion, viole la restriccion — la prueba real de que "falla
-    // completa" no es solo un enunciado, es que perfil_personal, dispositivo
-    // y usuario.deleted_at quedan exactamente como estaban antes de intentar.
+    // Con un actor sin fila en `usuario`, el INSERT de la bitacora —ultimo paso
+    // de la transaccion— viola la FK: asi se comprueba que la baja falla completa.
     await expect(bajaEmpleadoNucleo(actorInexistente, choferId)).rejects.toThrow();
 
     const [perfil] = await db

@@ -137,9 +137,8 @@ describe('derivarEstado', () => {
   });
 
   it('con fin_ruta_incidente despues de inicio_ruta: incidente, no en_curso ni puntualidad', () => {
-    // Antes de esta correccion el monitor solo miraba `inicio_ruta` y
-    // devolvia el estado de puntualidad normal, escondiendo que la ruta ya
-    // habia cerrado por incidente.
+    // Antes de esta correccion solo se miraba `inicio_ruta` y se devolvia la
+    // puntualidad normal, escondiendo que la ruta ya habia cerrado por incidente.
     const resultado = derivarEstado({
       eventos: [
         eventoInicioRuta('06:04'),
@@ -207,9 +206,8 @@ describe('distanciaEnMetros / ubicacionEsCorrecta', () => {
 
 describe('interpretarHoraLocal', () => {
   it('interpreta un texto de datetime-local como instante en America/Mexico_City', () => {
-    // Mexico_City es UTC-6 en agosto (sin horario de verano desde 2022): las
-    // 06:30 locales son las 12:30 UTC. `getTime()` compara el instante real
-    // (el epoch), sin depender de en que formato de zona lo imprima TZDate.
+    // `getTime()` compara el instante real, sin depender de en que formato de
+    // zona lo imprima TZDate.
     const instante = interpretarHoraLocal('2026-08-10T06:30');
     expect(instante?.getTime()).toBe(new Date('2026-08-10T12:30:00.000Z').getTime());
   });

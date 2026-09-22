@@ -34,10 +34,8 @@ interface Props {
   actores: ActorFiltro[];
 }
 
-// La bitacora de auditoria (§9 paso 16): la unica superficie, junto con el
-// reporte de ejecuciones, paginada por cursor (§5). Filtros por recurso y
-// por actor, ambos aplicados en el servidor — nunca se trae toda la tabla
-// para filtrar en el cliente.
+// Paginada por cursor, como el reporte de ejecuciones. Los filtros se aplican en
+// el servidor: nunca se trae toda la tabla para filtrar en el cliente.
 export function BitacoraCliente({ actores }: Props) {
   const [recursoTipo, setRecursoTipo] = useState('');
   const [actorId, setActorId] = useState(TODOS);

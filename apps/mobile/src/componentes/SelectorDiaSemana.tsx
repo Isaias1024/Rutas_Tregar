@@ -27,15 +27,8 @@ function partes(fecha: string): { etiqueta: string; numero: number } {
 }
 
 /**
- * La semana como una fila de dias tocables, con el conteo de rutas debajo.
- *
- * Va en `ScrollView` horizontal en vez de repartir siete columnas fijas: en un
- * telefono chico siete celdas quedan tan estrechas que el numero se corta, y
- * la regla es que no haya medidas fijas que rompan en pantallas pequenas.
- *
- * El dia elegido se rellena de verde; el dia de HOY, cuando no es el elegido,
- * queda marcado con un punto. Son dos senales distintas porque son dos cosas
- * distintas — "lo que estoy viendo" y "el dia en que vivo".
+ * En `ScrollView` horizontal y no en siete columnas fijas, donde el numero se
+ * corta. El dia elegido se rellena; HOY lleva un punto: son dos cosas distintas.
  */
 export function SelectorDiaSemana({ dias, fechaSeleccionada, hoy, onSeleccionar }: Props) {
   return (

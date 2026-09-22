@@ -59,10 +59,8 @@ export default function RootLayout() {
   useEffect(() => {
     let activo = true;
 
-    // Sesion y perfil se actualizan juntos, en un solo `setCargando(false)`
-    // al final: si se actualizaran por separado, el efecto de abajo veria un
-    // instante con `session` ya puesta pero `usuario` todavia null y
-    // redirigiria a home antes de tiempo.
+    // Sesion y perfil se publican juntos: por separado, el efecto de abajo veria
+    // `session` puesta con `usuario` aun null y redirigiria antes de tiempo.
     async function sincronizar(nuevaSesion: Session | null) {
       setCargando(true);
       const usuarioCargado = nuevaSesion ? await cargarUsuario(nuevaSesion.user.id) : null;
@@ -89,8 +87,7 @@ export default function RootLayout() {
   }, []);
 
   // `useGlobalSearchParams` y no `useLocalSearchParams`: este layout no es la
-  // pantalla duena del parametro, y solo el global se actualiza cuando la ruta
-  // activa es una hija.
+  // pantalla duena del parametro, y solo el global se actualiza desde una hija.
   const { voluntario } = useGlobalSearchParams<{ voluntario?: string }>();
   const cambioVoluntario = voluntario === '1';
 
@@ -116,21 +113,15 @@ export default function RootLayout() {
       return;
     }
 
-    // Ojo con la condicion de `cambiar-password`. Esta pantalla tiene DOS
-    // entradas: la forzada del primer ingreso, de la que hay que salir sola en
-    // cuanto `debeCambiarPassword` se apaga, y la voluntaria desde Perfil, que
-    // llega con `?voluntario=1`. Sin distinguirlas, este `replace` expulsaba a
-    // "hoy" a quien tocaba "Cambiar contrasena" teniendo la columna en `false`
-    // —o sea, siempre— y la pantalla no alcanzaba a verse.
+    // `cambiar-password` tiene dos entradas: sin distinguir la voluntaria
+    // (`?voluntario=1`), este `replace` expulsaba a "hoy" antes de verse.
     if (enLogin || (enCambiarPassword && !cambioVoluntario)) {
       router.replace('/');
     }
   }, [cargando, session, usuario, segmentos, cambioVoluntario, router]);
 
-  // Se registra una vez que hay sesion utilizable (no mientras falta
-  // cambiar la contrasena): pide permiso, obtiene el token de Expo y lo
-  // manda al panel (paso 14). Un fallo aqui (sin permiso, sin red) no debe
-  // impedir el uso de la app, por eso no hay manejo de error visible.
+  // Solo con sesion utilizable, y sin manejo de error visible: un fallo de
+  // permiso o de red no debe impedir el uso de la app.
   useEffect(() => {
     if (usuario && !usuario.debeCambiarPassword) {
       registrarDispositivoPush();

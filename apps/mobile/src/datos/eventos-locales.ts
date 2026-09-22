@@ -7,17 +7,8 @@ import type { FilaPendiente } from '@/outbox/db';
 export type { EventoDeRuta };
 
 /**
- * Los hitos de una asignacion combinando lo que el servidor ya sabe con lo
- * que sigue en el outbox local.
- *
- * Sin esto, un chofer sin senal marca un paso y la lista se lo "des-marca" al
- * refrescar, porque el servidor todavia no lo tiene — justo el escenario para
- * el que existe el outbox (§ movil-expo.md: "la UI avanza al instante, sin
- * esperar red"). El pendiente local gana sobre el remoto porque es igual de
- * real y siempre es mas nuevo.
- *
- * Devuelve en el orden de `ORDEN_PASOS`, no en el de llegada: es el mismo
- * orden en que la linea de tiempo los pinta.
+ * Combina los hitos del servidor con los del outbox local, que ganan por ser mas
+ * nuevos: sin esto, un paso marcado sin senal se des-marca al refrescar.
  */
 export function combinarConPendientes(
   asignacionId: string,

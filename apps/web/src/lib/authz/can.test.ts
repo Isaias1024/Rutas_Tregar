@@ -14,10 +14,8 @@ interface Caso {
   esperado: boolean;
 }
 
-// Una fila por celda de la matriz: supervisor tiene exactamente el mismo
-// acceso de panel que admin, salvo 'crear_supervisor' (la unica diferencia
-// funcional entre ambos roles). Mas las negativas explicitas: chofer viendo
-// la bitacora, admin editando un evento.
+// Una fila por celda de la matriz, mas las negativas explicitas: supervisor
+// tiene el mismo acceso que admin salvo 'crear_supervisor'.
 const CASOS: Caso[] = [
   // --- admin: puede ---
   { descripcion: 'admin puede ver el panel', usuario: ADMIN, accion: 'ver_panel', esperado: true },

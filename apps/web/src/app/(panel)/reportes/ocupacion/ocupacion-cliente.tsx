@@ -30,10 +30,8 @@ function redondear(valor: number | null): number | null {
   return valor === null ? null : Math.round(valor * 10) / 10;
 }
 
-// Reporte 2 (§9 paso 15): esperados sale de `horario.personas_esperadas` de
-// cada asignacion, nunca de la ruta (la ruta no tiene ese campo). Un
-// `cnt_abordaron` nulo se excluye del promedio en vez de contar como cero
-// (ver el comentario de `obtenerOcupacionPorRuta` en server/reportes.ts).
+// Los esperados salen de `horario.personas_esperadas`, nunca de la ruta, y un
+// `cnt_abordaron` nulo se excluye del promedio en vez de contar como cero.
 export function OcupacionCliente() {
   const [rango, setRango] = useState<RangoFechas>(rangoPorDefecto);
   const { data, isLoading, isError } = useQuery({

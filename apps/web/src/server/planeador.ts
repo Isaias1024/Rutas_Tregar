@@ -1,8 +1,7 @@
 'use server';
 
 // `@/lib/env` importa primero A PROPOSITO (ver catalogos.ts): su carga de
-// `.env` tiene que correr antes de que `@rutas/shared/db` evalue
-// `process.env.DATABASE_URL` al importarse. Import de solo efecto.
+// `.env` corre antes de que `@rutas/shared/db` lea DATABASE_URL.
 import '@/lib/env';
 import { asignarSchema, cancelarSchema, type Resultado, reasignarSchema } from '@rutas/shared';
 import {
@@ -21,10 +20,8 @@ import { can } from '@/lib/authz/can';
 import { asignarNucleo, cancelarNucleo, reasignarNucleo } from '@/server/planeador-nucleo';
 import { obtenerUsuarioActual } from '@/server/sesion';
 
-// Mismo orden obligatorio que catalogos.ts/rutas.ts: parsear con zod ->
-// can() -> transaccion -> escribir -> registrarAuditoria (misma tx) ->
-// cerrar. La transaccion, la escritura y la auditoria viven en
-// planeador-nucleo.ts.
+// Mismo orden obligatorio que catalogos.ts/rutas.ts: parsear con zod -> can() ->
+// transaccion -> escribir -> auditar, todo dentro de planeador-nucleo.ts.
 
 function errorValidacion(mensaje: string, campo?: string): Resultado<never> {
   return { ok: false, error: { codigo: 'validacion', mensaje, campo } };
@@ -42,8 +39,6 @@ async function actorAutorizado() {
   }
   return actor;
 }
-
-// === consultas =====================================================================
 
 export async function listarHorariosActivos() {
   return db
@@ -76,9 +71,8 @@ export async function listarAsignacionesSemana(fechas: string[]) {
       choferNombre: perfilPersonal.nombre,
       camionId: asignacion.camionId,
       camionCodigo: asignacion.camionCodigo,
-      // Mismo criterio que planeador-nucleo.ts (`asignacionBloqueadaHoy`): un
-      // regreso normal y un cierre por incidente bloquean la edicion igual.
-      // Esto solo evita ofrecer un boton que el servidor iba a rechazar.
+      // Mismo criterio que `asignacionBloqueadaHoy`: un regreso normal y un
+      // cierre por incidente bloquean la edicion igual.
       bloqueada: sql<boolean>`exists(
         select 1 from ${evento}
         where ${evento.asignacionId} = ${asignacion.id}
@@ -91,13 +85,8 @@ export async function listarAsignacionesSemana(fechas: string[]) {
 }
 
 /**
- * Los choferes que se pueden planear, cada uno con el camion que trae HOY.
- *
- * El camion viaja junto al chofer porque el planeador ya no lo elige: lo
- * muestra. Un chofer sin camion (o con el camion en mantenimiento) llega con
- * `camionCodigo` nulo / `camionEnMantenimiento` en true para que la pantalla
- * lo pueda apagar antes de que el servidor lo rechace — la decision real
- * sigue siendo la de `asignarNucleo`.
+ * Los choferes planeables con el camion que traen HOY: el planeador ya no lo
+ * elige. Sin camion o con el en taller, llegan marcados para apagarlos.
  */
 export async function listarChoferesElegibles() {
   return db
@@ -113,8 +102,6 @@ export async function listarChoferesElegibles() {
     .where(and(eq(usuario.rol, 'chofer'), eq(usuario.activo, true), isNull(usuario.deletedAt)))
     .orderBy(perfilPersonal.nombre);
 }
-
-// === mutaciones =====================================================================
 
 export async function asignar(input: unknown): Promise<Resultado<{ id: string }>> {
   const parseo = asignarSchema.safeParse(input);

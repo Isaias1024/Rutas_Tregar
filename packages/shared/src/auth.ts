@@ -1,8 +1,7 @@
 import { z } from 'zod';
 
-// Esquemas del login por correo+contrasena del panel (admin/supervisor) y del
-// cambio de contrasena en /cuenta. El login por Google no pasa por aqui: no
-// tiene entrada que validar mas alla del click.
+// Esquemas del login por correo+contrasena y del cambio en /cuenta. El login por
+// Google no pasa por aqui: no tiene entrada que validar.
 
 export const loginPasswordSchema = z.object({
   correo: z.email('Correo invalido'),

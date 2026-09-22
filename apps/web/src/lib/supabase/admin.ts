@@ -1,11 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { env } from '@/lib/env';
 
-// Cliente con la service role key: puede saltarse RLS y usar el API de
-// administracion de Supabase Auth (alta de choferes, paso 5 en adelante).
-// Por eso esta guardia va primero, antes de tocar cualquier variable de
-// entorno: si por error algo del lado del cliente llegara a importar este
-// archivo, revienta aqui y no expone la llave.
+// Cliente con la service role key: se salta RLS. La guardia va antes de tocar el
+// entorno, para que un import desde el cliente reviente sin exponer la llave.
 if (typeof window !== 'undefined') {
   throw new Error(
     'apps/web/src/lib/supabase/admin.ts usa la service role key y jamas debe ' +

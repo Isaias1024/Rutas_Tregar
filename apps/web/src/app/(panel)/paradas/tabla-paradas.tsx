@@ -118,10 +118,8 @@ export function TablaParadas({
   }
 
   /**
-   * Editar una parada cambia la direccion y las coordenadas de TODAS las rutas
-   * que la usan de golpe — las rutas la referencian, no guardan copia. Por eso
-   * el guardado de una edicion pasa antes por una confirmacion que enumera esas
-   * rutas; crear una parada nueva no afecta a nadie y guarda directo.
+   * Las rutas referencian la parada, no guardan copia: editarla cambia de golpe
+   * todas las que la usan, y por eso el guardado las enumera antes de confirmar.
    */
   function guardar() {
     setError(null);

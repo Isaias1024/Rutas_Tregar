@@ -4,12 +4,8 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { generarPdfCliente } from './pdf.ts';
 
-// Contra Chromium real y el panel real (§9 paso 15): `vitest.setup.ts` ya
-// carga `.env`, asi que `PANEL_BASE_URL`/`WORKER_SHARED_SECRET` son los
-// mismos valores con los que arranco `pnpm --filter @rutas/web dev` — que
-// tiene que estar corriendo para que esta prueba pase de verdad, igual que
-// `tests/e2e/**` necesita el panel arriba. No hay forma honesta de probar
-// "Chromium imprime la pagina real" sin una pagina real que imprimir.
+// Contra Chromium y el panel reales: `pnpm --filter @rutas/web dev` tiene que
+// estar corriendo, igual que para `tests/e2e/**`.
 const PANEL_BASE_URL = process.env.PANEL_BASE_URL ?? 'http://127.0.0.1:3000';
 const SECRETO = process.env.WORKER_SHARED_SECRET ?? '';
 

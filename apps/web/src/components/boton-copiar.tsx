@@ -14,10 +14,8 @@ interface Props {
 }
 
 /**
- * Boton de icono que copia `valor` al portapapeles y confirma con un check
- * durante 1.5s. Pensado para credenciales y contrasenas temporales: texto
- * que se comparte tal cual con alguien mas y que un typo al transcribirlo a
- * mano rompe silenciosamente (una credencial que no entra no dice por que).
+ * Boton de icono que copia `valor` y confirma con un check. Para credenciales
+ * temporales: un typo al transcribirlas a mano falla sin decir por que.
  */
 export function BotonCopiar({ valor, etiqueta, className }: Props) {
   const [copiado, setCopiado] = useState(false);

@@ -1,9 +1,7 @@
 'use server';
 
-// `@/lib/env` importa primero A PROPOSITO (ver invitacion.ts y proxy.ts):
-// su carga de `.env` tiene que correr antes de que `@rutas/shared/db` evalue
-// `process.env.DATABASE_URL` al importarse. Ademas de ese efecto, este
-// archivo si lee `env.GOOGLE_OAUTH_ALLOWED_DOMAIN` en `crearSupervisor`.
+// `@/lib/env` importa primero A PROPOSITO (ver invitacion.ts y proxy.ts): su
+// carga de `.env` corre antes de que `@rutas/shared/db` lea DATABASE_URL.
 import { env } from '@/lib/env';
 import {
   camionCrearSchema,
@@ -56,8 +54,6 @@ async function actorAutorizado() {
   }
   return actor;
 }
-
-// === cliente ======================================================================
 
 export async function listarClientes() {
   return db.select().from(cliente).where(isNull(cliente.deletedAt)).orderBy(cliente.nombre);
@@ -144,8 +140,6 @@ export async function borrarCliente(input: unknown): Promise<Resultado<{ id: str
   }
   return resultado;
 }
-
-// === camion =========================================================================
 
 export async function listarCamiones() {
   return db.select().from(camion).where(isNull(camion.deletedAt)).orderBy(camion.codigo);
@@ -254,20 +248,15 @@ export async function borrarCamion(input: unknown): Promise<Resultado<{ id: stri
   return { ok: true, data: { id: parseo.data } };
 }
 
-// === chofer (usuario + perfil_personal) ============================================
-
-// Delega en choferes-nucleo.ts, que resuelve tambien el codigo del camion:
-// el catalogo tiene que mostrar que camion trae cada chofer, porque desde el
-// paso 8 de las reglas es aqui —y solo aqui— donde ese vinculo se elige.
+// Delega en choferes-nucleo.ts, que resuelve tambien el codigo del camion: es
+// aqui —y solo aqui— donde se elige que camion trae cada chofer.
 export async function listarChoferes() {
   return listarChoferesConCamion();
 }
 
 /**
  * Las rutas de hoy en adelante de un chofer, para la advertencia previa a la
- * baja o al borrado. Este archivo es `'use server'`, asi que cada export es
- * un endpoint RPC invocable desde el navegador — por eso lleva su propio
- * `can()` aunque solo lea: son nombres de ruta y horarios de personal.
+ * baja. Lleva su propio `can()` aunque solo lea: es un endpoint RPC publico.
  */
 export async function consultarRutasActivasDeChofer(
   input: unknown,
@@ -431,13 +420,11 @@ export async function editarChofer(input: unknown): Promise<Resultado<{ id: stri
   const correo = parseo.data.correo || null;
   const telefono = parseo.data.telefono || null;
   // `''` (el "sin camion" del `<select>`) y `null` significan lo mismo aqui:
-  // soltar el camion. Se normalizan a `null` antes de tocar la columna.
+  // soltar el camion.
   const camionId = parseo.data.camionId ? parseo.data.camionId : null;
 
-  // El camion tiene que existir y no estar borrado. Sin esto, el planeador
-  // resolveria mas tarde un `camion_id` colgado y respondia "este chofer no
-  // tiene camion" sin explicar por que — el error pertenece a este formulario,
-  // que es donde de verdad se eligio.
+  // El camion tiene que existir y no estar borrado: si no, el planeador diria
+  // mas tarde "este chofer no tiene camion" sin explicar por que.
   if (camionId) {
     const [camionFila] = await db
       .select({ id: camion.id })
@@ -479,9 +466,8 @@ export async function borrarChofer(input: unknown): Promise<Resultado<{ id: stri
     return SIN_PERMISO;
   }
 
-  // Mismo `isNull(deleted_at)` que en borrarCliente. Aqui ademas evita que un
-  // borrado repetido pise el `deleted_at` original con una fecha nueva, que es
-  // lo que sostiene el plazo de conservacion del historico.
+  // Mismo `isNull(deleted_at)` que en borrarCliente; ademas evita que un borrado
+  // repetido pise el `deleted_at` que sostiene el plazo de conservacion.
   const [antes] = await db
     .select({ credencial: usuario.credencial })
     .from(usuario)
@@ -492,10 +478,8 @@ export async function borrarChofer(input: unknown): Promise<Resultado<{ id: stri
   }
 
   await db.transaction(async (tx) => {
-    // Igual que la baja (baja-nucleo.ts): un chofer que sale del catalogo
-    // suelta sus rutas de hoy en adelante en la MISMA transaccion, para que
-    // esos horarios queden libres y ninguna ruta quede apuntando a alguien
-    // que ya no existe para el planeador. Las pasadas se conservan.
+    // Igual que la baja: el chofer suelta sus rutas de hoy en adelante en la
+    // MISMA transaccion, para que esos horarios queden libres. Las pasadas no.
     await liberarYAuditar(tx, actor.id, parseo.data);
     await tx
       .update(usuario)
@@ -513,13 +497,8 @@ export async function borrarChofer(input: unknown): Promise<Resultado<{ id: stri
   return { ok: true, data: { id: parseo.data } };
 }
 
-// === supervisor ====================================================================
-// El alta de admin/supervisor se hacia fuera del panel (§ apps/web/src/
-// lib/authz/can.ts, comentario historico de `crear_supervisor`). Esta es esa
-// pantalla: el admin da de alta un supervisor con nombre y correo
-// corporativo. El supervisor puede entrar por Google (con ese mismo correo)
-// o con la credencial y contrasena temporal que se muestran una sola vez,
-// igual que un chofer nuevo (`crearChofer`, arriba).
+// El admin da de alta un supervisor con correo corporativo: puede entrar por
+// Google con ese correo o con la credencial temporal que se muestra una vez.
 
 async function actorPuedeCrearSupervisores() {
   const actor = await obtenerUsuarioActual();
@@ -564,23 +543,16 @@ export async function crearSupervisor(
 
   const { nombre, correo } = parseo.data;
 
-  // Verificado del lado del servidor, igual que en el callback de OAuth: si
-  // el correo no es del dominio permitido, Google jamas va a dejar entrar a
-  // este supervisor y la cuenta quedaria invitada para siempre sin poder
-  // usarse. Mejor rechazarlo aqui, con un mensaje que explica por que, que
-  // dejar que lo descubra el dia que intente entrar.
-  // `as string`: igual que en invitacion.ts, esta accion solo se ejecuta
-  // tras el paso 3 (§ apps/web/src/lib/env.ts), donde la variable ya es
-  // obligatoria y viene validada.
+  // Verificado del lado del servidor, igual que en el callback de OAuth: con otro
+  // dominio, Google nunca lo dejaria entrar y la cuenta quedaria inservible.
   const dominioPermitido = env.GOOGLE_OAUTH_ALLOWED_DOMAIN as string;
   if (dominioDe(correo) !== dominioPermitido.toLowerCase()) {
     return errorValidacion(`El correo debe ser del dominio @${dominioPermitido}.`, 'correo');
   }
 
   const credencial = await generarCredencialUnica(nombre);
-  // Igual que crearChofer: una contrasena real, mostrada una sola vez. El
-  // supervisor puede usarla para entrar por credencial+contrasena, o seguir
-  // entrando por Google con este mismo correo — las dos quedan disponibles.
+  // Igual que crearChofer: una contrasena real, mostrada una sola vez, que
+  // convive con el acceso por Google del mismo correo.
   const passwordTemporal = generarPasswordTemporal();
 
   const { data: alta, error: errorAuth } = await supabaseAdmin.auth.admin.createUser({
@@ -605,9 +577,8 @@ export async function crearSupervisor(
         rol: 'supervisor',
         correo,
         activo: true,
-        // A diferencia del alta sembrada (que ya trae contrasena elegida a
-        // mano), esta contrasena la genero el sistema: se fuerza el cambio
-        // en el primer ingreso, misma compuerta que ya usa el chofer.
+        // Contrasena generada por el sistema: se fuerza el cambio en el primer
+        // ingreso, misma compuerta que ya usa el chofer.
         debeCambiarPassword: true,
       });
       await tx.insert(perfilPersonal).values({ usuarioId: nuevoId, nombre, correo });

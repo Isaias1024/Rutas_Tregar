@@ -2,9 +2,8 @@ import { Redirect } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { useSesion } from './_layout';
 
-// Pantalla protegida por el guard de _layout.tsx: solo se llega aqui con
-// sesion valida y debe_cambiar_password ya en false. De aqui en adelante
-// vive la navegacion real del chofer (paso 9).
+// Protegida por el guard de _layout.tsx: solo se llega con sesion valida y
+// `debe_cambiar_password` ya en false.
 export default function PaginaInicio() {
   const { usuario, cargando } = useSesion();
 

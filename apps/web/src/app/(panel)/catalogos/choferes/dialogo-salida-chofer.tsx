@@ -40,13 +40,8 @@ function etiquetaFecha(fecha: string, hoy: string): string {
 }
 
 /**
- * La confirmacion de "este chofer se va", con las rutas que va a soltar.
- *
- * Las rutas se piden al abrir y no se precargan con la tabla: son de hoy en
- * adelante, cambian con cada asignacion del planeador, y una lista traida
- * cuando se pinto la pagina podria enseñar rutas que ya se reasignaron. Lo que
- * se muestra aqui sale de la MISMA consulta que el servidor usa para
- * liberarlas, asi que la lista confirmada y la accion aplicada no divergen.
+ * Las rutas se piden al abrir y salen de la MISMA consulta que usa el servidor
+ * para liberarlas: asi la lista confirmada y la accion no divergen.
  */
 export function DialogoSalidaChofer({
   chofer,

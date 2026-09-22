@@ -14,10 +14,8 @@ const ocurrioEnLocalSchema = z
   .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Fecha y hora invalidas');
 
 /**
- * La captura manual del supervisor registra algo que YA paso — no se puede
- * agendar un hito a futuro. Se compara contra el reloj del servidor, nunca
- * el del navegador del supervisor, por la misma razon que el resto del
- * proyecto nunca confia en la hora del cliente.
+ * La captura manual registra algo que YA paso. Se compara contra el reloj del
+ * servidor, nunca contra el del navegador del supervisor.
  */
 function noEsFutura(ocurrioEnLocal: string): boolean {
   const instante = interpretarHoraLocal(ocurrioEnLocal);
@@ -26,15 +24,8 @@ function noEsFutura(ocurrioEnLocal: string): boolean {
 
 const MENSAJE_HORA_FUTURA = 'La hora no puede ser en el futuro';
 
-// El unico esquema de entrada del paso 12: la captura manual del supervisor.
-// `ocurrioEnLocal` viene tal cual de un <input type="datetime-local"> —
-// 'YYYY-MM-DDTHH:mm', sin zona — porque el servidor es quien decide que esa
-// hora es America/Mexico_City, nunca la zona del host que la procesa.
-//
-// `tipo` sigue siendo parte del payload (el servidor lo vuelve a validar
-// contra `puedeRegistrar`, no confia en lo que mande el cliente), pero la
-// pantalla ya no deja elegirlo: solo ofrece el siguiente paso de la
-// secuencia (§ Eventos en Vivo — registro manual).
+// `ocurrioEnLocal` viene sin zona de un `datetime-local`: el servidor decide que
+// es America/Mexico_City, y revalida `tipo` con `puedeRegistrar`.
 export const eventoManualSchema = z
   .object({
     asignacionId: idSchema,
@@ -61,11 +52,7 @@ export const eventoManualSchema = z
 export type EventoManual = z.infer<typeof eventoManualSchema>;
 
 // El incidente NO entra en `eventoManualSchema`: ese esquema describe la
-// secuencia, y `fin_ruta_incidente` es la salida de emergencia, no un paso.
-// Mezclarlos obligaria a `tipo` a aceptar un valor que `siguientePaso()`
-// jamas propone y a `cantidad` a volverse condicional por partida doble.
-// Son dos entradas distintas porque son dos acciones distintas: una avanza
-// la ruta, la otra la cierra sin completarla y exige una razon.
+// secuencia y `fin_ruta_incidente` es la salida de emergencia, con razon obligatoria.
 export const incidenteManualSchema = z
   .object({
     asignacionId: idSchema,

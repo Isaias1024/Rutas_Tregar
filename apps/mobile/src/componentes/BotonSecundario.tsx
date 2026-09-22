@@ -10,12 +10,8 @@ interface Props {
 }
 
 /**
- * Accion de apoyo: cancelar un dialogo, reintentar una carga. Contorno en vez
- * de relleno para que nunca compita con el `BotonPrimario` — la regla del
- * proyecto es un solo objetivo tactil dominante por pantalla, y este no lo es.
- *
- * 56px de alto: mas bajo que los 72 del primario a proposito (la jerarquia se
- * ve antes de leer), pero por encima del minimo tactil de 44px.
+ * Accion de apoyo: contorno para no competir con `BotonPrimario`, y 56px de alto
+ * para que la jerarquia se vea antes de leer, sin bajar del minimo tactil.
  */
 export function BotonSecundario({ etiqueta, onPress, deshabilitado, destructivo, testID }: Props) {
   return (

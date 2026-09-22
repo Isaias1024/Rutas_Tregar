@@ -6,23 +6,8 @@ import { eq } from 'drizzle-orm';
 import { db, perfilPersonal, usuario } from '../packages/shared/src/db/index.ts';
 
 /**
- * Abre el panel en un navegador con una sesion de prueba ya iniciada.
- *
- * Existe por una razon concreta: el unico login del panel es OAuth de Google
- * (`apps/web/src/app/(auth)/login/page.tsx`) y en local esta APAGADO a
- * proposito (`supabase/config.toml`, `[auth.external.google] enabled = false`,
- * porque las pruebas de invitacion usan el API de administracion y no
- * necesitan salir a internet). Sin este script no hay forma de entrar al
- * panel en una maquina de desarrollo sin dar de alta un cliente OAuth real
- * en Google Cloud.
- *
- * Hace exactamente lo mismo que `tests/e2e/ayuda-sesion.ts` — crea o reutiliza
- * un usuario con contrasena conocida, inicia sesion con el cliente anon y
- * replica la cookie que deja `@supabase/ssr` — solo que en vez de correr una
- * prueba deja el navegador abierto para probar a mano.
- *
- * SOLO PARA LOCAL. No hay ninguna ruta de produccion que lo invoque, y depende
- * de la service role key, que jamas sale del servidor.
+ * Abre el panel con una sesion de prueba ya iniciada, porque el unico login es
+ * OAuth de Google y en local esta apagado. SOLO PARA LOCAL: usa la service key.
  */
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -36,11 +21,8 @@ if (!supabaseUrl || !anonKey || !serviceRoleKey) {
   process.exit(1);
 }
 
-// Los mismos usuarios que siembra `scripts/seed.ts`. Este script NO inventa un
-// `prueba-admin` propio a proposito: crear su propia cuenta dejaba dos admins
-// en una base recien sembrada y rompia los conteos exactos del seed. Aqui solo
-// se reutiliza lo que ya existe; si no existe, se crea igual para que el script
-// siga sirviendo en una base a medio preparar.
+// Los mismos usuarios que siembra `scripts/seed.ts`: una cuenta propia dejaria
+// dos admins en una base recien sembrada y romperia sus conteos exactos.
 const PASSWORD_POR_ROL = {
   admin: 'Admin123!',
   supervisor: 'Supervisor123!',
@@ -58,9 +40,8 @@ if (rolPedido !== 'admin' && rolPedido !== 'supervisor') {
   process.exit(1);
 }
 const rol: 'admin' | 'supervisor' = rolPedido;
-// El panel local siempre vive aqui (`pnpm dev` fija el puerto 3000). Si corre
-// en otro lado se pasa con `--url`; no se lee PANEL_BASE_URL del entorno para
-// no meter una variable mas a `globalEnv` de turbo.json por un script local.
+// El panel local siempre vive aqui (`pnpm dev` fija el puerto 3000); para otro
+// lado esta `--url`, sin meter una variable mas al `globalEnv` de turbo.json.
 const baseUrl = leerArgumento('--url', 'http://127.0.0.1:3000');
 
 const admin = createClient(supabaseUrl, serviceRoleKey, {
@@ -123,9 +104,8 @@ async function asegurarUsuario(): Promise<string> {
   return usuarioAuth.id;
 }
 
-// El formato de la cookie (nombre `sb-<host>-auth-token`, prefijo `base64-`,
-// particion a los 3180 bytes) sale de `@supabase/ssr/dist/module/cookies.js`
-// y `utils/chunker.js`. Es el mismo calculo que hace tests/e2e/ayuda-sesion.ts.
+// El formato de la cookie sale de `@supabase/ssr` (cookies.js y chunker.js);
+// es el mismo calculo que hace tests/e2e/ayuda-sesion.ts.
 const LIMITE_CHUNK = 3180;
 
 function construirCookies(sesion: Session, dominio: string) {
@@ -164,13 +144,8 @@ async function principal() {
     throw new Error(`No se pudo iniciar sesion como ${rol}: ${error?.message}`);
   }
 
-  // `chromium.launch` sin `--start-maximized` abre una ventana de 1280x720 en
-  // la mayoria de gestores de ventanas; el usuario la maximiza a mano despues.
-  // `viewport: null` es lo que deja que la pagina responda a ese cambio de
-  // tamano real de la ventana en vez de quedar fija al tamano de lanzamiento
-  // — con un viewport fijo, maximizar la ventana deja una franja sin pintar
-  // (el "canvas" de la pagina no crece) y cualquier lista larga se corta ahi,
-  // como si el panel no fuera responsive.
+  // `viewport: null` deja que la pagina siga el tamano real de la ventana: con
+  // un viewport fijo, maximizar deja una franja sin pintar y corta las listas.
   const navegador = await chromium.launch({
     headless: false,
     args: ['--start-maximized'],

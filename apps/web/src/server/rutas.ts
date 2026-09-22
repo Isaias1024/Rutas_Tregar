@@ -1,8 +1,7 @@
 'use server';
 
 // `@/lib/env` importa primero A PROPOSITO (ver catalogos.ts): su carga de
-// `.env` tiene que correr antes de que `@rutas/shared/db` evalue
-// `process.env.DATABASE_URL` al importarse. Import de solo efecto.
+// `.env` corre antes de que `@rutas/shared/db` lea DATABASE_URL.
 import '@/lib/env';
 import {
   agregarHorarioSchema,
@@ -29,9 +28,7 @@ import {
 import { obtenerUsuarioActual } from '@/server/sesion';
 
 // Mismo orden obligatorio que catalogos.ts: parsear con zod -> can() ->
-// transaccion -> escribir -> registrarAuditoria (misma tx) -> cerrar. La
-// transaccion, la escritura y la auditoria viven en rutas-nucleo.ts; aqui
-// solo se parsea, se autoriza y se revalida la cache.
+// transaccion -> escribir -> auditar. La transaccion vive en rutas-nucleo.ts.
 
 function errorValidacion(mensaje: string, campo?: string): Resultado<never> {
   return { ok: false, error: { codigo: 'validacion', mensaje, campo } };
@@ -49,8 +46,6 @@ async function actorAutorizado() {
   }
   return actor;
 }
-
-// === consultas =====================================================================
 
 const paradaInicio = alias(parada, 'parada_inicio');
 const paradaFin = alias(parada, 'parada_fin');
@@ -75,10 +70,8 @@ export async function listarRutas() {
     .where(isNull(ruta.deletedAt))
     .orderBy(ruta.nombre);
 
-  // `bloqueadaHoy`: ya hay un viaje de hoy en este horario que arranco o
-  // termino (mismos hitos que cierran Cancelar/Reasignar en el planeador).
-  // El panel deshabilita "Editar" con esto para no dejar que el supervisor
-  // escriba un cambio que el nucleo va a rechazar de todas formas.
+  // `bloqueadaHoy` deshabilita "Editar" para no dejar escribir un cambio que el
+  // nucleo rechazaria: ya hay un viaje de hoy iniciado o terminado.
   const hoy = fechaOperativa(new Date());
   const filasHorario = await db
     .select({
@@ -116,16 +109,12 @@ export async function listarRutas() {
   }));
 }
 
-// === ruta ===========================================================================
-
 export async function crearRuta(input: unknown): Promise<Resultado<{ id: string }>> {
   const parseo = rutaCrearSchema.safeParse(input);
   if (!parseo.success) {
     const primero = parseo.error.issues[0];
-    // El ultimo segmento de la ruta, no el primero: un horario invalido
-    // dentro de `horarios[]` reporta la ruta completa (`horarios.0.campo`),
-    // y el campo que de verdad importa nombrar es el ultimo (`campo`), no el
-    // nombre del arreglo que lo contiene.
+    // El ultimo segmento de la ruta: un horario invalido reporta
+    // `horarios.0.campo` y lo que hay que nombrar es `campo`.
     return errorValidacion(
       primero?.message ?? 'Entrada invalida',
       primero?.path[primero.path.length - 1]?.toString(),
@@ -148,10 +137,8 @@ export async function actualizarRuta(input: unknown): Promise<Resultado<{ id: st
   const parseo = rutaEditarSchema.safeParse(input);
   if (!parseo.success) {
     const primero = parseo.error.issues[0];
-    // El ultimo segmento de la ruta, no el primero: un horario invalido
-    // dentro de `horarios[]` reporta la ruta completa (`horarios.0.campo`),
-    // y el campo que de verdad importa nombrar es el ultimo (`campo`), no el
-    // nombre del arreglo que lo contiene.
+    // El ultimo segmento de la ruta: un horario invalido reporta
+    // `horarios.0.campo` y lo que hay que nombrar es `campo`.
     return errorValidacion(
       primero?.message ?? 'Entrada invalida',
       primero?.path[primero.path.length - 1]?.toString(),
@@ -188,16 +175,12 @@ export async function borrarRuta(input: unknown): Promise<Resultado<{ id: string
   return resultado;
 }
 
-// === horario ========================================================================
-
 export async function agregarHorario(input: unknown): Promise<Resultado<{ id: string }>> {
   const parseo = agregarHorarioSchema.safeParse(input);
   if (!parseo.success) {
     const primero = parseo.error.issues[0];
-    // El ultimo segmento de la ruta, no el primero: un horario invalido
-    // dentro de `horarios[]` reporta la ruta completa (`horarios.0.campo`),
-    // y el campo que de verdad importa nombrar es el ultimo (`campo`), no el
-    // nombre del arreglo que lo contiene.
+    // El ultimo segmento de la ruta: un horario invalido reporta
+    // `horarios.0.campo` y lo que hay que nombrar es `campo`.
     return errorValidacion(
       primero?.message ?? 'Entrada invalida',
       primero?.path[primero.path.length - 1]?.toString(),

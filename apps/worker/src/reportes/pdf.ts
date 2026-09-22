@@ -3,9 +3,8 @@ import { cliente, db } from '@rutas/shared/db';
 import { eq } from 'drizzle-orm';
 import { chromium } from 'playwright';
 
-// Imprime la pagina real del panel con Chromium headless (§9 paso 15, §6:
-// "un solo diseno que mantener"). Solo Chromium: `page.pdf()` no existe en
-// Firefox ni en WebKit (§ worker-y-reportes.md).
+// Imprime la pagina real del panel con Chromium headless: `page.pdf()` no
+// existe en Firefox ni en WebKit.
 
 export type ResultadoPdf =
   | { ok: true; buffer: Buffer }
@@ -35,17 +34,14 @@ export async function generarPdfCliente(
 
   const navegador = await chromium.launch();
   try {
-    // El secreto va en un header de la peticion, no en la URL: `proxy.ts`
-    // solo acepta esta ruta sin sesion de cookies si trae
-    // `x-rutas-worker-secret` (paso 15). Sin este header, Chromium chocaria
-    // con el mismo redirect a /login que ve cualquier navegador sin sesion.
+    // El secreto va en un header, no en la URL: sin el, `proxy.ts` manda a
+    // Chromium al mismo redirect a /login que a cualquier navegador sin sesion.
     const contextoNavegador = await navegador.newContext({
       extraHTTPHeaders: { 'x-rutas-worker-secret': contexto.secreto },
     });
     const pagina = await contextoNavegador.newPage();
-    // `networkidle`: la grafica de Recharts se monta sincrona en el primer
-    // render (§6), pero esperar a que la red este quieta cubre tambien la
-    // fuente Inter auto-hospedada y cualquier otro recurso de la pagina.
+    // `networkidle`: la grafica se monta en el primer render, pero esperar a la
+    // red quieta cubre tambien la fuente auto-hospedada.
     await pagina.goto(url.toString(), { waitUntil: 'networkidle' });
     const buffer = await pagina.pdf({ format: 'A4', printBackground: true });
     return { ok: true, buffer };

@@ -47,16 +47,8 @@ interface Props {
 }
 
 /**
- * Cierra una ruta por incidente desde el panel.
- *
- * Deliberadamente separado de `DialogoCapturaManual`: ese ofrece el siguiente
- * paso de la secuencia y este no participa de la secuencia en absoluto. Aqui
- * no hay "proximo evento" que mostrar — hay una razon que elegir, que es lo
- * unico que este evento pide y que ningun hito normal pide.
- *
- * Existe porque el chofer no siempre puede reportarlo el mismo: si el
- * telefono se quedo sin bateria, o el chofer esta atendiendo la emergencia,
- * la ruta se quedaba abierta para siempre.
+ * Cierra una ruta por incidente cuando el chofer no puede reportarlo. Separado de
+ * la captura manual: no hay "proximo evento", hay una razon que elegir.
  */
 export function DialogoIncidenteManual({ fila, onOpenChange }: Props) {
   const queryClient = useQueryClient();

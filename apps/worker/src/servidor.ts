@@ -7,8 +7,8 @@ import { Hono } from 'hono';
 import type { Logger } from 'pino';
 import { generarPdfCliente } from './reportes/pdf.ts';
 
-// Hono sobre @hono/node-server (§13). El secreto compartido se compara en
-// tiempo constante, nunca con `===` sobre el string crudo (§ worker-y-reportes.md).
+// El secreto compartido se compara en tiempo constante, nunca con `===` sobre
+// el string crudo.
 
 const LIMITE_PETICIONES_POR_MINUTO = 30;
 const VENTANA_MS = 60_000;
@@ -23,10 +23,8 @@ async function verificarSaludReal(): Promise<boolean> {
 }
 
 /**
- * Comparacion en tiempo constante. `timingSafeEqual` exige buffers del
- * mismo tamano y lanza si no coinciden — en vez de salir temprano (lo que
- * filtrarla por temporizacion), se compara el recibido contra si mismo para
- * mantener un costo similar antes de responder que no coincide.
+ * Comparacion en tiempo constante. `timingSafeEqual` exige buffers del mismo
+ * tamano: en vez de salir temprano, se compara el recibido contra si mismo.
  */
 function secretosCoinciden(recibido: string, esperado: string): boolean {
   const bufRecibido = Buffer.from(recibido);
@@ -75,11 +73,8 @@ export function crearApp({
     marcasVigentes.push(ahora);
     peticionesPorSecreto.set(secretoRecibido, marcasVigentes);
 
-    // Cuerpo plano `{codigo, mensaje}`, igual que `secreto_invalido` y
-    // `limite_excedido` arriba: este endpoint es el unico del worker y nunca
-    // adopto el sobre `Resultado<T>` (`{ok, error}`) que usan las server
-    // actions del panel — mantenerlo consistente consigo mismo importa mas
-    // que igualarlo a un patron de otro proceso.
+    // Cuerpo plano `{codigo, mensaje}`: este endpoint nunca adopto el sobre
+    // `Resultado<T>` del panel y se mantiene consistente consigo mismo.
     const cuerpo = await c.req.json().catch(() => null);
     const parseo = reportePdfSchema.safeParse(cuerpo);
     if (!parseo.success) {
@@ -87,14 +82,8 @@ export function crearApp({
       return c.json({ codigo: 'validacion', mensaje: primero?.message ?? 'Entrada invalida' }, 422);
     }
 
-    // Auditoria de seguridad: sin este try/catch, un fallo de Chromium (o de
-    // red hacia el panel) llegaba sin capturar hasta el manejador de errores
-    // por default de Hono, que usa SU PROPIO `console.error` — no la
-    // instancia de `pino` con `redact` que se crea en index.ts. Hoy ningun
-    // dato sensible viaja por ese camino de error, pero es el UNICO punto de
-    // todo el worker donde un error podia imprimirse fuera del logger
-    // configurado, asi que se cierra por consistencia antes de que algo
-    // sensible llegue a pasar por ahi.
+    // Sin este try/catch, un fallo de Chromium llegaba al manejador default de
+    // Hono, que usa su propio `console.error` y no el `pino` con `redact`.
     try {
       const resultado = await generarPdfCliente(parseo.data, { panelBaseUrl, secreto });
       if (!resultado.ok) {

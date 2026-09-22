@@ -27,11 +27,8 @@ function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
 }
 
 /**
- * La ficha de la ruta: identidad, horario, trayecto con direcciones.
- *
- * Cuando la ruta ya arranco se muestra la hora REAL junto a la programada, no
- * en su lugar: la programada es el compromiso y la real es lo que paso — juntas
- * dicen si se salio a tiempo, que es justo lo que el supervisor va a preguntar.
+ * La ficha de la ruta. La hora real se muestra JUNTO a la programada, no en su
+ * lugar: juntas dicen si se salio a tiempo, que es lo que el supervisor pregunta.
  */
 export function CabeceraDetalleRuta({ asignacion, estado, horaInicioReal, horaFinReal }: Props) {
   const { ruta, horaInicioEsperada, horaFinEsperada, turno } = asignacion.horario;

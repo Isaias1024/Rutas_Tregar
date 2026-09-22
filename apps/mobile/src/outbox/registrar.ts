@@ -3,7 +3,7 @@ import * as Crypto from 'expo-crypto';
 import { capturarUbicacion, type CoordenadasCapturadas } from '@/ubicacion';
 import { almacenSqlite, type AlmacenPendientes, type PayloadEvento } from './db';
 
-// Solo estos dos pasos capturan GPS (§ movil-expo.md, paso 10).
+// Solo estos dos pasos capturan GPS.
 const REQUIERE_GPS: ReadonlySet<TipoEvento> = new Set(['listo_inicio', 'fin_ruta']);
 
 export interface DatosRegistro {
@@ -38,13 +38,8 @@ export function construirPayload(
 }
 
 /**
- * Cada toque escribe primero aqui: genera el client_event_id, guarda hora
- * del dispositivo, monotonic_ms y GPS si aplica, y regresa de inmediato — la
- * UI avanza con ese retorno, sin esperar red (paso 11, "offline es
- * requisito, no mejora"). `almacen` y `generarId` son inyectables para las
- * pruebas (expo-crypto no tiene modulo nativo fuera de un dispositivo o
- * emulador real); en la app real siempre son `almacenSqlite` y
- * `Crypto.randomUUID`.
+ * Cada toque escribe primero aqui y regresa de inmediato: la UI avanza sin red.
+ * `almacen` y `generarId` son inyectables porque expo-crypto no corre en pruebas.
  */
 export async function registrarEvento(
   datos: DatosRegistro,

@@ -1,6 +1,5 @@
-// `@/lib/env` importa primero A PROPOSITO: su carga de `.env` (necesaria
-// fuera del proceso principal de Next) tiene que correr antes de que
-// `@rutas/shared/db` evalue su propio `process.env.DATABASE_URL` al importarse.
+// `@/lib/env` importa primero A PROPOSITO: su carga de `.env` corre antes de
+// que `@rutas/shared/db` lea DATABASE_URL.
 import { env } from '@/lib/env';
 import type { Resultado } from '@rutas/shared';
 import { db, usuario } from '@rutas/shared/db';
@@ -18,9 +17,8 @@ const NO_INVITADO = {
 } as const;
 
 /**
- * La compuerta del panel: no existe ninguna ruta que cree una cuenta desde
- * una peticion no autenticada, asi que un correo solo entra si ya hay una
- * fila de `usuario` activa para el, en el dominio corporativo permitido.
+ * La compuerta del panel: ninguna ruta crea cuentas desde una peticion no
+ * autenticada, asi que un correo solo entra si ya tiene fila de `usuario` activa.
  */
 export async function verificarInvitacion(correo: string): Promise<Resultado<UsuarioInvitado>> {
   const dominioPermitido = (env.GOOGLE_OAUTH_ALLOWED_DOMAIN as string).toLowerCase();

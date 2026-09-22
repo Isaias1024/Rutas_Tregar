@@ -15,12 +15,8 @@ interface Props {
 }
 
 /**
- * Filtro del historial: solo los estados que de verdad aparecen ahi.
- *
- * No hay "pendiente" ni "en curso" a proposito — el historial llega hasta
- * ayer, y una ruta de ayer sin terminar no es un estado que el chofer pueda
- * accionar desde aqui. Ofrecer filtros que casi siempre devuelven vacio hace
- * ver la pantalla rota.
+ * Solo los estados que de verdad aparecen en el historial: un filtro que casi
+ * siempre devuelve vacio hace ver la pantalla rota.
  */
 export function FiltroHistorial({ valor, onCambiar }: Props) {
   return (

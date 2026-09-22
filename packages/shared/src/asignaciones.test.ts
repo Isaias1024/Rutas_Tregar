@@ -130,9 +130,8 @@ describe('logica pura contra datos reales de Postgres', () => {
   const camionDisponibleId = randomUUID();
   const camionMantenimientoId = randomUUID();
   const fecha = '2026-09-07';
-  // Fecha distinta para el bloque "dos horarios distintos no chocan" +
-  // "mismo chofer si choca": evita pisar el unico (horario_id, fecha,
-  // secuencia) que ya ocupan las filas del bloque de la secuencia arriba.
+  // Fecha distinta a la del bloque de arriba: evita pisar el unico
+  // (horario_id, fecha, secuencia) que ya ocupan sus filas.
   const fechaDosHorarios = '2026-09-08';
 
   /** El calendario de un chofer en `fechaDosHorarios`, tal como lo lee planeador-nucleo. */
@@ -174,8 +173,8 @@ describe('logica pura contra datos reales de Postgres', () => {
       paradaInicioId,
       paradaFinId,
     });
-    // Dos horarios DISTINTOS de la MISMA ruta, mismo turno: el caso del
-    // paso 6 que el paso 7 tiene que poder asignar sin que choquen entre si.
+    // Dos horarios DISTINTOS de la MISMA ruta, mismo turno: el caso que hay que
+    // poder asignar sin que choquen entre si.
     await db.insert(horario).values([
       {
         id: horario1Id,
@@ -287,9 +286,8 @@ describe('logica pura contra datos reales de Postgres', () => {
   });
 
   it('dos horarios distintos de la misma ruta y el mismo turno no chocan entre choferes distintos', async () => {
-    // chofer1 toma horario1, chofer2 toma horario2, ambos turno "manana",
-    // mismo dia. El traslape se evalua por chofer: ninguno ve la asignacion
-    // del otro en su propio calendario.
+    // El traslape se evalua por chofer: ninguno ve la asignacion del otro en su
+    // propio calendario.
     await db.insert(asignacion).values([
       {
         id: randomUUID(),
@@ -330,10 +328,8 @@ describe('logica pura contra datos reales de Postgres', () => {
   });
 
   it('el mismo chofer: horas separadas se aceptan, horas encimadas se rechazan', async () => {
-    // chofer1 ya esta en horario1 (06:00-07:00) ese dia. horario2 es
-    // 08:00-09:00, MISMO turno "manana": la regla vieja lo rechazaba por
-    // turno, la nueva lo acepta porque las horas no se tocan. Lo que si se
-    // rechaza es una ruta que cae encima de 06:00-07:00.
+    // 06:00-07:00 y 08:00-09:00 son del MISMO turno: la regla vieja lo rechazaba,
+    // la nueva lo acepta porque las horas no se tocan.
     const asignacionesChofer1 = await horasDelDia(chofer1Id);
 
     expect(

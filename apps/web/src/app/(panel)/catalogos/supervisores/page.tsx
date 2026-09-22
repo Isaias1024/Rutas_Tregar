@@ -12,9 +12,8 @@ export default async function PaginaSupervisores() {
       titulo="Supervisores"
       descripcion="Quien mas administra el panel. Entran con su cuenta de Google corporativa o con credencial y contrasena."
       supervisores={supervisores}
-      // `crear_supervisor` (@/lib/authz/can) solo lo tiene admin: esto es
-      // nada mas para no ofrecer botones que el servidor va a rechazar. La
-      // regla real la impone `crearSupervisor`/`desactivarSupervisor`.
+      // Solo para no ofrecer botones que el servidor va a rechazar: la regla real
+      // la imponen `crearSupervisor`/`desactivarSupervisor`.
       esAdmin={actor?.rol === 'admin'}
       accionCrear={crearSupervisor}
       accionDesactivar={desactivarSupervisor}

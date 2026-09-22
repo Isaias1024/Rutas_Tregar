@@ -1,6 +1,5 @@
-// `@/lib/env` importa primero A PROPOSITO (ver invitacion.ts, proxy.ts y
-// server/catalogos.ts): su carga de `.env` tiene que correr antes de que
-// `@rutas/shared/db` evalue `process.env.DATABASE_URL` al importarse.
+// `@/lib/env` importa primero A PROPOSITO (ver invitacion.ts): su carga de
+// `.env` corre antes de que `@rutas/shared/db` lea DATABASE_URL.
 import '@/lib/env';
 import { db, perfilPersonal, usuario } from '@rutas/shared/db';
 import { eq } from 'drizzle-orm';
@@ -16,10 +15,8 @@ export interface UsuarioSesion {
 }
 
 /**
- * Resuelve el usuario de la sesion actual, con su nombre (via
- * `perfil_personal`) y su rol. `proxy.ts` ya garantiza que quien llega hasta
- * aqui tiene sesion valida y fila activa; esto solo la vuelve a leer para
- * mostrarla, no para autorizar.
+ * Resuelve el usuario de la sesion actual con su nombre y rol. `proxy.ts` ya
+ * garantizo sesion valida y fila activa: esto es para mostrar, no para autorizar.
  */
 export async function obtenerUsuarioActual(): Promise<UsuarioSesion | null> {
   const supabase = await crearClienteServidor();

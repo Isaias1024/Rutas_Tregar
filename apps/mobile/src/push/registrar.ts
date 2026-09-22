@@ -3,10 +3,8 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
-// Pide permiso de notificaciones, obtiene el token de Expo y lo manda a
-// POST /api/dispositivos (paso 14). Re-registrar reemplaza, no duplica: es
-// el upsert de registrarDispositivo() del lado del servidor, no algo que
-// este archivo tenga que resolver.
+// Pide permiso, obtiene el token de Expo y lo manda a POST /api/dispositivos.
+// Re-registrar reemplaza, no duplica: lo resuelve el upsert del servidor.
 
 async function obtenerTokenExpo(): Promise<string | null> {
   const { status: estadoActual } = await Notifications.getPermissionsAsync();

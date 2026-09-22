@@ -16,10 +16,8 @@ import { bajaEmpleadoNucleo } from './baja-nucleo.ts';
 import { liberarAsignacionesFuturas, rutasActivasDeChofer } from './choferes-nucleo.ts';
 import { asignarNucleo, reasignarNucleo } from './planeador-nucleo.ts';
 
-// "Reglas de Backend — Catalogos, Rutas, Choferes y Camiones", pasos 8-11:
-// el camion es una propiedad del chofer y el planeador lo deriva, nunca lo
-// recibe. Y paso 7: dar de baja a un chofer suelta sus rutas de hoy en
-// adelante sin tocar el historial.
+// El camion es una propiedad del chofer y el planeador lo deriva, nunca lo
+// recibe; dar de baja suelta las rutas futuras sin tocar el historial.
 
 /** Fecha fija en el pasado y en el futuro respecto de "hoy", sea cual sea el dia. */
 function diasDesdeHoy(dias: number): string {
@@ -318,9 +316,8 @@ describe('dar de baja a un chofer libera sus rutas futuras y conserva el histori
       horaFinEsperada: '05:00',
       personasEsperadas: 10,
     });
-    // Una ruta YA EJECUTADA (el mes pasado): es el historial laboral y la baja
-    // no la puede tocar. Se inserta directo porque asignarNucleo valida contra
-    // el calendario vivo, no contra el pasado.
+    // Una ruta YA EJECUTADA: es historial laboral. Se inserta directo porque
+    // asignarNucleo valida contra el calendario vivo, no contra el pasado.
     await db.insert(asignacion).values({
       id: asignacionPasadaId,
       horarioId,

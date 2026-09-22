@@ -4,14 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 import type { BrowserContext } from '@playwright/test';
 import { eq } from 'drizzle-orm';
 
-// El login real del panel es OAuth de Google, no automatizable en e2e sin
-// credenciales reales. En su lugar, esto crea (o reutiliza) un usuario de
-// prueba con contrasena conocida, inicia sesion con el cliente anon —
-// exactamente el mismo mecanismo que usa Supabase Auth — y replica la cookie
-// que @supabase/ssr deja para que `proxy.ts` la lea igual que en produccion.
-// El formato (nombre `sb-<host>-auth-token`, prefijo `base64-`, particion a
-// los 3180 bytes) sale de `@supabase/ssr/dist/module/cookies.js` y
-// `utils/chunker.js`.
+// El login real es OAuth de Google, no automatizable aqui: se inicia sesion con
+// el cliente anon y se replica la cookie que deja @supabase/ssr.
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

@@ -38,9 +38,8 @@ describe('esquemas de validacion de parada (busqueda de direccion y mapa)', () =
 });
 
 describe('editarParada: rechaza entrada invalida antes de tocar sesion o base', () => {
-  // Igual que crearRuta/agregarHorario en rutas.test.ts: con entrada
-  // invalida, zod falla antes de que la funcion intente resolver el actor
-  // (`obtenerUsuarioActual`, que necesita `next/headers`, ausente aqui).
+  // Igual que en rutas.test.ts: con entrada invalida, zod falla antes de que la
+  // funcion intente resolver el actor con `next/headers`.
 
   it('responde validacion 422 con id invalido', async () => {
     const resultado = await editarParada({ ...datosParada(), id: 'no-es-uuid' });

@@ -10,13 +10,8 @@ interface Props {
 }
 
 /**
- * Un error de carga nunca deja la pantalla en blanco ni parece bloqueada:
- * dice que paso y ofrece la salida en el mismo lugar.
- *
  * Distingue "sin conexion" de "fallo el servidor" porque la accion del chofer
- * es distinta — moverse a donde haya senal, o simplemente reintentar. Su
- * trabajo no se detiene por esto: lo que ya marco sigue guardado en el outbox
- * local y subira solo.
+ * cambia: moverse a donde haya senal, o simplemente reintentar.
  */
 export function EstadoError({ sinConexion, onReintentar }: Props) {
   return (
