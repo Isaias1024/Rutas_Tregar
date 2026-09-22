@@ -16,7 +16,23 @@
 -- seccion de abajo otorga primero el verbo exacto que su politica necesita —
 -- ni uno mas — y luego la politica que filtra las filas.
 
--- === usuario_activo() =============================================================
+-- === esquema `seguridad` =========================================================
+-- Las cuatro funciones `security definer` de abajo viven fuera de `public` a
+-- proposito. `supabase/config.toml` expone solo ["public", "graphql_public"]
+-- a PostgREST: cualquier funcion en `public` con EXECUTE para
+-- `anon`/`authenticated` queda publicada como endpoint RPC
+-- (`/rest/v1/rpc/<nombre>`), un camino que no pasa por RLS ni por ningun
+-- GRANT de tabla. Dos de estas funciones NECESITAN EXECUTE para
+-- `authenticated` (las politicas las invocan corriendo como el rol que hace
+-- la consulta via PostgREST), asi que la unica forma de darles ese privilegio
+-- sin publicarlas es sacarlas del esquema expuesto.
+create schema if not exists seguridad;
+
+-- USAGE sobre el esquema es requisito para ejecutar cualquier funcion suya;
+-- por si solo no lista ni expone nada.
+grant usage on schema seguridad to authenticated;
+
+-- === seguridad.usuario_activo() =============================================================
 -- Auditoria de seguridad (post paso 16): ninguna politica de abajo
 -- comprobaba `usuario.activo`/`deleted_at` — solo `auth.uid()`. Eso
 -- significa que un chofer dado de baja (`apps/web/src/server/baja-nucleo.ts`)
@@ -36,12 +52,12 @@
 -- una funcion `security definer` sin `search_path` explicito es secuestrable
 -- por un rol que cree un objeto con el mismo nombre en un esquema anterior
 -- en su propio `search_path`.
-create or replace function usuario_activo()
+create or replace function seguridad.usuario_activo()
 returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = seguridad, public
 as $$
   select exists (
     select 1 from usuario
@@ -55,7 +71,7 @@ grant select on asignacion to authenticated;
 
 create policy asignacion_select_chofer on asignacion
   for select
-  using (chofer_id = auth.uid() and usuario_activo());
+  using (chofer_id = auth.uid() and seguridad.usuario_activo());
 
 -- "supervisor y admin seleccionan todo; solo ellos escriben" (§8). El panel
 -- nunca ejercita esta politica en la practica (usa la connection string de
@@ -102,12 +118,12 @@ grant update (cnt_abordaron, cnt_retornaron) on asignacion to authenticated;
 -- es teorico, se reprodujo armando esta migracion. Al ser definer, la
 -- consulta interna corre como el dueno de las tablas (bypassa RLS por
 -- completo en su propio cuerpo), y el ciclo nunca se arma.
-create or replace function evento_existe(p_asignacion_id uuid, p_tipo tipo_evento)
+create or replace function seguridad.evento_existe(p_asignacion_id uuid, p_tipo tipo_evento)
 returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = seguridad, public
 as $$
   select exists (
     select 1 from evento where asignacion_id = p_asignacion_id and tipo = p_tipo
@@ -135,12 +151,12 @@ $$;
 -- de abajo.
 create policy asignacion_update_contadores_propios on asignacion
   for update
-  using (chofer_id = auth.uid() and usuario_activo())
+  using (chofer_id = auth.uid() and seguridad.usuario_activo())
   with check (
     chofer_id = auth.uid()
-    and usuario_activo()
-    and (cnt_abordaron is null or evento_existe(asignacion.id, 'fin_ruta'))
-    and (cnt_retornaron is null or evento_existe(asignacion.id, 'retorno'))
+    and seguridad.usuario_activo()
+    and (cnt_abordaron is null or seguridad.evento_existe(asignacion.id, 'fin_ruta'))
+    and (cnt_retornaron is null or seguridad.evento_existe(asignacion.id, 'retorno'))
   );
 
 -- Auditoria de seguridad: registra en `audit_log` cualquier cambio a los
@@ -153,11 +169,11 @@ create policy asignacion_update_contadores_propios on asignacion
 -- string de servicio, ver la seccion de abajo) — la funcion es la unica
 -- puerta, y solo escribe la fila de auditoria, nunca deja que `authenticated`
 -- toque la tabla de ninguna otra forma.
-create or replace function asignacion_auditar_contadores()
+create or replace function seguridad.asignacion_auditar_contadores()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = seguridad, public
 as $$
 begin
   if auth.uid() is null then
@@ -183,7 +199,7 @@ $$;
 
 create trigger asignacion_auditar_contadores_trigger
 after update on asignacion
-for each row execute function asignacion_auditar_contadores();
+for each row execute function seguridad.asignacion_auditar_contadores();
 
 -- === evento ======================================================================
 -- Append-only por permiso, no por buena costumbre: NINGUN rol recibe el
@@ -195,7 +211,7 @@ grant select, insert on evento to authenticated;
 create policy evento_insert_chofer on evento
   for insert
   with check (
-    usuario_activo()
+    seguridad.usuario_activo()
     and exists (
       select 1 from asignacion a
       where a.id = asignacion_id and a.chofer_id = auth.uid()
@@ -205,7 +221,7 @@ create policy evento_insert_chofer on evento
 create policy evento_select_chofer on evento
   for select
   using (
-    usuario_activo()
+    seguridad.usuario_activo()
     and exists (
       select 1 from asignacion a
       where a.id = asignacion_id and a.chofer_id = auth.uid()
@@ -253,11 +269,11 @@ create policy evento_select_chofer on evento
 -- `evento_asignacion_tipo_key` de mas abajo lo va a rechazar de todos modos;
 -- solo cambia CUAL mecanismo lo rechaza, para que sea el que el cliente ya
 -- entiende.
-create or replace function evento_validar_insert_chofer()
+create or replace function seguridad.evento_validar_insert_chofer()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = seguridad, public
 as $$
 declare
   siguiente tipo_evento;
@@ -325,7 +341,7 @@ $$;
 
 create trigger evento_validar_insert_chofer_trigger
 before insert on evento
-for each row execute function evento_validar_insert_chofer();
+for each row execute function seguridad.evento_validar_insert_chofer();
 
 -- === perfil_personal =============================================================
 -- Un usuario selecciona y actualiza solo su propia fila, y solo la columna
@@ -336,12 +352,12 @@ grant update (telefono) on perfil_personal to authenticated;
 
 create policy perfil_personal_select_propio on perfil_personal
   for select
-  using (usuario_id = auth.uid() and usuario_activo());
+  using (usuario_id = auth.uid() and seguridad.usuario_activo());
 
 create policy perfil_personal_update_propio on perfil_personal
   for update
-  using (usuario_id = auth.uid() and usuario_activo())
-  with check (usuario_id = auth.uid() and usuario_activo());
+  using (usuario_id = auth.uid() and seguridad.usuario_activo())
+  with check (usuario_id = auth.uid() and seguridad.usuario_activo());
 
 -- === dispositivo ==================================================================
 -- "un usuario inserta, actualiza y borra solo usuario_id = auth.uid()" (§8):
@@ -351,14 +367,14 @@ grant insert, update, delete on dispositivo to authenticated;
 
 create policy dispositivo_insert_propio on dispositivo
   for insert
-  with check (usuario_id = auth.uid() and usuario_activo());
+  with check (usuario_id = auth.uid() and seguridad.usuario_activo());
 
 create policy dispositivo_update_propio on dispositivo
   for update
-  using (usuario_id = auth.uid() and usuario_activo())
-  with check (usuario_id = auth.uid() and usuario_activo());
+  using (usuario_id = auth.uid() and seguridad.usuario_activo())
+  with check (usuario_id = auth.uid() and seguridad.usuario_activo());
 
--- Sin `usuario_activo()` a proposito, a diferencia de insert/update de
+-- Sin `seguridad.usuario_activo()` a proposito, a diferencia de insert/update de
 -- arriba: borrar su propio token de push es lo unico que le conviene dejar
 -- hacer a una cuenta recien desactivada camino a expirar — nunca le da
 -- acceso a nada nuevo, solo apaga una notificacion que ya no deberia llegar.
@@ -370,7 +386,7 @@ create policy dispositivo_delete_propio on dispositivo
 -- Un chofer selecciona unicamente su propia fila. La lista completa es
 -- exclusiva del servidor con la connection string de servicio.
 --
--- Comprobacion inline (no `usuario_activo()`) a proposito: esta politica YA
+-- Comprobacion inline (no `seguridad.usuario_activo()`) a proposito: esta politica YA
 -- esta sobre `usuario`, asi que consultar la misma fila directo es mas
 -- simple que pasar por una funcion pensada para que OTRAS tablas consulten
 -- `usuario` sin depender de esta politica.
@@ -401,31 +417,31 @@ alter table ruta enable row level security;
 grant select on ruta to authenticated;
 create policy ruta_select_autenticado on ruta
   for select
-  using (auth.role() = 'authenticated' and usuario_activo());
+  using (auth.role() = 'authenticated' and seguridad.usuario_activo());
 
 alter table horario enable row level security;
 grant select on horario to authenticated;
 create policy horario_select_autenticado on horario
   for select
-  using (auth.role() = 'authenticated' and usuario_activo());
+  using (auth.role() = 'authenticated' and seguridad.usuario_activo());
 
 alter table parada enable row level security;
 grant select on parada to authenticated;
 create policy parada_select_autenticado on parada
   for select
-  using (auth.role() = 'authenticated' and usuario_activo());
+  using (auth.role() = 'authenticated' and seguridad.usuario_activo());
 
 alter table cliente enable row level security;
 grant select on cliente to authenticated;
 create policy cliente_select_autenticado on cliente
   for select
-  using (auth.role() = 'authenticated' and usuario_activo());
+  using (auth.role() = 'authenticated' and seguridad.usuario_activo());
 
 alter table camion enable row level security;
 grant select on camion to authenticated;
 create policy camion_select_autenticado on camion
   for select
-  using (auth.role() = 'authenticated' and usuario_activo());
+  using (auth.role() = 'authenticated' and seguridad.usuario_activo());
 
 -- === audit_log y notificacion_programada ==========================================
 -- Sin ningun GRANT y sin ninguna politica para `anon` ni `authenticated`.
@@ -434,3 +450,37 @@ create policy camion_select_autenticado on camion
 -- GRANT agregado por error no las abra sin que exista tambien una politica.
 alter table audit_log enable row level security;
 alter table notificacion_programada enable row level security;
+
+
+-- === privilegios de las funciones de `seguridad` =================================
+-- Postgres otorga EXECUTE a PUBLIC sobre cualquier funcion nueva por defecto,
+-- y `anon`/`authenticated` son miembros de PUBLIC. Cada `create or replace`
+-- de arriba reabre ese default, asi que se cierra explicitamente aqui y solo
+-- se devuelve lo que las politicas de verdad ejercitan.
+revoke execute on function seguridad.usuario_activo() from public;
+revoke execute on function seguridad.evento_existe(uuid, public.tipo_evento) from public;
+grant execute on function seguridad.usuario_activo() to authenticated;
+grant execute on function seguridad.evento_existe(uuid, public.tipo_evento) to authenticated;
+
+-- Las dos funciones de trigger quedan sin ningun GRANT a proposito: Postgres
+-- dispara un trigger sin comprobar el EXECUTE del rol que hizo el
+-- INSERT/UPDATE, asi que los triggers siguen funcionando y nadie puede
+-- invocarlas directo.
+revoke execute on function seguridad.asignacion_auditar_contadores() from public;
+revoke execute on function seguridad.evento_validar_insert_chofer() from public;
+
+-- Estado "RLS encendido y cero politicas" niega todo salvo al dueno de la
+-- tabla, que es justo lo que quieren las dos tablas de arriba, pero es
+-- indistinguible de haberse olvidado de escribir la politica. Estas dos
+-- dejan la intencion por escrito sin cambiar el comportamiento.
+create policy audit_log_sin_acceso_publico on audit_log
+  for all
+  to anon, authenticated
+  using (false)
+  with check (false);
+
+create policy notificacion_programada_sin_acceso_publico on notificacion_programada
+  for all
+  to anon, authenticated
+  using (false)
+  with check (false);
