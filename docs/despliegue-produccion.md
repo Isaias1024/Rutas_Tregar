@@ -215,8 +215,7 @@ conecta a GitHub, no a tu carpeta local.
 ### 2.2 Importar el proyecto
 
 1. <https://vercel.com/new> → conectar la cuenta de GitHub → elegir el repositorio.
-2. **Root Directory:** haz clic en **Edit** y escribe `apps/web`. Este campo es obligatorio; si lo
-   dejas vacio el deploy falla.
+2. **Root Directory:** haz clic en **Edit** y escribe `apps/web`. Este campo es obligatorio; si lo dejas vacio el deploy falla.
 3. **Framework Preset:** Next.js (lo detecta solo).
 4. **Build Command:** activa el override y escribe:
 
@@ -352,11 +351,14 @@ Sin este token el worker arranca igual, pero las notificaciones push no salen.
 Y desde tu PowerShell, sustituyendo la direccion:
 
 ```powershell
-curl.exe https://<tu-worker>.up.railway.app/salud
+curl.exe https://rutasworker-production.up.railway.app/salud
 ```
 
-Debe responder algo que incluya `"ok":true` y `"db":"ok"`. Si responde error, revisa que
-`DATABASE_URL` este bien capturada en Railway.
+Debe responder `{"db":"ok"}` con codigo 200. Si responde `{"db":"caida"}` (503), revisa que
+`DATABASE_URL` este bien capturada en Railway. Si Railway devuelve `502 Application failed to
+respond` (un error del proxy, no del worker), el proceso no esta escuchando en el puerto que
+Railway espera: revisa que la variable `WORKER_PORT` coincida con el puerto configurado en
+**Settings → Networking** (por default, `8080`).
 
 > **Nunca escales el worker a mas de una instancia.** Dos copias del mismo proceso mandarian las
 > notificaciones por duplicado.
