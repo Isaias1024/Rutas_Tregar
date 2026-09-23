@@ -43,7 +43,7 @@ Cuatro pestanas — Hoy, Semana, Historial, Perfil — y el detalle de ruta apil
 
 | Ruta | Que es |
 |---|---|
-| `app/login.tsx` | Credencial y contrasena. **El chofer nunca teclea un correo** |
+| `app/login.tsx` | Credencial y contraseña. **El chofer nunca teclea un correo** |
 | `app/cambiar-password.tsx` | Obligatorio en el primer ingreso, tras el alta del supervisor |
 | `app/(chofer)/hoy.tsx` | Pestana inicial: saludo, resumen del dia y las rutas de hoy |
 | `app/(chofer)/semana.tsx` | Siete dias desde hoy. Lo que no es hoy es **solo consulta** |

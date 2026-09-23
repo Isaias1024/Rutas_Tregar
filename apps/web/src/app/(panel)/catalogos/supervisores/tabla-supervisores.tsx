@@ -253,7 +253,7 @@ export function TablaSupervisores({
                 <p className="text-sm text-destructive">{form.formState.errors.correo.message}</p>
               ) : null}
               <p className="text-sm text-muted-foreground">
-                Puede entrar con este correo por Google, o con la credencial y contrasena temporal
+                Puede entrar con este correo por Google, o con la credencial y contraseña temporal
                 que se muestran una sola vez al crearlo.
               </p>
             </div>
@@ -274,7 +274,7 @@ export function TablaSupervisores({
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             Comparte estos datos con el supervisor ahora: no se van a volver a mostrar. Va a tener
-            que cambiar la contrasena en su primer ingreso. Tambien puede entrar con su cuenta de
+            que cambiar la contraseña en su primer ingreso. Tambien puede entrar con su cuenta de
             Google, con el correo que capturaste.
           </p>
           <dl className="space-y-2 rounded-lg border border-border bg-surface p-4 text-sm">
@@ -286,12 +286,12 @@ export function TablaSupervisores({
               </dd>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <dt className="font-medium">Contrasena temporal</dt>
+              <dt className="font-medium">Contraseña temporal</dt>
               <dd className="flex items-center gap-1">
                 <span className="font-mono">{credencialesNuevas?.passwordTemporal}</span>
                 <BotonCopiar
                   valor={credencialesNuevas?.passwordTemporal ?? ''}
-                  etiqueta="Contrasena temporal"
+                  etiqueta="Contraseña temporal"
                 />
               </dd>
             </div>
@@ -302,7 +302,7 @@ export function TablaSupervisores({
               variant="outline"
               onClick={() =>
                 void navigator.clipboard?.writeText(
-                  `Credencial: ${credencialesNuevas?.credencial}\nContrasena temporal: ${credencialesNuevas?.passwordTemporal}`,
+                  `Credencial: ${credencialesNuevas?.credencial}\nContraseña temporal: ${credencialesNuevas?.passwordTemporal}`,
                 )
               }
             >

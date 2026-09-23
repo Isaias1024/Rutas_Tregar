@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, Text, TextInput, View } from 'react-native';
 import { iniciarSesionConCredencial } from '@/lib/supabase';
 
-// Mensaje unico para credencial inexistente o contrasena incorrecta: nunca
+// Mensaje unico para credencial inexistente o contraseña incorrecta: nunca
 // revela cual de las dos fallo (Done-when del paso 8).
-const MENSAJE_GENERICO = 'Credencial o contrasena incorrecta.';
+const MENSAJE_GENERICO = 'Credencial o contraseña incorrecta.';
 
 function abrirAvisoPrivacidad() {
   const baseUrl = process.env.EXPO_PUBLIC_PANEL_BASE_URL;
@@ -16,6 +16,7 @@ function abrirAvisoPrivacidad() {
 export default function PaginaLogin() {
   const [credencial, setCredencial] = useState('');
   const [contrasena, setContrasena] = useState('');
+  const [contrasenaVisible, setContrasenaVisible] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,16 +52,27 @@ export default function PaginaLogin() {
       </View>
 
       <View className="mb-6">
-        <Text className="mb-1 text-base font-medium text-foreground">Contrasena</Text>
-        <TextInput
-          className="h-14 rounded-app border border-border px-4 text-lg text-foreground"
-          secureTextEntry
-          autoCapitalize="none"
-          value={contrasena}
-          onChangeText={setContrasena}
-          editable={!cargando}
-          testID="campo-contrasena"
-        />
+        <Text className="mb-1 text-base font-medium text-foreground">Contraseña</Text>
+        <View className="flex-row items-center rounded-app border border-border">
+          <TextInput
+            className="h-14 flex-1 px-4 text-lg text-foreground"
+            secureTextEntry={!contrasenaVisible}
+            autoCapitalize="none"
+            value={contrasena}
+            onChangeText={setContrasena}
+            editable={!cargando}
+            testID="campo-contrasena"
+          />
+          <Pressable
+            onPress={() => setContrasenaVisible((visible) => !visible)}
+            className="px-4"
+            accessibilityLabel={contrasenaVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+          >
+            <Text className="text-sm font-medium text-muted-foreground">
+              {contrasenaVisible ? 'Ocultar' : 'Mostrar'}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       {error ? (

@@ -9,6 +9,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { crearClienteServidor } from '@/lib/supabase/server';
 
 async function iniciarSesionConGoogle() {
@@ -32,7 +33,7 @@ async function iniciarSesionConGoogle() {
   redirect(data.url);
 }
 
-// Un solo mensaje generico para correo, contrasena o cuenta inactiva: mismo
+// Un solo mensaje generico para correo, contraseña o cuenta inactiva: mismo
 // criterio que la app movil.
 async function iniciarSesionConPassword(formData: FormData) {
   'use server';
@@ -72,7 +73,7 @@ const MENSAJES_ERROR: Record<string, string> = {
   no_invitado:
     'Este correo no tiene una invitacion activa. Pide a un administrador que te de de alta.',
   oauth: 'No se pudo iniciar sesion con Google. Intenta de nuevo.',
-  credenciales_invalidas: 'Correo o contrasena incorrectos.',
+  credenciales_invalidas: 'Correo o contraseña incorrectos.',
 };
 
 export default async function PaginaLogin({
@@ -128,12 +129,12 @@ export default async function PaginaLogin({
           </div>
           <div className="space-y-1">
             <label htmlFor="login-password" className="text-sm font-medium">
-              Contrasena
+              Contraseña
             </label>
-            <Input id="login-password" name="password" type="password" required />
+            <PasswordInput id="login-password" name="password" required />
           </div>
           <Button type="submit" variant="outline" className="w-full">
-            Entrar con correo y contrasena
+            Entrar con correo y contraseña
           </Button>
         </form>
       </div>

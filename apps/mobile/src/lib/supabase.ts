@@ -28,7 +28,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// El chofer solo teclea credencial y contrasena: la sintesis del correo interno
+// El chofer solo teclea credencial y contraseña: la sintesis del correo interno
 // queda encapsulada aqui para que `login.tsx` nunca tenga que nombrarla.
 export function iniciarSesionConCredencial(credencial: string, contrasena: string) {
   return supabase.auth.signInWithPassword({

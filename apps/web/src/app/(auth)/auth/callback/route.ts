@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=no_invitado`);
   }
 
-  // Mismo motivo que en el login por contrasena: este redirect no vuelve a pasar
+  // Mismo motivo que en el login por contraseña: este redirect no vuelve a pasar
   // por `proxy.ts`, asi que la compuerta de /cuenta se decide aqui tambien.
   if (resultado.data.debeCambiarPassword) {
     return NextResponse.redirect(`${origin}/cuenta`);

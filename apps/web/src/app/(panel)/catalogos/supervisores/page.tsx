@@ -10,7 +10,7 @@ export default async function PaginaSupervisores() {
   return (
     <TablaSupervisores
       titulo="Supervisores"
-      descripcion="Quien mas administra el panel. Entran con su cuenta de Google corporativa o con credencial y contrasena."
+      descripcion="Quien mas administra el panel. Entran con su cuenta de Google corporativa o con credencial y contraseña."
       supervisores={supervisores}
       // Solo para no ofrecer botones que el servidor va a rechazar: la regla real
       // la imponen `crearSupervisor`/`desactivarSupervisor`.

@@ -9,7 +9,7 @@ import { AvisoAccion } from '@/components/aviso-accion';
 import { EncabezadoPagina } from '@/components/shell/encabezado-pagina';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 
 const ETIQUETAS_ROL: Record<'admin' | 'supervisor' | 'chofer', string> = {
   admin: 'Administrador',
@@ -58,13 +58,13 @@ export function FormularioCuenta({
         titulo="Mi cuenta"
         descripcion={
           debeCambiarPassword
-            ? 'Tienes que elegir una contrasena nueva antes de continuar.'
-            : 'Tu identidad en el panel y tu contrasena de acceso.'
+            ? 'Tienes que elegir una contraseña nueva antes de continuar.'
+            : 'Tu identidad en el panel y tu contraseña de acceso.'
         }
       />
 
       {debeCambiarPassword ? (
-        <AvisoAccion exito="Es tu primer ingreso con esta cuenta: elige una contrasena nueva para continuar." />
+        <AvisoAccion exito="Es tu primer ingreso con esta cuenta: elige una contraseña nueva para continuar." />
       ) : null}
 
       <Card>
@@ -91,28 +91,24 @@ export function FormularioCuenta({
 
       <Card>
         <CardHeader>
-          <CardTitle>Cambiar contrasena</CardTitle>
+          <CardTitle>Cambiar contraseña</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit(guardar)} className="max-w-sm space-y-4">
             <div className="space-y-1">
               <label htmlFor="cuenta-password-nueva" className="text-sm font-medium">
-                Contrasena nueva
+                Contraseña nueva
               </label>
-              <Input id="cuenta-password-nueva" type="password" {...form.register('nueva')} />
+              <PasswordInput id="cuenta-password-nueva" {...form.register('nueva')} />
               {form.formState.errors.nueva ? (
                 <p className="text-sm text-destructive">{form.formState.errors.nueva.message}</p>
               ) : null}
             </div>
             <div className="space-y-1">
               <label htmlFor="cuenta-password-confirmacion" className="text-sm font-medium">
-                Confirma la contrasena
+                Confirma la contraseña
               </label>
-              <Input
-                id="cuenta-password-confirmacion"
-                type="password"
-                {...form.register('confirmacion')}
-              />
+              <PasswordInput id="cuenta-password-confirmacion" {...form.register('confirmacion')} />
               {form.formState.errors.confirmacion ? (
                 <p className="text-sm text-destructive">
                   {form.formState.errors.confirmacion.message}

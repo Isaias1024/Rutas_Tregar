@@ -419,7 +419,7 @@ export function TablaChoferes({
                 <Input id="chofer-telefono-crear" {...formCrear.register('telefono')} />
               </div>
               <p className="text-sm text-muted-foreground">
-                La credencial y la contrasena temporal se generan solas y se muestran una sola vez
+                La credencial y la contraseña temporal se generan solas y se muestran una sola vez
                 al terminar.
               </p>
               {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -440,7 +440,7 @@ export function TablaChoferes({
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             Comparte estos datos con el chofer ahora: no se van a volver a mostrar. Va a tener que
-            cambiar la contrasena en su primer ingreso.
+            cambiar la contraseña en su primer ingreso.
           </p>
           <dl className="space-y-2 rounded-lg border border-border bg-surface p-4 text-sm">
             <div className="flex items-center justify-between gap-4">
@@ -451,12 +451,12 @@ export function TablaChoferes({
               </dd>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <dt className="font-medium">Contrasena temporal</dt>
+              <dt className="font-medium">Contraseña temporal</dt>
               <dd className="flex items-center gap-1">
                 <span className="font-mono">{credencialesNuevas?.passwordTemporal}</span>
                 <BotonCopiar
                   valor={credencialesNuevas?.passwordTemporal ?? ''}
-                  etiqueta="Contrasena temporal"
+                  etiqueta="Contraseña temporal"
                 />
               </dd>
             </div>
@@ -467,7 +467,7 @@ export function TablaChoferes({
               variant="outline"
               onClick={() =>
                 void navigator.clipboard?.writeText(
-                  `Credencial: ${credencialesNuevas?.credencial}\nContrasena temporal: ${credencialesNuevas?.passwordTemporal}`,
+                  `Credencial: ${credencialesNuevas?.credencial}\nContraseña temporal: ${credencialesNuevas?.passwordTemporal}`,
                 )
               }
             >

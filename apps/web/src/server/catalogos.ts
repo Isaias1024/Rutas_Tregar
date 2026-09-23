@@ -551,7 +551,7 @@ export async function crearSupervisor(
   }
 
   const credencial = await generarCredencialUnica(nombre);
-  // Igual que crearChofer: una contrasena real, mostrada una sola vez, que
+  // Igual que crearChofer: una contraseña real, mostrada una sola vez, que
   // convive con el acceso por Google del mismo correo.
   const passwordTemporal = generarPasswordTemporal();
 
@@ -577,7 +577,7 @@ export async function crearSupervisor(
         rol: 'supervisor',
         correo,
         activo: true,
-        // Contrasena generada por el sistema: se fuerza el cambio en el primer
+        // Contraseña generada por el sistema: se fuerza el cambio en el primer
         // ingreso, misma compuerta que ya usa el chofer.
         debeCambiarPassword: true,
       });

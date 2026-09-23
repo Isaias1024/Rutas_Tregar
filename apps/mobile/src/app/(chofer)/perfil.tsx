@@ -71,7 +71,7 @@ export default function PaginaPerfil() {
             deshabilitado={!perfil}
           />
           <BotonSecundario
-            etiqueta="Cambiar contrasena"
+            etiqueta="Cambiar contraseña"
             // `voluntario` distingue esta entrada de la forzada: sin el, el
             // guard de `_layout.tsx` devuelve a "hoy" antes de verse la pantalla.
             onPress={() =>

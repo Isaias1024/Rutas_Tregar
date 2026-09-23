@@ -15,6 +15,7 @@ export default function PaginaCambiarPassword() {
   const esVoluntario = voluntario === '1';
   const [nueva, setNueva] = useState('');
   const [confirmacion, setConfirmacion] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
@@ -30,11 +31,11 @@ export default function PaginaCambiarPassword() {
 
   async function guardar() {
     if (nueva.length < 8) {
-      setError('La contrasena debe tener al menos 8 caracteres.');
+      setError('La contraseña debe tener al menos 8 caracteres.');
       return;
     }
     if (nueva !== confirmacion) {
-      setError('Las dos contrasenas no coinciden.');
+      setError('Las dos contraseñas no coinciden.');
       return;
     }
 
@@ -44,7 +45,7 @@ export default function PaginaCambiarPassword() {
     const { error: errorPassword } = await supabase.auth.updateUser({ password: nueva });
     if (errorPassword) {
       setCargando(false);
-      setError('No se pudo cambiar la contrasena. Intenta de nuevo.');
+      setError('No se pudo cambiar la contraseña. Intenta de nuevo.');
       return;
     }
 
@@ -64,7 +65,7 @@ export default function PaginaCambiarPassword() {
     return (
       <View className="flex-1 justify-center bg-background px-6">
         <Text className="mb-2 text-center text-2xl font-semibold text-foreground">
-          Contrasena actualizada
+          Contraseña actualizada
         </Text>
         <Text className="mb-8 text-center text-base text-foreground-muted">
           Usa la nueva la proxima vez que entres.
@@ -83,38 +84,51 @@ export default function PaginaCambiarPassword() {
   return (
     <View className="flex-1 justify-center bg-background px-6">
       <Text className="mb-2 text-center text-2xl font-semibold text-foreground">
-        {esVoluntario ? 'Cambiar contrasena' : 'Cambia tu contrasena'}
+        {esVoluntario ? 'Cambiar contraseña' : 'Cambia tu contraseña'}
       </Text>
       <Text className="mb-8 text-center text-base text-foreground-muted">
         {esVoluntario
-          ? 'Elige una contrasena nueva. Minimo 8 caracteres.'
-          : 'Es tu primer ingreso. Elige una contrasena nueva para continuar.'}
+          ? 'Elige una contraseña nueva. Minimo 8 caracteres.'
+          : 'Es tu primer ingreso. Elige una contraseña nueva para continuar.'}
       </Text>
 
       <View className="mb-4">
-        <Text className="mb-1 text-base font-medium text-foreground">Contrasena nueva</Text>
-        <TextInput
-          className="h-14 rounded-app border border-border px-4 text-lg text-foreground"
-          secureTextEntry
-          autoCapitalize="none"
-          value={nueva}
-          onChangeText={setNueva}
-          editable={!cargando}
-          testID="campo-nueva-password"
-        />
+        <Text className="mb-1 text-base font-medium text-foreground">Contraseña nueva</Text>
+        <View className="flex-row items-center rounded-app border border-border">
+          <TextInput
+            className="h-14 flex-1 px-4 text-lg text-foreground"
+            secureTextEntry={!passwordVisible}
+            autoCapitalize="none"
+            value={nueva}
+            onChangeText={setNueva}
+            editable={!cargando}
+            testID="campo-nueva-password"
+          />
+          <Pressable
+            onPress={() => setPasswordVisible((visible) => !visible)}
+            className="px-4"
+            accessibilityLabel={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+          >
+            <Text className="text-sm font-medium text-foreground-muted">
+              {passwordVisible ? 'Ocultar' : 'Mostrar'}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <View className="mb-6">
-        <Text className="mb-1 text-base font-medium text-foreground">Confirma la contrasena</Text>
-        <TextInput
-          className="h-14 rounded-app border border-border px-4 text-lg text-foreground"
-          secureTextEntry
-          autoCapitalize="none"
-          value={confirmacion}
-          onChangeText={setConfirmacion}
-          editable={!cargando}
-          testID="campo-confirmacion-password"
-        />
+        <Text className="mb-1 text-base font-medium text-foreground">Confirma la contraseña</Text>
+        <View className="flex-row items-center rounded-app border border-border">
+          <TextInput
+            className="h-14 flex-1 px-4 text-lg text-foreground"
+            secureTextEntry={!passwordVisible}
+            autoCapitalize="none"
+            value={confirmacion}
+            onChangeText={setConfirmacion}
+            editable={!cargando}
+            testID="campo-confirmacion-password"
+          />
+        </View>
       </View>
 
       {error ? (
@@ -137,7 +151,7 @@ export default function PaginaCambiarPassword() {
       </Pressable>
 
       {/* El primer ingreso NO lleva cancelar: es una compuerta, y salirse
-          dejaria una cuenta usable con la contrasena que dio el supervisor. */}
+          dejaria una cuenta usable con la contraseña que dio el supervisor. */}
       {esVoluntario ? (
         <View className="mt-3">
           <BotonSecundario etiqueta="Cancelar" onPress={volver} deshabilitado={cargando} />

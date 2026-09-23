@@ -29,6 +29,7 @@
     "panel:sesion": "tsx scripts/sesion-prueba.ts",
     "chofer:prueba": "tsx scripts/chofer-prueba.ts",
     "admin:crear": "tsx scripts/crear-admin-produccion.ts",
+    "publicar:cambios": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publicar-cambios.ps1",
     "worker:version": "pnpm --filter @rutas/worker exec tsx src/index.ts --version",
     "worker:dev": "pnpm --filter @rutas/worker dev",
     "worker:start": "pnpm --filter @rutas/worker exec tsx src/index.ts serve",

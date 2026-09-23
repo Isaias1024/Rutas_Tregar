@@ -17,7 +17,7 @@ const SIN_SESION: Resultado<never> = {
 };
 
 /**
- * Cambia la contrasena de QUIEN LLAMA: sin `can()` porque no hay recurso ajeno,
+ * Cambia la contraseña de QUIEN LLAMA: sin `can()` porque no hay recurso ajeno,
  * y con el cliente de SESION, porque `admin.updateUserById` revoca sus tokens.
  */
 export async function cambiarMiPassword(input: unknown): Promise<Resultado<{ id: string }>> {
@@ -44,7 +44,7 @@ export async function cambiarMiPassword(input: unknown): Promise<Resultado<{ id:
       ok: false,
       error: {
         codigo: 'validacion',
-        mensaje: `No se pudo cambiar la contrasena: ${errorAuth.message}`,
+        mensaje: `No se pudo cambiar la contraseña: ${errorAuth.message}`,
       },
     };
   }

@@ -118,7 +118,7 @@ export async function proxy(request: NextRequest) {
     return redirigirALogin();
   }
 
-  // El login por contrasena deja `debe_cambiar_password` en true: no hay paso
+  // El login por contraseña deja `debe_cambiar_password` en true: no hay paso
   // de la pantalla hasta cambiarla, misma compuerta que usa la app movil.
   if (fila.debeCambiarPassword && pathname !== '/cuenta') {
     return NextResponse.redirect(new URL('/cuenta', request.url));
