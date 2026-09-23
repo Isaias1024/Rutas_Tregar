@@ -16,11 +16,8 @@ import { useAsignaciones } from '@/datos/useAsignaciones';
 const DIAS_ATRAS = 30;
 
 /**
- * Las rutas que el chofer ya hizo, de la mas reciente hacia atras.
- *
- * Incluye las canceladas a proposito (`incluirCanceladas`): forman parte de lo
- * que le paso ese dia y explican un hueco en su jornada. En Hoy y Semana se
- * omiten, porque ahi solo estorbarian entre las que si va a manejar.
+ * Las rutas que el chofer ya hizo, de la mas reciente hacia atras. Incluye las
+ * canceladas: explican un hueco en su jornada, que en Hoy y Semana solo estorbaria.
  */
 export default function PaginaHistorial() {
   const hoy = fechaOperativaHoy();

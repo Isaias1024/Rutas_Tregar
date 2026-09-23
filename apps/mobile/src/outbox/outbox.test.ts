@@ -181,12 +181,8 @@ describe('subirPendiente: idempotencia contra Supabase real', () => {
   const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
 
-  // El `fetch` global bajo jest-expo es `expo/fetch`, respaldado por un
-  // modulo nativo que no existe fuera de un dispositivo o emulador real —
-  // las llamadas se "completan" sin error pero devuelven una respuesta
-  // vacia (`status: undefined`). Se le pasa a supabase-js el fetch real de
-  // `undici` explicitamente para que estas pruebas hablen de verdad con el
-  // Supabase local.
+  // El `fetch` global de jest-expo es `expo/fetch`, que fuera de un dispositivo
+  // real responde vacio: se le pasa a supabase-js el fetch de `undici`.
   const fetchReal = fetchUndici as unknown as typeof globalThis.fetch;
 
   const admin = createClient(supabaseUrl, serviceKey, {
@@ -315,13 +311,8 @@ describe('subirPendiente: idempotencia contra Supabase real', () => {
     expect(filas).toHaveLength(1);
   });
 
-  // Orden a proposito: `evento_validar_insert_chofer_trigger` (auditoria de
-  // seguridad, post paso 16) rechaza un insert que no sea el siguiente paso
-  // de ORDEN_PASOS para esa asignacion. Esta suite ya iba vio_ruta →
-  // listo_inicio; "vaciarCola... inicio_ruta" tiene que correr ANTES que
-  // "sube el contador... fin_ruta" para que la secuencia completa quede en
-  // orden real (vio_ruta, listo_inicio, inicio_ruta, fin_ruta) — antes de
-  // ese trigger el orden entre estas dos pruebas no importaba.
+  // Orden a proposito: el trigger exige el siguiente paso de ORDEN_PASOS, asi que
+  // "vaciarCola... inicio_ruta" tiene que correr antes que "...fin_ruta".
   it('vaciarCola sobre la cola real: sube lo pendiente y la deja vacia', async () => {
     const almacen = crearAlmacenFalso();
     const payload = payloadDePrueba({

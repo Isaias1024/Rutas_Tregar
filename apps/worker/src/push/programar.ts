@@ -3,10 +3,8 @@ import { asignacion, db, evento, horario } from '@rutas/shared/db';
 import { addMinutes, format } from 'date-fns';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
-// Programa dos de los tres tipos de notificacion (paso 14); el tercero
-// (asignacion_nueva) se encola como efecto inmediato de asignar/reasignar
-// en apps/web/src/server/planeador-nucleo.ts, no aqui — no hace falta
-// barrer nada para saber que una asignacion se acaba de crear.
+// Aqui solo dos de los tres tipos: `asignacion_nueva` se encola como efecto
+// inmediato de asignar/reasignar, sin necesidad de barrer nada.
 
 const ZONA_OPERATIVA = 'America/Mexico_City';
 const MINUTOS_RECORDATORIO = 30;
@@ -30,11 +28,8 @@ function horaEsperadaComoInstante(fecha: string, horaEsperada: string): Date {
 }
 
 /**
- * Encola si no existe ya una fila PENDIENTE de ese tipo para esa asignacion.
- * El unique parcial `notificacion_programada_pendiente_key` (paso 1,
- * `on (asignacion_id, tipo) where enviado_en is null`) es lo que hace esto
- * idempotente de verdad: un barrido repetido nunca duplica, solo no inserta
- * nada la segunda vez.
+ * Encola si no hay ya una fila PENDIENTE de ese tipo. El unique parcial
+ * `notificacion_programada_pendiente_key` es lo que lo hace idempotente.
  */
 async function encolarSiNoExiste(
   asignacionId: string,

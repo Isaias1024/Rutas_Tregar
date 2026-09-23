@@ -18,10 +18,8 @@ interface Props {
 }
 
 /**
- * Los cinco hitos como linea de tiempo vertical: nodo relleno + hora para lo
- * cumplido, nodo resaltado para el paso que sigue, nodo vacio para lo que
- * falta. Reemplaza las tres listas sueltas (cumplidos / activo / futuros)
- * por una sola estructura que se entiende de un vistazo.
+ * Los cinco hitos como linea de tiempo vertical: relleno con hora para lo
+ * cumplido, resaltado para el que sigue, vacio para lo que falta.
  */
 export function PasoStepper({ pasos }: Props) {
   return (

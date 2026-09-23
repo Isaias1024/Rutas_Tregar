@@ -7,16 +7,8 @@ function icono(nombre: NombreIcono) {
 }
 
 /**
- * Navegacion del chofer: Hoy, Semana, Historial y Perfil.
- *
- * `hoy` va primero porque es la pantalla de trabajo y la que abre al entrar
- * (§16.1). El detalle de ruta (`ruta/[id]`) se apila encima como pantalla, no
- * como una quinta pestana: se llega a el desde una ruta concreta, nunca como
- * destino suelto.
- *
- * `height: 'auto'` con padding en vez de una altura fija: en telefonos con
- * gesto de navegacion la barra necesita mas alto que en los de botones, y una
- * medida fija recorta las etiquetas en unos u otros.
+ * `height: 'auto'` con padding y no altura fija: con gesto de navegacion la barra
+ * necesita mas alto, y una medida fija recorta las etiquetas en unos u otros.
  */
 export default function LayoutChofer() {
   return (

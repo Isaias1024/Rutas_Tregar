@@ -3,8 +3,8 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { Expo, type ExpoPushMessage } from 'expo-server-sdk';
 import type { Logger } from 'pino';
 
-// Envio con expo-server-sdk en tandas (paso 14). Jamas se loguea el token
-// ni el nombre ni el telefono del chofer — solo id de fila y contadores.
+// Jamas se loguea el token ni el nombre ni el telefono del chofer: solo id de
+// fila y contadores.
 
 const MENSAJE_POR_TIPO: Record<string, { titulo: string; cuerpo: string }> = {
   asignacion_nueva: { titulo: 'Rutas', cuerpo: 'Tienes una ruta nueva asignada.' },

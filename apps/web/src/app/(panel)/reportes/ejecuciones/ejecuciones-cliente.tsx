@@ -26,10 +26,8 @@ function formatoHora(fecha: Date | string | null): string {
   return new Date(fecha).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' });
 }
 
-// Reporte 3 (§9 paso 15): la pantalla es la unica superficie paginada por
-// cursor ademas de la bitacora de auditoria (§5). La descarga completa del
-// rango es el CSV en streaming (`/api/reportes/ejecuciones.csv`), no esta
-// tabla — esta solo muestra un vistazo, pagina por pagina.
+// Esta tabla es un vistazo pagina por pagina; la descarga completa del rango es
+// el CSV en streaming de `/api/reportes/ejecuciones.csv`.
 export function EjecucionesCliente() {
   const [rango, setRango] = useState<RangoFechas>(rangoPorDefecto);
   const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } =

@@ -1,15 +1,12 @@
-// `@/lib/env` importa primero A PROPOSITO (ver server/catalogos.ts): su
-// carga de `.env` tiene que correr antes de que `@rutas/shared/db` evalue
-// `process.env.DATABASE_URL` al importarse.
+// `@/lib/env` importa primero A PROPOSITO (ver server/catalogos.ts): su carga
+// de `.env` corre antes de que `@rutas/shared/db` lea DATABASE_URL.
 import '@/lib/env';
 import { reportePdfSchema } from '@rutas/shared';
 import { NextResponse } from 'next/server';
 import { env } from '@/lib/env';
 
-// Puente entre el boton "Descargar" del panel (sesion de cookies, ya la
-// exige `proxy.ts` para todo `/api/reportes/*`) y `POST {WORKER_BASE_URL}/reportes/pdf`
-// (secreto compartido). El navegador nunca ve `WORKER_SHARED_SECRET`: este
-// route handler es el unico que lo lee y lo manda.
+// Puente entre el boton "Descargar" (sesion de cookies) y el worker (secreto
+// compartido): este handler es el unico que lee `WORKER_SHARED_SECRET`.
 export async function POST(request: Request): Promise<NextResponse | Response> {
   const cuerpo = await request.json().catch(() => null);
   const parseo = reportePdfSchema.safeParse(cuerpo);

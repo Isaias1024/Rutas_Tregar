@@ -1,15 +1,8 @@
 import { View } from 'react-native';
 
 /**
- * Esqueleto de tarjeta, no un spinner centrado.
- *
- * La pantalla aparece con la forma que va a tener: el chofer entiende que sus
- * rutas estan por llegar en vez de mirar un vacio que podria significar
- * "no tienes nada hoy". Es la diferencia entre "cargando" y "vacio" antes de
- * leer una sola palabra.
- *
- * Sin animacion de brillo a proposito: alguien mira esta pantalla muchas veces
- * al dia y el parpadeo cansa mas de lo que informa.
+ * Esqueleto de tarjeta, no un spinner: asi el vacio no se lee como "no tienes
+ * rutas hoy". Sin brillo animado, que se mira muchas veces al dia y cansa.
  */
 function BloqueTarjeta() {
   return (
@@ -22,9 +15,8 @@ function BloqueTarjeta() {
 }
 
 /**
- * Claves fijas en vez del indice del arreglo: estos bloques no se reordenan ni
- * cambian de identidad — se dibujan y desaparecen completos cuando llegan los
- * datos — asi que una lista de nombres estables dice eso mejor que un indice.
+ * Claves fijas en vez del indice: estos bloques no se reordenan, se dibujan y
+ * desaparecen completos.
  */
 const CLAVES = ['esqueleto-a', 'esqueleto-b', 'esqueleto-c', 'esqueleto-d', 'esqueleto-e'] as const;
 

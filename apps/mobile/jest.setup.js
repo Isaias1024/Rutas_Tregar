@@ -1,12 +1,8 @@
 const { existsSync, readFileSync } = require('node:fs');
 const path = require('node:path');
 
-// Jest no arranca via Expo/Metro, asi que nada carga `.env` por el. Mismo
-// necesidad que metro.config.js, next.config.ts y vitest.config.ts, pero
-// `process.loadEnvFile` resulto poco confiable bajo los workers de Jest
-// (se observo cargar en un worker y no en otro para el mismo archivo), asi
-// que aqui se parsea a mano — sin dependencias, un archivo `.env` simple de
-// `CLAVE=valor` por linea.
+// Jest no arranca via Expo/Metro, asi que nada carga `.env`. Se parsea a mano
+// porque `process.loadEnvFile` cargaba en unos workers de Jest y en otros no.
 const envRaiz = path.resolve(__dirname, '../../.env');
 if (existsSync(envRaiz)) {
   const contenido = readFileSync(envRaiz, 'utf-8');
@@ -33,12 +29,8 @@ if (existsSync(envRaiz)) {
   }
 }
 
-// El `performance` que provee el entorno de pruebas de React Native es un
-// polyfill minimo (sin `markResourceTiming`), y el fetch real de `undici`
-// que usan las pruebas de outbox contra el Supabase local (ver
-// outbox.test.ts) lo llama para su propia instrumentacion interna. Sin
-// esto, esa llamada revienta con "markResourceTiming is not a function" —
-// es puramente diagnostico, un no-op no cambia ningun resultado de prueba.
+// El `performance` de las pruebas de React Native no trae `markResourceTiming`,
+// que el fetch de `undici` llama para instrumentarse.
 if (typeof performance !== 'undefined' && typeof performance.markResourceTiming !== 'function') {
   performance.markResourceTiming = () => {};
 }

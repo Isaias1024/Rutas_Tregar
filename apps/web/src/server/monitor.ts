@@ -1,8 +1,7 @@
 'use server';
 
 // `@/lib/env` importa primero A PROPOSITO (ver catalogos.ts): su carga de
-// `.env` tiene que correr antes de que `@rutas/shared/db` evalue
-// `process.env.DATABASE_URL` al importarse. Import de solo efecto.
+// `.env` corre antes de que `@rutas/shared/db` lea DATABASE_URL.
 import '@/lib/env';
 import {
   eventoManualSchema,
@@ -46,19 +45,14 @@ async function actorAutorizado() {
   return actor;
 }
 
-// === consulta del dia ===============================================================
-
 // Alias porque `ruta` referencia `parada` dos veces (inicio y fin) — mismo
 // patron que `apps/web/src/server/rutas.ts`.
 const paradaInicio = alias(parada, 'parada_inicio_monitor');
 const paradaFin = alias(parada, 'parada_fin_monitor');
 
 export async function listarMonitorDelDia(fecha: string) {
-  // Monitor no guarda su propia copia de que ruta esta activa: consulta
-  // `ruta`/`horario` en vivo en cada llamada. Si la ruta se borro o el
-  // horario se desactivo despues de crear esta asignacion, la fila deja de
-  // calificar aqui aunque `asignacion.cancelada_en` siga nulo — es lo que
-  // impide que una ruta eliminada "sobreviva" en el monitor del dia.
+  // Se consultan `ruta`/`horario` en vivo: asi una ruta borrada o un horario
+  // desactivado despues de asignar deja de aparecer en el monitor del dia.
   const filasAsignacion = await db
     .select({
       id: asignacion.id,
@@ -74,8 +68,7 @@ export async function listarMonitorDelDia(fecha: string) {
       choferNombre: perfilPersonal.nombre,
       camionCodigo: asignacion.camionCodigo,
       camionEstado: camion.estado,
-      // Solo para comparar contra el GPS del evento (§ flag "otra ubicacion"
-      // del rediseno de monitor) — nunca se pintan como texto.
+      // Solo para comparar contra el GPS del evento — nunca se pintan como texto.
       paradaInicioLat: paradaInicio.lat,
       paradaInicioLng: paradaInicio.lng,
       paradaFinLat: paradaFin.lat,
@@ -129,8 +122,6 @@ export async function listarMonitorDelDia(fecha: string) {
   }));
 }
 
-// === captura manual ==================================================================
-
 export async function registrarEventoManual(input: unknown): Promise<Resultado<{ id: string }>> {
   const parseo = eventoManualSchema.safeParse(input);
   if (!parseo.success) {
@@ -153,10 +144,8 @@ export async function registrarEventoManual(input: unknown): Promise<Resultado<{
   let resultado: Resultado<{ id: string }>;
   try {
     resultado = await db.transaction(async (tx) => {
-      // Misma maquina de estados que sigue el chofer en la app (§ flujo.ts,
-      // `puedeRegistrar`): la pantalla del supervisor ya solo ofrece el
-      // siguiente paso, pero esto es lo que de verdad lo impone — nunca hay
-      // que confiar en que el cliente mande el `tipo` correcto.
+      // La pantalla ya solo ofrece el siguiente paso, pero esto es lo que lo
+      // impone: nunca hay que confiar en el `tipo` que mande el cliente.
       const eventosExistentes = await tx
         .select({ tipo: evento.tipo })
         .from(evento)
@@ -180,15 +169,14 @@ export async function registrarEventoManual(input: unknown): Promise<Resultado<{
         gpsPrecisionM: null,
         sinGps: true,
         // Fijo, nunca lo que mande el cliente: es lo que distingue un
-        // reporte del supervisor de uno que de verdad vino de la app.
+        // reporte del supervisor de uno que vino de la app.
         origen: 'supervisor',
         capturadoPor: actor.id,
         clientEventId: crypto.randomUUID(),
       });
 
-      // Mismos dos pasos que la cola del chofer (apps/mobile/src/outbox/
-      // flusher.ts): el evento vive en `evento` (append-only) y el contador
-      // vive en `asignacion`, nunca en la fila del evento.
+      // Mismos dos pasos que la cola del chofer: el evento vive en `evento`
+      // (append-only) y el contador en `asignacion`.
       if (requiereContador(tipo) && cantidad !== undefined) {
         await tx
           .update(asignacion)
@@ -212,8 +200,8 @@ export async function registrarEventoManual(input: unknown): Promise<Resultado<{
       return { ok: true, data: { id } } satisfies Resultado<{ id: string }>;
     });
   } catch (error) {
-    // Unique violation: (asignacion_id, tipo) ya existe (23505) — el evento
-    // ya estaba registrado, casi siempre porque el chofer lo marco primero.
+    // Unique violation (23505): el evento ya estaba registrado, casi siempre
+    // porque el chofer lo marco primero.
     if (error instanceof Error && 'code' in error && error.code === '23505') {
       return errorValidacion(
         'Ese paso ya tiene un evento registrado para esta asignacion.',
@@ -229,19 +217,9 @@ export async function registrarEventoManual(input: unknown): Promise<Resultado<{
   return resultado;
 }
 
-// === incidente (fuera de la secuencia) ==============================================
-
 /**
- * Cierra una ruta por incidente desde el panel, cuando el chofer no pudo
- * hacerlo desde la app (telefono sin bateria, sin senal, o el chofer mismo
- * incomunicado — que es justo cuando hay un incidente que reportar).
- *
- * Es una accion aparte de `registrarEventoManual` a proposito, y no pasa por
- * `siguientePaso()`: `fin_ruta_incidente` no pertenece a `ORDEN_PASOS`, se
- * puede registrar en cualquier momento mientras la ruta no haya cerrado ya, y
- * exige una razon que ningun paso de la secuencia pide. Meterla en la misma
- * accion obligaria a `siguientePaso()` a proponer algo que por definicion no
- * propone. Quien impone la regla sigue siendo `puedeRegistrar`, aqui abajo.
+ * Cierra una ruta por incidente desde el panel. Aparte de `registrarEventoManual`
+ * porque `fin_ruta_incidente` no esta en `ORDEN_PASOS` y exige una razon.
  */
 export async function registrarIncidenteManual(input: unknown): Promise<Resultado<{ id: string }>> {
   const parseo = incidenteManualSchema.safeParse(input);

@@ -1,6 +1,5 @@
-// La unica funcion de permisos del proyecto. Ninguna comprobacion de roles
-// vive fuera de aqui — ni en una pagina, ni en un proxy, ni en un componente.
-// Codifica la matriz de la §8 del blueprint.
+// La unica funcion de permisos del proyecto: ninguna comprobacion de roles vive
+// fuera de aqui, ni en una pagina, ni en un proxy, ni en un componente.
 
 export type Rol = 'admin' | 'supervisor' | 'chofer';
 
@@ -25,10 +24,8 @@ export type AccionSinRecurso =
   | 'gestionar_usuarios'
   | 'dar_de_baja'
   | 'ver_bitacora'
-  // Unica accion que distingue a admin de supervisor. No hay todavia ninguna
-  // pantalla que la consuma (el alta de usuarios admin/supervisor se hace
-  // fuera del panel); cuando exista, debe usar esta accion ademas de
-  // 'gestionar_usuarios' cuando el rol objetivo sea 'supervisor'.
+  // Unica accion que distingue a admin de supervisor; la consume el alta de
+  // supervisores (`crearSupervisor`), junto con 'gestionar_usuarios'.
   | 'crear_supervisor';
 
 /**
@@ -47,8 +44,8 @@ export type Accion = AccionSinRecurso | AccionPropia | AccionProhibida;
 
 export type RecursoPropio = { choferId: string } | { usuarioId: string };
 
-// Admin y supervisor comparten exactamente el mismo acceso de panel: la
-// unica diferencia funcional entre ambos roles es 'crear_supervisor', abajo.
+// Admin y supervisor comparten el mismo acceso de panel: la unica diferencia
+// funcional entre ambos roles es 'crear_supervisor', abajo.
 const PERMISOS_PANEL: readonly AccionSinRecurso[] = [
   'ver_panel',
   'ver_monitor',

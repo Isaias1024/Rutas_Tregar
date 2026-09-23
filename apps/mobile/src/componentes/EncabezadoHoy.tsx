@@ -18,9 +18,8 @@ const MESES = [
 ];
 
 /**
- * El saludo se elige con la hora local del dispositivo a proposito: es
- * cortesia, no un dato operativo. Todo lo que decide algo (que rutas son de
- * hoy, si un dia ya paso) usa `fechaOperativaHoy()` con la zona de Monterrey.
+ * El saludo usa la hora local del dispositivo a proposito: es cortesia. Todo lo
+ * que decide algo usa `fechaOperativaHoy()` con la zona de Monterrey.
  */
 export function saludo(hora: number): string {
   if (hora < 12) {

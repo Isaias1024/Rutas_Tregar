@@ -1,8 +1,8 @@
 import { auditLog, type db } from '@rutas/shared/db';
 
 /**
- * El tipo exacto de transaccion que produce `db.transaction(async (tx) => ...)`.
- * `registrarAuditoria` SIEMPRE recibe ese `tx`; jamas abre una conexion propia.
+ * El tipo de transaccion que produce `db.transaction`: `registrarAuditoria`
+ * SIEMPRE lo recibe y jamas abre una conexion propia.
  */
 type Transaccion = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -16,11 +16,8 @@ export interface EntradaAuditoria {
 }
 
 /**
- * Escribe una fila en `audit_log` **dentro de la transaccion de quien llama**.
- * Es lo que garantiza que la bitacora y la mutacion se apliquen o fallen
- * juntas: si este insert viola una restriccion (por ejemplo, un `actor` sin
- * fila en `usuario`), la transaccion completa se revierte y la mutacion que
- * la origino tampoco queda aplicada.
+ * Escribe en `audit_log` dentro de la transaccion de quien llama, para que la
+ * bitacora y la mutacion se apliquen o fallen juntas.
  */
 export async function registrarAuditoria(
   tx: Transaccion,

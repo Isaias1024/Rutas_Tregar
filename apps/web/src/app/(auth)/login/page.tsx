@@ -1,6 +1,5 @@
-// `@/lib/env` importa primero A PROPOSITO (ver invitacion.ts, proxy.ts y
-// server/catalogos.ts): su carga de `.env` tiene que correr antes de que
-// `@rutas/shared/db` evalue `process.env.DATABASE_URL` al importarse.
+// `@/lib/env` importa primero A PROPOSITO (ver invitacion.ts): su carga de
+// `.env` corre antes de que `@rutas/shared/db` lea DATABASE_URL.
 import '@/lib/env';
 import { loginPasswordSchema } from '@rutas/shared';
 import { db, usuario } from '@rutas/shared/db';
@@ -33,9 +32,8 @@ async function iniciarSesionConGoogle() {
   redirect(data.url);
 }
 
-// El login por correo+contrasena no distingue si fallo el correo, la
-// contrasena o la cuenta esta inactiva: un solo mensaje generico, mismo
-// criterio que ya usa la app movil con credencial+contrasena del chofer.
+// Un solo mensaje generico para correo, contrasena o cuenta inactiva: mismo
+// criterio que la app movil.
 async function iniciarSesionConPassword(formData: FormData) {
   'use server';
 
@@ -62,11 +60,8 @@ async function iniciarSesionConPassword(formData: FormData) {
     redirect('/login?error=credenciales_invalidas');
   }
 
-  // El redirect() de una server action resuelve el destino dentro de la
-  // misma respuesta, sin pasar otra vez por `proxy.ts`: si se decidiera solo
-  // por rol, un primer ingreso con `debeCambiarPassword` en true se saltaria
-  // la compuerta de /cuenta. El proxy sigue siendo el respaldo para cualquier
-  // otra navegacion (URL escrita a mano, enlace, recarga).
+  // El `redirect()` de una server action no vuelve a pasar por `proxy.ts`: por
+  // rol solo, un primer ingreso se saltaria la compuerta de /cuenta.
   if (fila.debeCambiarPassword) {
     redirect('/cuenta');
   }

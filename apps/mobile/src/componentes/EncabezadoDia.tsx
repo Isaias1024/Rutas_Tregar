@@ -14,9 +14,8 @@ function formatearFecha(fecha: string): string {
   if (anio === undefined || mes === undefined || dia === undefined) {
     return fecha;
   }
-  // Ancla en UTC a proposito: `fecha` es un dia de calendario, no un
-  // instante real, asi que leer el nombre del dia con getUTCDay() evita
-  // cualquier corrimiento por la zona horaria del dispositivo.
+  // Ancla en UTC a proposito: `fecha` es un dia de calendario, asi que leerlo con
+  // getUTCDay() evita el corrimiento por la zona del dispositivo.
   const diaSemana = new Date(Date.UTC(anio, mes - 1, dia)).getUTCDay();
   return `${DIAS[diaSemana]} ${dia} de ${MESES[mes - 1]}`;
 }

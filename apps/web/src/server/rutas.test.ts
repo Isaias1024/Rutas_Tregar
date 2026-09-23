@@ -141,10 +141,8 @@ describe('esquemas de validacion (paso 6)', () => {
 });
 
 describe('server actions: rechazan entrada invalida antes de tocar sesion o base', () => {
-  // `crearRuta`/`agregarHorario` parsean con zod ANTES de resolver el actor
-  // (`obtenerUsuarioActual`, que necesita `next/headers`, ausente fuera de
-  // una peticion real de Next). Con entrada invalida, esta prueba corre sin
-  // ese contexto porque la funcion nunca llega a intentar leerlo.
+  // `crearRuta`/`agregarHorario` parsean con zod ANTES de resolver el actor, asi
+  // que con entrada invalida nunca llegan a `next/headers`.
 
   it('crearRuta responde validacion 422 con horas invertidas, sin necesitar sesion', async () => {
     const resultado = await crearRuta(
@@ -521,9 +519,8 @@ describe('rutas-nucleo contra Postgres real', () => {
 
     expect((await borrarRutaNucleo(actorId, creada.data.id)).ok).toBe(true);
 
-    // Segundo intento: la pantalla que lo dispara quedo vieja (otra pestana ya
-    // borro la fila). Responder `ok` aqui hacia que el panel acusara "eliminada
-    // correctamente" sobre algo inexistente y pisara el `deleted_at` original.
+    // Segundo intento desde una pantalla vieja: responder `ok` hacia que el panel
+    // acusara "eliminada" sobre algo inexistente y pisara el `deleted_at`.
     const repetido = await borrarRutaNucleo(actorId, creada.data.id);
     expect(repetido.ok).toBe(false);
     if (repetido.ok) return;

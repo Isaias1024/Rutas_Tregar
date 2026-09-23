@@ -3,9 +3,8 @@ import { expect, type Page, test } from '@playwright/test';
 import { eq, sql } from 'drizzle-orm';
 import { iniciarSesionComo } from './ayuda-sesion.ts';
 
-// El flujo principal del panel (§9 paso 16): las paginas que un admin visita
-// a diario. No es exhaustivo — es la muestra representativa que el
-// Done-when pide recorrer.
+// El flujo principal del panel: las paginas que un admin visita a diario. No es
+// exhaustivo, es una muestra representativa.
 const PAGINAS_FLUJO_PRINCIPAL = [
   '/monitor',
   '/planeador',
@@ -20,11 +19,8 @@ async function contarInputsSinEtiqueta(page: Page): Promise<string[]> {
     const controles = document.querySelectorAll('input, select, textarea');
     for (const control of Array.from(controles)) {
       const elemento = control as HTMLInputElement;
-      // `type="hidden"` y `aria-hidden="true"` (este ultimo lo deja Radix en
-      // un `<select>` nativo oculto, de respaldo para autocompletado, con
-      // `tabindex="-1"` — nunca lo alcanza un lector de pantalla ni el
-      // teclado) quedan fuera a proposito: no son controles que alguien
-      // pueda de verdad encontrar sin etiqueta.
+      // `type="hidden"` y el `<select>` oculto que deja Radix con `aria-hidden`
+      // quedan fuera: no son controles que alguien pueda encontrar sin etiqueta.
       if (elemento.type === 'hidden' || elemento.getAttribute('aria-hidden') === 'true') {
         continue;
       }

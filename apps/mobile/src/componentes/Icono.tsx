@@ -2,17 +2,8 @@ import { colores } from '@rutas/shared/tokens';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 /**
- * Los iconos del sistema, dibujados a mano sobre `react-native-svg` (que ya es
- * dependencia directa de esta app).
- *
- * No se usa `@expo/vector-icons`: existe en el monorepo solo por hoisting a la
- * raiz, y este proyecto ya se quemo una vez con un paquete de Expo resuelto
- * desde la raiz en vez de desde `apps/mobile` (el incidente de
- * `babel-preset-expo`, § movil-expo.md). Catorce paths propios no valen
- * repetir esa clase de fallo.
- *
- * Todos son trazo de 24x24 sobre `currentColor`, para que hereden tamano y
- * color del sitio donde se usen.
+ * Iconos de trazo 24x24 sobre `currentColor`, dibujados a mano sobre
+ * `react-native-svg`: `@expo/vector-icons` existe solo por hoisting a la raiz.
  */
 export type NombreIcono =
   | 'hoy'

@@ -42,12 +42,8 @@ describe('GET /salud', () => {
   });
 });
 
-// Estas pruebas cubren SOLO el gate de autenticacion y el limite de tasa,
-// que corren ANTES de tocar Postgres o abrir Chromium (paso 15) — por eso
-// las peticiones van sin cuerpo o con un `cliente_id` que no existe: nunca
-// deberian llegar a `generarPdfCliente` de verdad, y si no llegaran el 401 o
-// el 429 tampoco se verian. La generacion real del PDF (con Chromium de
-// verdad) se prueba aparte en reportes/pdf.test.ts.
+// Solo el gate de autenticacion y el limite de tasa, que corren antes de tocar
+// Postgres o Chromium. El PDF real se prueba en reportes/pdf.test.ts.
 describe('POST /reportes/pdf — autenticacion y limite de tasa', () => {
   it('responde 401 con codigo secreto_invalido sin el header', async () => {
     const app = appDePrueba();

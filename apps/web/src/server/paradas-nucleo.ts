@@ -1,7 +1,5 @@
-// Sin `'use server'` a proposito (ver rutas-nucleo.ts, planeador-nucleo.ts):
-// el nucleo recibe el actor ya autorizado y no toca `next/headers`, para que
-// `paradas.ts` sea el unico endpoint real y estas reglas se puedan probar
-// contra Postgres sin una peticion real de Next.
+// Sin `'use server'` a proposito (ver rutas-nucleo.ts): recibe el actor ya
+// autorizado y no toca `next/headers`, asi se prueba contra Postgres sin Next.
 import type { Resultado } from '@rutas/shared';
 import { db, parada, ruta } from '@rutas/shared/db';
 import { and, asc, eq, isNull, or } from 'drizzle-orm';
@@ -18,15 +16,8 @@ export interface RutaQueUsaParada {
 }
 
 /**
- * Las rutas vivas que usan una parada, como inicio o como fin.
- *
- * Sostiene las dos reglas del paso 1 — la advertencia antes de editar y el
- * bloqueo antes de borrar — con una sola definicion de "en uso", para que no
- * puedan discrepar: seria posible advertir sobre tres rutas y bloquear por
- * cuatro.
- *
- * Solo rutas no borradas: una ruta ya retirada no tiene por que impedir que
- * se limpie el catalogo de paradas.
+ * Las rutas vivas que usan una parada. Una sola definicion de "en uso" para la
+ * advertencia al editar y el bloqueo al borrar, para que no puedan discrepar.
  */
 export async function rutasQueUsanParada(paradaId: string): Promise<RutaQueUsaParada[]> {
   return db
@@ -54,11 +45,8 @@ export async function borrarParadaNucleo(
     return NO_ENCONTRADA;
   }
 
-  // Una parada en uso NO se borra (paso 1): la ruta que la referencia se
-  // quedaria sin punto de inicio o de fin real. El borrado logico no salvaba
-  // esto — la FK `restrict` solo protege contra un DELETE duro, que este
-  // modulo nunca emite, asi que sin esta comprobacion la parada desaparecia
-  // del catalogo y las rutas seguian colgando de una fila invisible.
+  // Una parada en uso NO se borra: la FK `restrict` solo protege contra un DELETE
+  // duro, y sin esto las rutas colgarian de una fila invisible.
   const enUso = await rutasQueUsanParada(id);
   if (enUso.length > 0) {
     const nombres = enUso.map((r) => r.nombre).join(', ');

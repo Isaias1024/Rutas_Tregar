@@ -30,7 +30,7 @@ function ahoraLocalTexto(): string {
   return `${ahora.getFullYear()}-${pad(ahora.getMonth() + 1)}-${pad(ahora.getDate())}T${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`;
 }
 
-/** Solo "Llegada" (fin_ruta) y "Regreso con" (retorno) piden un contador (§9-10). */
+/** Solo "Llegada" (fin_ruta) y "Regreso con" (retorno) piden un contador. */
 const ETIQUETA_CANTIDAD: Partial<Record<TipoEvento, string>> = {
   fin_ruta: 'Personas que bajan',
   retorno: 'Personas que suben',
@@ -48,10 +48,8 @@ interface Props {
 }
 
 /**
- * El supervisor ya no elige el paso: la pantalla calcula el siguiente con la
- * misma `siguientePaso` que sigue el chofer en la app (§ Eventos en Vivo —
- * registro manual) y solo deja registrar ese. El servidor vuelve a validar
- * la secuencia con `puedeRegistrar` — esto es UI, no la unica frontera.
+ * El supervisor ya no elige el paso: la pantalla deriva el siguiente con la misma
+ * `siguientePaso` del chofer, y el servidor lo revalida con `puedeRegistrar`.
  */
 export function DialogoCapturaManual({ fila, onOpenChange }: Props) {
   const queryClient = useQueryClient();

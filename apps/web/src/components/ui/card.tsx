@@ -3,9 +3,8 @@ import type * as React from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * La superficie del panel. Todo bloque de contenido —filtros, tabla, resumen—
- * vive dentro de una tarjeta blanca sobre el fondo `surface`; esa alternancia
- * es lo que separa las secciones, no una linea divisoria suelta.
+ * La superficie del panel: todo bloque de contenido vive en una tarjeta blanca
+ * sobre el fondo `surface`, y esa alternancia es lo que separa las secciones.
  */
 function Card({ className, ...props }: React.ComponentProps<'div'>) {
   return (

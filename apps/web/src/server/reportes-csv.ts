@@ -1,10 +1,5 @@
-// Sin `'use server'` a proposito: `streamBitacoraEjecucionesCsv` no es
-// async (devuelve el `ReadableStream` de inmediato y lo llena despues) ni su
-// valor de retorno es serializable a traves del limite de una server action
-// — un archivo `'use server'` solo puede exportar funciones async. Este
-// modulo lo importa unicamente el route handler de
-// `api/reportes/ejecuciones.csv`, que corre en el mismo proceso de Node y no
-// cruza ese limite.
+// Sin `'use server'` a proposito: ahi solo se exportan funciones async, y esta
+// devuelve un `ReadableStream`. Solo la importa el route handler del CSV.
 import '@/lib/env';
 import { clienteSql } from '@rutas/shared/db';
 import type { FilaEjecucion } from '@/server/reportes';
@@ -104,13 +99,8 @@ function renglonAFila(renglon: RenglonCrudo): FilaEjecucion {
 const TAMANO_LOTE_CSV = 500;
 
 /**
- * CSV en streaming de verdad: un cursor de `postgres.js` entrega lotes de
- * `TAMANO_LOTE_CSV` filas, y cada lote se encola en el stream antes de pedir
- * el siguiente al motor. En ningun momento vive en memoria el arreglo
- * completo del rango — 60 rutas x 3 turnos x un ano no cabe comodo
- * (§ worker-y-reportes.md; ese archivo habla del worker, pero el principio
- * de no acumular aplica igual aqui, donde el generador corre en el runtime
- * de Node del panel).
+ * CSV en streaming de verdad: un cursor de `postgres.js` entrega lotes y cada uno
+ * se encola antes de pedir el siguiente, sin que el rango completo viva en memoria.
  */
 export function streamBitacoraEjecucionesCsv(
   desde: string,

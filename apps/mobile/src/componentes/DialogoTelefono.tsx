@@ -18,10 +18,8 @@ function esValido(telefono: string): boolean {
 }
 
 /**
- * El unico campo del perfil que el chofer puede escribir.
- *
- * Teclado numerico y sin formato automatico: escribir diez digitos de corrido
- * es mas rapido que pelear con parentesis y guiones que se reacomodan solos.
+ * El unico campo del perfil que el chofer puede escribir. Teclado numerico y sin
+ * formato automatico: diez digitos de corrido son mas rapidos que los guiones.
  */
 export function DialogoTelefono({ visible, telefonoActual, onCerrar, onGuardado }: Props) {
   const { usuario } = useSesion();

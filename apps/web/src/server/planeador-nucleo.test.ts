@@ -77,13 +77,11 @@ describe('planeador-nucleo contra Postgres real', () => {
         placas: 'PNB-001',
       },
     ]);
-    // El camion es una propiedad del chofer: sin esto, `asignarNucleo` no
-    // tiene de donde sacarlo y responde "sin camion asignado". Se pone despues
-    // del insert de `camion` por la FK.
+    // El camion es una propiedad del chofer: sin esto `asignarNucleo` responde
+    // "sin camion asignado". Va despues del insert de `camion` por la FK.
     await db.update(usuario).set({ camionId: camionAId }).where(eq(usuario.id, choferId));
-    // Tres horarios del MISMO turno. El traslape se evalua por horas, no por
-    // turno (packages/shared/src/asignaciones.ts): A y B estan separados y
-    // pueden ser del mismo chofer el mismo dia; C cae encima de A y no.
+    // Tres horarios del MISMO turno: el traslape se evalua por horas, asi que A
+    // y B conviven y C cae encima de A.
     await db.insert(horario).values([
       {
         id: horarioAId,
@@ -238,19 +236,12 @@ describe('planeador-nucleo contra Postgres real', () => {
     expect(reasignada.ok).toBe(true);
   });
 
-  // Auditoria de seguridad: prueba directa del advisory lock
-  // (pg_advisory_xact_lock) agregado a asignarNucleo/reasignarNucleo.
-  // Antes de ese cambio, `hayTraslape` se evaluaba FUERA de cualquier
-  // bloqueo, asi que dos llamadas concurrentes para el mismo chofer/fecha
-  // podian pasar la comprobacion las dos antes de que cualquiera insertara
-  // — un TOCTOU real, no teorico. `Promise.all` aqui dispara las dos
-  // peticiones al mismo tiempo, sin esperar una a la otra desde el lado del
-  // cliente: si el lock no sirviera, ambas podrian resultar en `ok: true`.
+  // Prueba directa del advisory lock: `hayTraslape` se evalua fuera de todo
+  // bloqueo, asi que `Promise.all` haria pasar las dos llamadas sin el lock.
   it('dos asignaciones concurrentes encimadas al mismo chofer/fecha: exactamente una tiene exito', async () => {
     const fecha = '2026-09-02';
-    // horarioA (06:00-07:00) y horarioC (06:30-07:30) SI se enciman: es el
-    // par que de verdad ejercita el lock. Con A y B (separados) las dos
-    // deben pasar y la prueba no mediria nada.
+    // horarioA y horarioC SI se enciman: con A y B (separados) las dos deben
+    // pasar y la prueba no mediria nada.
     const [resultadoA, resultadoB] = await Promise.all([
       asignarNucleo(actorId, { horarioId: horarioAId, fecha, choferId }),
       asignarNucleo(actorId, { horarioId: horarioCId, fecha, choferId }),
@@ -275,9 +266,8 @@ describe('planeador-nucleo contra Postgres real', () => {
 
   it('reasignar hereda el mismo bloqueo: dos reasignaciones concurrentes al mismo chofer/fecha, una sola tiene exito', async () => {
     const fecha = '2026-09-03';
-    // Dos asignaciones existentes, cada una a un chofer DISTINTO del que se
-    // va a reasignar, para que el UNIQUE (horario_id, fecha, secuencia) no
-    // interfiera con lo que esta prueba de verdad mide.
+    // Cada asignacion existente va a un chofer DISTINTO del que se reasigna,
+    // para que el UNIQUE (horario_id, fecha, secuencia) no interfiera.
     const otroChoferId = randomUUID();
     await db.execute(sql`insert into auth.users (id) values (${otroChoferId})`);
     await db.insert(usuario).values({
@@ -329,12 +319,8 @@ describe('planeador-nucleo contra Postgres real', () => {
   });
 });
 
-// "Reglas para Backend — Rutas, Asignaciones y Monitoreo": una asignacion
-// bajo una ruta ya borrada o un horario ya desactivado no puede seguir
-// contando contra el calendario del chofer, y tampoco puede recibir una
-// asignacion nueva. Fixture propia (nunca la de arriba): borra/desactiva de
-// verdad una ruta y esa ruta no puede seguir sirviendo a las pruebas que
-// vienen despues.
+// Una asignacion bajo una ruta borrada o un horario desactivado no cuenta contra
+// el calendario. Fixture propia: aqui se borra y desactiva de verdad.
 describe('planeador-nucleo: una ruta borrada o un horario desactivado no bloquea al chofer', () => {
   const actorId = randomUUID();
   const choferId = randomUUID();
@@ -394,10 +380,8 @@ describe('planeador-nucleo: una ruta borrada o un horario desactivado no bloquea
       },
     ]);
     await db.update(usuario).set({ camionId: camionAId }).where(eq(usuario.id, choferId));
-    // horarioA (ruta A, 06:00-07:00) y horarioB (ruta B, 06:30-07:30) se
-    // enciman EN HORARIO a proposito: es la unica forma de que la prueba de
-    // "eliminar ruta A libera a Juan para la ruta B" de verdad ejercite el
-    // traslape en vez de pasar porque nunca hubo conflicto que resolver.
+    // horarioA y horarioB se enciman EN HORARIO a proposito: sin conflicto que
+    // resolver, la prueba pasaria sin ejercitar nada.
     await db.insert(horario).values([
       {
         id: horarioAId,
@@ -531,13 +515,8 @@ describe('planeador-nucleo: una ruta borrada o un horario desactivado no bloquea
   });
 });
 
-// La regla es "fecha pasada", NUNCA "hora pasada": un dia anterior es solo
-// lectura, pero el dia de HOY sigue siendo administrable aunque la hora del
-// horario ya haya quedado atras (Planeador administra la planeacion, no la
-// ejecucion — eso es Eventos en Vivo). El horario de esta fixture es
-// 00:00-00:01 a proposito: ya "termino" a cualquier hora del dia salvo la
-// medianoche misma, para que la prueba de verdad ejercite que la hora no
-// bloquea nada.
+// La regla es "fecha pasada", NUNCA "hora pasada": hoy sigue siendo administrable
+// aunque el horario ya paso. Por eso la fixture usa 00:00-00:01.
 describe('planeador-nucleo: la fecha decide, no la hora del horario', () => {
   const actorId = randomUUID();
   const choferId = randomUUID();
@@ -665,9 +644,7 @@ describe('planeador-nucleo: la fecha decide, no la hora del horario', () => {
   });
 
   it('una asignacion de HOY terminada por incidente no se puede reasignar ni cancelar', async () => {
-    // Mismo bloqueo que un `retorno` normal (§rutas-nucleo): un incidente
-    // tambien cierra la asignacion, y antes solo la puntualidad (`retorno`)
-    // lo bloqueaba — el bug que este caso cubre.
+    // Un incidente tambien cierra la asignacion: antes solo `retorno` bloqueaba.
     const creada = await asignarNucleo(actorId, { horarioId, fecha: hoy, choferId });
     expect(creada.ok).toBe(true);
     if (!creada.ok) return;
@@ -706,7 +683,7 @@ describe('planeador-nucleo: la fecha decide, no la hora del horario', () => {
     expect(creada.error.codigo).toBe('validacion');
 
     // reasignarNucleo/cancelarNucleo se prueban sobre una fila insertada
-    // directo: asignarNucleo ya la rechaza, como se acaba de comprobar arriba.
+    // directo: asignarNucleo ya la rechaza, como se comprobo arriba.
     const asignacionAyerId = randomUUID();
     await db.insert(asignacion).values({
       id: asignacionAyerId,

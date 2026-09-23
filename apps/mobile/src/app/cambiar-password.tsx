@@ -6,15 +6,8 @@ import { supabase } from '@/lib/supabase';
 import { useSesion } from './_layout';
 
 /**
- * Dos entradas a la misma pantalla:
- *
- * - **Forzada** (`debeCambiarPassword` en `true`): el primer ingreso tras el
- *   alta del supervisor. No hay salida — ni boton de volver ni gesto — y quien
- *   saca de aqui al terminar es el guard de `_layout.tsx`, en cuanto la columna
- *   se apaga.
- * - **Voluntaria** (`?voluntario=1`, desde Perfil): se puede cancelar, y al
- *   terminar hay que confirmar y volver por cuenta propia, porque el guard no
- *   va a mover a nadie: la columna ya estaba en `false` y sigue igual.
+ * Dos entradas: la forzada del primer ingreso, de la que saca el guard de
+ * `_layout.tsx`, y la voluntaria (`?voluntario=1`), que se abandona a mano.
  */
 export default function PaginaCambiarPassword() {
   const { usuario, refrescarUsuario } = useSesion();
@@ -55,10 +48,8 @@ export default function PaginaCambiarPassword() {
       return;
     }
 
-    // El guard de _layout.tsx solo deja de mandar aqui cuando esta columna
-    // se apaga; el UPDATE la exige RLS (`usuario_update_debe_cambiar_password`,
-    // paso 8) con GRANT restringido a esa unica columna. En el cambio
-    // voluntario la columna ya vale `false`: no hay nada que apagar.
+    // El guard de _layout.tsx solo deja de mandar aqui cuando esta columna se
+    // apaga; en el cambio voluntario ya vale `false` y no hay nada que apagar.
     if (usuario?.debeCambiarPassword) {
       await supabase.from('usuario').update({ debe_cambiar_password: false }).eq('id', usuario.id);
     }

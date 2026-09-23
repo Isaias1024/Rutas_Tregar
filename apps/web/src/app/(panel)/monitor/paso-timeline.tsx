@@ -43,7 +43,7 @@ function circulo(estado: EstadoPaso) {
   return 'border border-border bg-background text-muted-foreground';
 }
 
-/** Hora esperada de este paso en 12h, o `null` si el paso no tiene una (§2 UI monitor). */
+/** Hora esperada de este paso en 12h, o `null` si el paso no tiene una. */
 function horaEsperadaDe(
   tipo: TipoEvento,
   horaInicioEsperada: string,
@@ -54,7 +54,7 @@ function horaEsperadaDe(
   return null;
 }
 
-/** Texto declarativo de personas para este paso: solo `fin_ruta` y `retorno` cuentan (§3-5 UI monitor). */
+/** Texto declarativo de personas: solo `fin_ruta` y `retorno` llevan contador. */
 function personasDe(
   tipo: TipoEvento,
   estado: EstadoPaso,
@@ -75,10 +75,8 @@ function personasDe(
 }
 
 /**
- * Parada esperada de este paso para el flag de ubicacion: inicio para
- * `listo_inicio` (el chofer deberia estar ya en el punto de partida) e
- * `inicio_ruta`, fin para `fin_ruta`. Los demas pasos no tienen una
- * ubicacion fija que exigir.
+ * Parada esperada para el flag de ubicacion: inicio en `listo_inicio` e
+ * `inicio_ruta`, fin en `fin_ruta`. Los demas pasos no exigen una ubicacion.
  */
 function paradaEsperadaDe(
   tipo: TipoEvento,
@@ -91,11 +89,8 @@ function paradaEsperadaDe(
 }
 
 /**
- * Los cinco hitos como linea de tiempo: vertical en mobile (una sola columna
- * legible sin scroll horizontal, §movil), horizontal cuando la tarjeta misma
- * (no la ventana) ya tiene ancho para los cinco pasos en fila — por eso la
- * consulta es de contenedor (`@xl:`), no de viewport: en un grid de varias
- * columnas la tarjeta puede seguir angosta aunque la pantalla sea ancha.
+ * Los cinco hitos como linea de tiempo. La consulta es de contenedor (`@xl:`) y
+ * no de viewport: en un grid la tarjeta puede seguir angosta con la pantalla ancha.
  */
 export function PasoTimeline({
   eventos,

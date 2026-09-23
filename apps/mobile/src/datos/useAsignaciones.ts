@@ -16,13 +16,8 @@ export interface EstadoConsulta {
 }
 
 /**
- * Carga las asignaciones de un rango y les pega encima los eventos que siguen
- * en el outbox local.
- *
- * Ese ultimo paso es lo que hace que un paso marcado sin senal no "se
- * despinte" al refrescar: `obtenerAsignaciones` cae al cache cuando no hay
- * red, y ese cache es de antes de que el chofer marcara. Sin combinar, la
- * tarjeta volveria a decir PENDIENTE para una ruta que el ya arranco.
+ * Carga las asignaciones de un rango y les pega encima los eventos del outbox:
+ * el cache es de antes de que el chofer marcara.
  */
 export function useAsignaciones(
   fechaInicio: string,
@@ -73,10 +68,8 @@ export function useAsignaciones(
     setRefrescando(false);
   }, [cargar]);
 
-  // Reintentar vuelve a correr la carga con el esqueleto puesto, en vez de
-  // mover un contador que el efecto observe: el efecto solo depende de lo que
-  // de verdad define la consulta (el rango de fechas), y el boton llama a la
-  // carga directamente.
+  // Reintentar llama a la carga directamente, con el esqueleto puesto: el efecto
+  // solo depende del rango de fechas, que es lo que define la consulta.
   const reintentar = useCallback(() => {
     setCargando(true);
     cargar().finally(() => setCargando(false));

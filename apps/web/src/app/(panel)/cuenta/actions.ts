@@ -1,8 +1,7 @@
 'use server';
 
-// `@/lib/env` importa primero A PROPOSITO (ver invitacion.ts, proxy.ts y
-// server/catalogos.ts): su carga de `.env` tiene que correr antes de que
-// `@rutas/shared/db` evalue `process.env.DATABASE_URL` al importarse.
+// `@/lib/env` importa primero A PROPOSITO (ver catalogos.ts): su carga de
+// `.env` corre antes de que `@rutas/shared/db` lea DATABASE_URL.
 import '@/lib/env';
 import { cambiarPasswordSchema, type Resultado } from '@rutas/shared';
 import { db, usuario } from '@rutas/shared/db';
@@ -18,19 +17,8 @@ const SIN_SESION: Resultado<never> = {
 };
 
 /**
- * Cambia la contrasena de QUIEN LLAMA, nunca la de otro usuario — por eso no
- * pasa por `can()` como el resto de las mutaciones administrativas de
- * catalogos.ts: no hay recurso ajeno que proteger, solo la propia sesion que
- * `obtenerUsuarioActual()` ya resuelve. Se audita igual, porque un cambio de
- * contrasena vale la pena que quede en la bitacora.
- *
- * Usa el cliente de SESION (`crearClienteServidor`), no `supabaseAdmin`:
- * `admin.updateUserById` revoca los refresh tokens existentes del usuario
- * como si fuera un cambio impuesto desde fuera, y eso incluye la sesion
- * actual — quien acaba de cambiar su propia contrasena se quedaria sin
- * sesion en la misma peticion. `auth.updateUser` sobre la sesion propia
- * cambia la contrasena sin invalidarse a si misma (mismo mecanismo que ya
- * usa `apps/mobile/src/app/cambiar-password.tsx`).
+ * Cambia la contrasena de QUIEN LLAMA: sin `can()` porque no hay recurso ajeno,
+ * y con el cliente de SESION, porque `admin.updateUserById` revoca sus tokens.
  */
 export async function cambiarMiPassword(input: unknown): Promise<Resultado<{ id: string }>> {
   const parseo = cambiarPasswordSchema.safeParse(input);

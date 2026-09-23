@@ -15,10 +15,8 @@ import {
 import { obtenerCumplimientoPorChofer } from '@/server/reportes';
 import { FiltroRango, type RangoFechas, rangoPorDefecto } from '../filtro-rango';
 
-// Reporte 1 (§9 paso 15): cumplimiento por chofer, con `app` y `supervisor`
-// SIEMPRE en columnas separadas — mezclarlos en un total invalidaria el
-// argumento de puntualidad frente al cliente (§16, riesgo "los reportes
-// mezclan dos calidades de dato").
+// `app` y `supervisor` SIEMPRE en columnas separadas: mezclarlos en un total
+// invalidaria el argumento de puntualidad frente al cliente.
 export function CumplimientoCliente() {
   const [rango, setRango] = useState<RangoFechas>(rangoPorDefecto);
   const { data, isLoading, isError } = useQuery({

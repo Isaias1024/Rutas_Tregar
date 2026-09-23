@@ -7,15 +7,8 @@ import {
 } from '@/server/reportes';
 import { GraficaOcupacionImprimible } from './grafica-ocupacion-imprimible';
 
-// Fuera de `(panel)` A PROPOSITO: el layout de `(panel)` exige una sesion de
-// cookies via `obtenerUsuarioActual()` y redirige a `/login` si no la hay.
-// Chromium (el worker, paso 15) nunca trae esa sesion — se autentica con el
-// header `x-rutas-worker-secret`, que `proxy.ts` ya acepta como alternativa
-// para esta ruta especifica (§5: "supervisor, o secreto del worker"). Vivir
-// en otro grupo de rutas evita que ese bypass tuviera que ensancharse hasta
-// el layout del panel entero, que si depende de sesion para TODO lo demas.
-// La URL resultante es identica (`/reportes/cliente/[id]/imprimible`): los
-// grupos de rutas de Next no aparecen en el path.
+// Fuera de `(panel)` A PROPOSITO: ese layout exige sesion de cookies y Chromium
+// llega con `x-rutas-worker-secret`, sin ensanchar el bypass al layout entero.
 export const dynamic = 'force-dynamic';
 
 function pad(n: number): string {

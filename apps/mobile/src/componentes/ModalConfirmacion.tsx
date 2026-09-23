@@ -13,15 +13,8 @@ interface Props {
 }
 
 /**
- * Confirmacion para lo que no se puede deshacer.
- *
- * `evento` es append-only: un hito marcado por error no se borra ni se edita
- * — queda en el historial y hay que corregirlo desde el panel. Por eso el
- * paso que cierra la ruta pregunta antes, y por eso ninguna accion de simple
- * navegacion lo hace (§14: nada de confirmaciones innecesarias).
- *
- * "Cancelar" va debajo y en secundario, no al lado: con el pulgar en marcha,
- * dos botones del mismo tamano lado a lado se tocan por accidente.
+ * Confirmacion para lo que no se puede deshacer: `evento` es append-only. Y
+ * "Cancelar" va debajo: lado a lado, con el pulgar en marcha, se toca por error.
  */
 export function ModalConfirmacion({
   visible,

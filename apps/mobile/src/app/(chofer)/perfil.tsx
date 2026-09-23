@@ -11,13 +11,8 @@ import { supabase } from '@/lib/supabase';
 import { almacenSqlite } from '@/outbox/db';
 
 /**
- * Perfil del chofer: quien es, con que camion anda, y las tres acciones de
- * cuenta.
- *
- * Lo unico editable es el telefono, porque es lo unico que RLS le concede
- * (`grant update (telefono) on perfil_personal`). Nombre y credencial los
- * gobierna el supervisor desde el panel; mostrarlos como campos editables
- * prometeria algo que Postgres rechazaria al guardar.
+ * Perfil del chofer. Lo unico editable es el telefono, porque es lo unico que
+ * RLS le concede: los demas campos los rechazaria Postgres al guardar.
  */
 export default function PaginaPerfil() {
   const { perfil, cargando, recargar } = usePerfil();
@@ -27,9 +22,8 @@ export default function PaginaPerfil() {
   const [avisoPendientes, setAvisoPendientes] = useState<string | null>(null);
 
   async function pedirCerrarSesion() {
-    // Cerrar sesion con eventos sin subir los dejaria varados: el outbox vive
-    // en SQLite local y solo el flusher autenticado puede entregarlos. Se avisa
-    // en vez de impedirlo — el chofer sigue siendo quien decide.
+    // El outbox vive en SQLite y solo el flusher autenticado puede entregarlo.
+    // Se avisa en vez de impedirlo: el chofer sigue siendo quien decide.
     const pendientes = await almacenSqlite.listar();
     setAvisoPendientes(
       pendientes.length > 0
@@ -78,9 +72,8 @@ export default function PaginaPerfil() {
           />
           <BotonSecundario
             etiqueta="Cambiar contrasena"
-            // `voluntario` es lo que distingue esta entrada de la forzada del
-            // primer ingreso: sin el, el guard de `_layout.tsx` devuelve a
-            // "hoy" antes de que la pantalla se vea.
+            // `voluntario` distingue esta entrada de la forzada: sin el, el
+            // guard de `_layout.tsx` devuelve a "hoy" antes de verse la pantalla.
             onPress={() =>
               router.push({ pathname: '/cambiar-password', params: { voluntario: '1' } })
             }

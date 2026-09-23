@@ -4,12 +4,8 @@ import { Text, TextInput, View } from 'react-native';
 import { BotonPrimario } from './BotonPrimario';
 
 /**
- * Lo que dice el boton en cada hito, en primera persona y en voz de accion.
- *
- * `inicio_ruta` y `retorno` son literalmente "Iniciar ruta" y "Finalizar ruta":
- * son los dos momentos que el chofer nombra asi y los que el resto de la app
- * (badges, resumen) refleja como EN CURSO y COMPLETADA. Los otros tres siguen
- * siendo hitos reales del flujo, solo que de preparacion y cierre.
+ * Lo que dice el boton en cada hito, en voz de accion y con las palabras que el
+ * chofer usa: "Iniciar ruta" y "Finalizar ruta" para los dos momentos clave.
  */
 export const ETIQUETA_ACCION: Record<TipoEvento, string> = {
   vio_ruta: 'Vi la ruta',
@@ -32,26 +28,8 @@ interface Props {
 }
 
 /**
- * Un solo boton activo, de ancho completo y 72px de alto (§ movil-expo.md).
- *
- * Cuando el paso pide contador, el textbox numerico vive DENTRO de este mismo
- * paso — no es una pantalla aparte — pero **en segundo lugar**: primero el
- * chofer marca el hito ("Llegue al destino"), y solo entonces se le pregunta el
- * numero. Al reves no funcionaba: el boton nacia apagado esperando un dato que
- * el chofer todavia no tiene, porque la gente no ha terminado de bajar cuando el
- * camion apenas se detuvo. Se contaba primero y se marcaba despues, que es justo
- * lo contrario del orden real.
- *
- * Sigue siendo UN evento y UNA escritura: el hito no se registra al primer
- * toque, solo abre la pregunta. `onConfirmar` se llama una sola vez, con el
- * contador ya dentro — `evento` es append-only y no se corrige con un UPDATE
- * posterior.
- *
- * Quien lo usa **tiene que montarlo con `key={tipo}`**: este componente guarda
- * la fase y el numero tecleado, y al avanzar de hito ese estado debe morir con
- * el paso anterior. Sin la `key` es el mismo componente montado al que solo le
- * cambia el `tipo`, y el numero de "cuantas bajaron" reaparecia prellenado en
- * "cuantas regresaron".
+ * Un solo boton activo, y un solo evento: el primer toque abre la pregunta del
+ * contador. Montarlo con `key={tipo}` o el contador anterior reaparece.
  */
 export function PasoActivo({ tipo, registrando, onConfirmar }: Props) {
   const necesitaContador = requiereContador(tipo);

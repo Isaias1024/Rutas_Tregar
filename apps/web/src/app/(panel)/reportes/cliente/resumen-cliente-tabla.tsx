@@ -16,11 +16,8 @@ import {
 import { obtenerResumenPorCliente } from '@/server/reportes';
 import { FiltroRango, type RangoFechas, rangoPorDefecto } from '../filtro-rango';
 
-// Reporte 4 (§9 paso 15): resumen por cliente, con el mismo desglose de
-// origen que el reporte 1. Cada fila puede pedir su PDF — la generacion
-// real corre en el worker (Chromium contra /reportes/cliente/[id]/imprimible,
-// paso 15), este boton solo dispara la peticion via el proxy del panel para
-// no exponer WORKER_SHARED_SECRET al navegador.
+// Cada fila puede pedir su PDF, pero la generacion corre en el worker: el boton
+// dispara la peticion via el proxy del panel para no exponer el secreto.
 export function ResumenClienteTabla() {
   const [rango, setRango] = useState<RangoFechas>(rangoPorDefecto);
   const [descargando, setDescargando] = useState<string | null>(null);

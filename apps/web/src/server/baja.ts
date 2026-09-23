@@ -1,8 +1,7 @@
 'use server';
 
-// `@/lib/env` importa primero A PROPOSITO (ver catalogos.ts, monitor.ts): su
-// carga de `.env` tiene que correr antes de que `@rutas/shared/db` evalue
-// `process.env.DATABASE_URL` al importarse.
+// `@/lib/env` importa primero A PROPOSITO (ver catalogos.ts): su carga de
+// `.env` corre antes de que `@rutas/shared/db` lea DATABASE_URL.
 import '@/lib/env';
 import { idSchema, type Resultado } from '@rutas/shared';
 import { revalidatePath } from 'next/cache';

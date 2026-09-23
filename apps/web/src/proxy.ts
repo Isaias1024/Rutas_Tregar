@@ -1,6 +1,5 @@
-// `@/lib/env` importa primero A PROPOSITO: su carga de `.env` tiene que
-// correr antes de que `@rutas/shared/db` evalue su propio
-// `process.env.DATABASE_URL` al importarse (mismo peligro que en invitacion.ts).
+// `@/lib/env` importa primero A PROPOSITO: su carga de `.env` corre antes de
+// que `@rutas/shared/db` lea DATABASE_URL (mismo peligro que en invitacion.ts).
 import { timingSafeEqual } from 'node:crypto';
 import { env } from '@/lib/env';
 import { db, usuario } from '@rutas/shared/db';
@@ -8,20 +7,11 @@ import { createServerClient } from '@supabase/ssr';
 import { eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
 
-// En Next 16 el archivo se llama `proxy.ts`, no `middleware.ts`: el nombre
-// viejo ya no se ejecuta y deja el panel abierto sin error visible. Proxy
-// corre en el runtime de Node por default desde v16, por eso puede consultar
-// Postgres directo aqui igual que un server component.
+// En Next 16 el archivo se llama `proxy.ts`: con el nombre viejo no se ejecuta
+// nada y el panel queda abierto sin error visible.
 
-// No son publicas en el sentido de "cualquiera pasa": son las rutas que el
-// proxy no gatea con la sesion de cookies del panel porque tienen su propia
-// autenticacion. POST /api/dispositivos (paso 14) la llama la app movil, que
-// guarda su sesion en expo-secure-store, no en cookies del navegador — se
-// autentica con un header `Authorization: Bearer <access_token>` que el
-// route handler mismo valida contra Supabase.
-// El aviso de privacidad y la pantalla de consentimiento (paso 16) las abre
-// la app del chofer sin sesion del panel — un chofer no puede ni debe tener
-// una.
+// No son publicas: son las rutas que traen su propia autenticacion. La app
+// movil usa Bearer token, y el consentimiento lo abre un chofer sin sesion de panel.
 const RUTAS_PUBLICAS = [
   '/login',
   '/auth/callback',
@@ -29,13 +19,8 @@ const RUTAS_PUBLICAS = [
   '/privacidad',
   '/consentimiento',
 ];
-// `/api/reportes` (el CSV en streaming) entra aqui igual que `/reportes`: no
-// esta bajo el prefijo `/reportes` como string, asi que sin esta entrada
-// cualquier usuario autenticado (incluido un chofer) podria descargarlo.
-// Admin y supervisor comparten exactamente el mismo acceso de panel (la
-// unica diferencia funcional entre ambos es 'crear_supervisor' en
-// @/lib/authz/can, que no gatea ninguna ruta todavia): no existe ningun
-// prefijo exclusivo de admin.
+// `/api/reportes` no cae bajo el prefijo `/reportes`: sin esta entrada cualquier
+// usuario autenticado, incluido un chofer, podria descargar el CSV.
 const PREFIJOS_SUPERVISOR_ADMIN = [
   '/monitor',
   '/planeador',
@@ -47,9 +32,8 @@ const PREFIJOS_SUPERVISOR_ADMIN = [
   '/bitacora',
 ];
 
-// Patron de la unica ruta que acepta el secreto del worker EN VEZ de una
-// sesion de cookies (paso 15, §5): Chromium headless no trae sesion de
-// navegador, y esta es la pagina que imprime a PDF.
+// Unica ruta que acepta el secreto del worker en vez de cookies: Chromium
+// headless no trae sesion y esta es la pagina que imprime a PDF.
 const RUTA_IMPRIMIBLE = /^\/reportes\/cliente\/[^/]+\/imprimible$/;
 
 function coincide(pathname: string, prefijos: string[]): boolean {
@@ -63,11 +47,7 @@ function respuestaNoAutorizado(mensaje: string) {
   );
 }
 
-/**
- * Comparacion en tiempo constante (igual que apps/worker/src/servidor.ts:
- * el mismo secreto compartido, otro proceso, sin un modulo comun entre panel
- * y worker para no acoplarlos por una funcion de tres lineas).
- */
+/** Comparacion en tiempo constante; el worker tiene su propia copia a proposito. */
 function secretosCoinciden(recibido: string, esperado: string): boolean {
   const bufRecibido = Buffer.from(recibido);
   const bufEsperado = Buffer.from(esperado);
@@ -92,12 +72,11 @@ export async function proxy(request: NextRequest) {
       return NextResponse.next();
     }
     // Sin secreto valido: sigue el flujo normal de abajo, que exige sesion
-    // de supervisor/admin por cookies como cualquier otra pagina de /reportes.
+    // de supervisor/admin por cookies.
   }
 
-  // Proxy no tiene acceso a `next/headers` (eso es solo para render): las
-  // cookies se leen y se escriben directo sobre request/response, que es el
-  // patron que documenta @supabase/ssr para middleware.
+  // Proxy no tiene acceso a `next/headers`: las cookies se leen y escriben sobre
+  // request/response, el patron que documenta @supabase/ssr.
   let respuesta = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -139,9 +118,8 @@ export async function proxy(request: NextRequest) {
     return redirigirALogin();
   }
 
-  // El login por contrasena (crearSupervisor, y cualquier alta futura) deja
-  // debe_cambiar_password en true: no hay paso de la pantalla hasta que se
-  // cambie, misma compuerta que ya usa la app movil con sus choferes.
+  // El login por contrasena deja `debe_cambiar_password` en true: no hay paso
+  // de la pantalla hasta cambiarla, misma compuerta que usa la app movil.
   if (fila.debeCambiarPassword && pathname !== '/cuenta') {
     return NextResponse.redirect(new URL('/cuenta', request.url));
   }
@@ -157,12 +135,8 @@ export async function proxy(request: NextRequest) {
   return respuesta;
 }
 
-// Los archivos estaticos de `public/` quedan fuera a proposito, ademas de las
-// rutas internas de Next. El optimizador de imagenes se pide a si mismo el
-// archivo original desde el servidor, sin la cookie de sesion: si el proxy lo
-// contesta con el redirect a /login, `next/image` recibe HTML donde esperaba un
-// JPEG y el logo de la barra lateral sale roto. Ninguno de estos archivos
-// contiene datos de la operacion.
+// `public/` queda fuera: el optimizador de imagenes se pide el archivo sin la
+// cookie, y con el redirect a /login `next/image` recibiria HTML.
 export const config = {
   matcher: [
     '/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:jpg|jpeg|png|gif|webp|avif|svg|ico)$).*)',

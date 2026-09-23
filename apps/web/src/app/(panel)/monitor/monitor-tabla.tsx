@@ -21,11 +21,8 @@ const REFRESH_MS = 30_000;
 
 type EstadoPrincipal = 'pendiente' | 'en_curso' | 'incidente' | 'terminada';
 
-// Estado principal: de que fase va la ruta. El desempeño (a tiempo / tarde /
-// adelantado) es un eje aparte — nunca reemplaza a "Terminada" ni a "En
-// curso" como filtro (§ rediseno filtros del monitor). Los tres valores de
-// aqui abajo tambien son `EstadoSemaforo` validos, que es lo que deja
-// reusar `ChipEstado` sin cambiarlo.
+// Estado principal: de que fase va la ruta. El desempeño es un eje aparte y
+// nunca reemplaza a "Terminada" ni a "En curso" como filtro.
 const ORDEN_ESTADOS_PRINCIPALES: Exclude<EstadoPrincipal, 'terminada'>[] = [
   'en_curso',
   'pendiente',
@@ -40,7 +37,7 @@ function normalizar(texto: string): string {
     .toLowerCase();
 }
 
-/** Terminada = cerro con `retorno` o con `fin_ruta_incidente` (§6 UI monitor). */
+/** Terminada = cerro con `retorno` o con `fin_ruta_incidente`. */
 function esRutaTerminada(fila: { eventos: { tipo: string }[] }): boolean {
   return fila.eventos.some(
     (evento) => evento.tipo === 'retorno' || evento.tipo === 'fin_ruta_incidente',
@@ -48,9 +45,8 @@ function esRutaTerminada(fila: { eventos: { tipo: string }[] }): boolean {
 }
 
 /**
- * El eje de filtro "estado" (§ rediseno filtros): "Terminada" gana sobre
- * cualquier puntualidad en cuanto cierra, sea por `retorno` o por incidente
- * — el desempeño de como cerro vive aparte, en `puntualidadInicio`.
+ * Eje de filtro "estado": "Terminada" gana sobre cualquier puntualidad en cuanto
+ * cierra; el desempeño de como cerro vive aparte, en `puntualidadInicio`.
  */
 function estadoPrincipalDe(fila: {
   estado: EstadoSemaforo;
@@ -77,9 +73,8 @@ function ChipEstado({
   onClick: () => void;
 }) {
   const { texto, fg, bg } = semaforo[estado];
-  // Activo: la pastilla se rellena con el color pleno del estado, igual que la
-  // pastilla de la fila. Inactivo: tarjeta blanca con un punto del color, para
-  // que el filtro no compita visualmente con los datos.
+  // Inactivo se pinta como tarjeta blanca con un punto de color para que el
+  // filtro no compita visualmente con los datos.
   return (
     <button
       type="button"
@@ -114,10 +109,8 @@ function ChipEstado({
 }
 
 /**
- * "Terminadas" no es un `EstadoSemaforo` — por eso es un chip aparte en vez
- * de sumarse a `ORDEN_ESTADOS_PRINCIPALES`, pero pertenece al mismo eje
- * (estado principal, § rediseno filtros del monitor) y usa el mismo gris
- * neutral que la pastilla "Terminada" de la fila.
+ * "Terminadas" no es un `EstadoSemaforo`, por eso es un chip aparte, pero
+ * pertenece al mismo eje que `ORDEN_ESTADOS_PRINCIPALES`.
  */
 function ChipTerminadas({
   cantidad,
@@ -192,9 +185,8 @@ export function MonitorTabla({ fecha }: Props) {
           });
           return { ...fila, ...resultado };
         })
-        // Orden = hora de inicio programada, no de llegada ni de estado; si
-        // dos rutas comparten horario, el nombre desempata para que el orden
-        // no salte entre refrescos (§2 rediseño monitor).
+        // Orden = hora de inicio programada; el nombre desempata para que no
+        // salte entre refrescos.
         .sort(
           (a, b) =>
             a.horaInicioEsperada.localeCompare(b.horaInicioEsperada) ||
@@ -216,10 +208,8 @@ export function MonitorTabla({ fecha }: Props) {
     return base;
   }, [filas]);
 
-  // Solo cuenta rutas en curso: es lo mismo alcance que el filtro de
-  // desempeño aplica solo cuando "Terminadas" no esta activo (§5 rediseno
-  // filtros), asi el numero del chip nunca promete mas de lo que el filtro
-  // por si solo va a mostrar.
+  // Solo rutas en curso, el mismo alcance que el filtro de desempeño: asi el
+  // numero del chip nunca promete mas de lo que el filtro va a mostrar.
   const conteosDesempeno = useMemo(() => {
     const base: Record<Puntualidad, number> = { a_tiempo: 0, tarde: 0, adelantado: 0 };
     for (const fila of filas) {
@@ -245,11 +235,8 @@ export function MonitorTabla({ fecha }: Props) {
       return false;
     }
     if (hayFiltroDesempeno) {
-      // Un flag de desempeño sin un estado explicito seleccionado describe
-      // una ruta que sigue en curso (§2 rediseno filtros): "A tiempo" sola
-      // nunca mezcla rutas ya terminadas. Con un estado explicito (p. ej.
-      // "Terminadas") el flag se evalua sobre lo que ya filtro esa linea de
-      // arriba, sin agregar un alcance implicito extra.
+      // Un flag de desempeño sin estado explicito describe una ruta en curso:
+      // "A tiempo" sola nunca mezcla rutas ya terminadas.
       if (!hayFiltroEstado && principal !== 'en_curso') {
         return false;
       }

@@ -3,15 +3,8 @@ import { colores } from '@rutas/shared/tokens';
 import { Text, View } from 'react-native';
 
 /**
- * Pastilla de color pleno con SU TEXTO DENTRO — nunca solo el color.
- *
- * Es la misma regla que rige el semaforo del panel: el estado tiene que estar
- * escrito, no solo pintado. Un chofer daltonico, o el mismo chofer con el
- * telefono al sol, distingue "COMPLETADA" de "EN CURSO" leyendo, no por el
- * tono.
- *
- * Los pares fg/bg salen de los tokens del semaforo compartido para que la
- * ruta se vea del mismo color en el telefono y en el monitor del supervisor.
+ * Pastilla de color pleno con SU TEXTO DENTRO: un chofer daltonico, o con el
+ * telefono al sol, lee el estado. Los pares fg/bg salen de los tokens comunes.
  */
 const ESTILO: Record<EstadoRuta, { texto: string; fg: string; bg: string }> = {
   pendiente: { texto: 'PENDIENTE', fg: colores.fg, bg: '#F1F5F9' },

@@ -2,10 +2,8 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { env } from '@/lib/env';
 
-// Cliente de servidor de Supabase, con la sesion en cookies HttpOnly
-// (Secure en produccion, SameSite=Lax) que gestiona @supabase/ssr. Es el
-// unico cliente Supabase con el JWT del usuario; para operaciones
-// administrativas ver `admin.ts`.
+// Cliente de servidor con la sesion en cookies HttpOnly que gestiona
+// @supabase/ssr. Unico cliente con el JWT del usuario; ver `admin.ts` para el resto.
 export async function crearClienteServidor() {
   const cookieStore = await cookies();
 
@@ -24,7 +22,7 @@ export async function crearClienteServidor() {
             }
           } catch {
             // Se llamo desde un Server Component sin poder escribir cookies;
-            // `apps/web/proxy.ts` (paso 4) refresca la sesion en cada peticion.
+            // `proxy.ts` refresca la sesion en cada peticion.
           }
         },
       },

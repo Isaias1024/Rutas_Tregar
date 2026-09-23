@@ -6,10 +6,8 @@ import { vaciarCola } from '@/outbox/flusher';
 const INTERVALO_MS = 10_000;
 
 /**
- * Indicador discreto con el numero de eventos sin subir; desaparece cuando
- * la cola queda vacia (paso 11). Tambien es lo que dispara `vaciarCola` de
- * forma periodica: no hay un listener de conectividad dedicado, cada pasada
- * simplemente intenta subir y deja en la cola lo que siga fallando.
+ * Numero de eventos sin subir. Tambien es lo que dispara `vaciarCola`: no hay
+ * listener de conectividad, cada pasada intenta subir lo que siga en la cola.
  */
 export function IndicadorPendientes() {
   const [pendientes, setPendientes] = useState(0);

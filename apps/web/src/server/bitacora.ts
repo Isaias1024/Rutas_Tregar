@@ -1,15 +1,13 @@
 'use server';
 
-// `@/lib/env` importa primero A PROPOSITO (ver catalogos.ts, monitor.ts): su
-// carga de `.env` tiene que correr antes de que `@rutas/shared/db` evalue
-// `process.env.DATABASE_URL` al importarse.
+// `@/lib/env` importa primero A PROPOSITO (ver catalogos.ts): su carga de
+// `.env` corre antes de que `@rutas/shared/db` lea DATABASE_URL.
 import '@/lib/env';
 import { auditLog, db, perfilPersonal, usuario } from '@rutas/shared/db';
 import { and, desc, eq, lt } from 'drizzle-orm';
 
-// Solo `admin` llega aqui: `proxy.ts` ya gatea `/bitacora` bajo PREFIJOS_ADMIN
-// (mismo patron que monitor.ts y reportes.ts — no hay `can()` propio en un
-// modulo de solo lectura cuando la ruta ya lo exige).
+// Sin `can()` propio (mismo patron que monitor.ts y reportes.ts): `proxy.ts` ya
+// gatea `/bitacora` bajo PREFIJOS_ADMIN.
 
 const LIMITE_DEFAULT = 50;
 const LIMITE_MAXIMO = 200;
@@ -40,11 +38,8 @@ export interface FiltrosBitacora {
 }
 
 /**
- * Cursor sobre `id` solo, no `(created_at, id)` como documenta la §5 en
- * general: aqui basta porque `audit_log.id` es un `bigserial` que crece en
- * el mismo orden que `created_at` — no hace falta el segundo campo para
- * desempatar filas con la misma fecha, que es el problema que la pareja
- * `(created_at, id)` resuelve cuando la primera columna no es unica.
+ * Cursor sobre `id` solo: `audit_log.id` es un `bigserial` que crece en el mismo
+ * orden que `created_at`, asi que no hace falta el segundo campo para desempatar.
  */
 export async function listarBitacora(filtros: FiltrosBitacora = {}): Promise<PaginaBitacora> {
   const limite = Math.min(filtros.limite ?? LIMITE_DEFAULT, LIMITE_MAXIMO);
@@ -98,7 +93,7 @@ export interface ActorFiltro {
   credencial: string;
 }
 
-/** Alimenta el selector de actor del filtro — incluye dados de baja a proposito: sus filas siguen en la bitacora. */
+/** Alimenta el selector de actor; incluye dados de baja: sus filas siguen en la bitacora. */
 export async function listarActoresParaFiltro(): Promise<ActorFiltro[]> {
   return db
     .select({ id: usuario.id, nombre: perfilPersonal.nombre, credencial: usuario.credencial })

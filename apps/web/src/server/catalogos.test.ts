@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { crearSupervisor, desactivarSupervisor } from './catalogos.ts';
 
-// Igual que en rutas.ts/monitor.ts: estas funciones parsean con zod ANTES de
-// resolver el actor (`obtenerUsuarioActual`, que necesita `next/headers` y
-// no existe fuera de una peticion real de Next). Con entrada invalida nunca
-// llegan a intentar leer la sesion, asi que se pueden probar aqui sin ese
-// contexto.
+// Estas funciones parsean con zod ANTES de resolver el actor, asi que con
+// entrada invalida nunca llegan a `next/headers` y se pueden probar aqui.
 
 describe('crearSupervisor: rechaza entrada invalida antes de tocar sesion o base', () => {
   it('rechaza un correo mal formado', async () => {

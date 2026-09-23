@@ -13,10 +13,8 @@ import { contarPorEstado, useAsignaciones } from '@/datos/useAsignaciones';
 import { usePerfil } from '@/datos/usePerfil';
 
 /**
- * La pantalla principal del chofer y la que abre al entrar (§16.1).
- *
- * Solo el dia operativo de hoy, ordenado cronologicamente: la lista responde
- * "que sigue" de arriba hacia abajo sin que el chofer tenga que filtrar nada.
+ * La pantalla principal del chofer y la que abre al entrar: solo el dia operativo
+ * de hoy, en orden cronologico, para responder "que sigue" sin filtrar nada.
  */
 export default function PaginaHoy() {
   const hoy = fechaOperativaHoy();
@@ -26,8 +24,7 @@ export default function PaginaHoy() {
   );
   const { perfil } = usePerfil();
 
-  // Cronologico (§16.3). El servidor no garantiza orden y `agruparPorDia` no
-  // aplica aqui, que es de un solo dia.
+  // El servidor no garantiza orden, y `agruparPorDia` no aplica en un solo dia.
   const ordenadas = useMemo(
     () =>
       [...asignaciones].sort((a, b) =>

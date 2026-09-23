@@ -1,14 +1,11 @@
-// Tailwind 3.4, la app NUNCA importa el config del panel (Tailwind 4). Lo
-// unico que cruza esa frontera son los tokens de `@rutas/shared/tokens`
-// como valores planos (numeros y cadenas), no un archivo de config.
+// Tailwind 3.4: la app NUNCA importa el config del panel (Tailwind 4), solo los
+// tokens de `@rutas/shared/tokens` como valores planos.
 const { colores, radio } = require('@rutas/shared/tokens');
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  // `componentes`, en espanol: es como se llama la carpeta de verdad. El glob
-  // decia `components` y por eso ninguna clase usada SOLO dentro de un
-  // componente llegaba a generarse — se veian bien de casualidad, porque las
-  // mismas clases aparecian tambien en alguna pantalla de `src/app`.
+  // `componentes`, en espanol: con el glob en ingles no se generaba ninguna
+  // clase usada solo dentro de un componente.
   content: ['./src/app/**/*.{js,jsx,ts,tsx}', './src/componentes/**/*.{js,jsx,ts,tsx}'],
   presets: [require('nativewind/preset')],
   theme: {

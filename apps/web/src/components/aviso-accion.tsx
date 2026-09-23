@@ -1,12 +1,6 @@
 /**
- * El aviso de que una mutacion se aplico (o no). Se repetia identico en las
- * cinco pantallas con borrado; vive aqui para que "se elimino" se vea igual en
- * todas y para tener un solo lugar donde ajustar su posicion.
- *
- * `sticky`: el area de contenido es lo unico que se desplaza en el marco del
- * panel, y una tabla de treinta renglones deja el encabezado fuera de vista. Sin
- * esto, el aviso de exito se pinta donde nadie lo esta viendo y la accion se
- * lee como que no hizo nada.
+ * El aviso de que una mutacion se aplico, compartido por las pantallas con
+ * borrado. `sticky` porque en una tabla larga quedaria fuera de vista.
  */
 export function AvisoAccion({ error, exito }: { error?: string | null; exito?: string | null }) {
   if (!error && !exito) {

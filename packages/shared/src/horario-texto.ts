@@ -3,16 +3,13 @@ import { format } from 'date-fns';
 import { ZONA_OPERATIVA } from './estado.ts';
 
 /**
- * Formato de horario visible en toda la UI: 12 horas con AM/PM, nunca 24h
- * (§ rediseno "formato de horarios"). Estas dos funciones son la unica
- * fuente: nadie arma "HH:mm" a mano ni recorta un string de hora.
+ * Formato de horario visible en toda la UI: 12 horas con AM/PM, nunca 24h. Estas
+ * dos funciones son la unica fuente: nadie arma "HH:mm" a mano.
  */
 
 /**
- * `HH:mm[:ss]` de 24h — como llega una columna `time` de Postgres
- * (`horario.hora_inicio_esperada`, sin fecha ni zona) — a `h:mm a`.
- * `"14:00:00"` -> `"2:00 PM"`. No hay zona que aplicar: es una hora de
- * reloj suelta, no un instante.
+ * Una hora de reloj suelta (`HH:mm[:ss]`, como la columna `time` de Postgres) a
+ * `h:mm a`. No hay zona que aplicar: no es un instante.
  */
 export function horaEsperadaTexto(horaHHmm: string): string {
   const [horas, minutos] = horaHHmm.split(':').map(Number);

@@ -1,11 +1,5 @@
-// Sin `'use server'` a proposito: cada funcion exportada de un archivo con
-// esa directiva se vuelve un endpoint invocable por RPC desde el cliente, con
-// o sin auth propia. Igual que `registrarAuditoria` (lib/audit/registrar.ts),
-// este modulo es el nucleo de escritura — recibe el actor ya autorizado, no
-// resuelve sesion ni permisos — para que `rutas.ts` (que si valida `can()`)
-// sea el unico punto de entrada real, y para que este nucleo se pueda probar
-// contra Postgres sin pasar por `next/headers`, que no existe fuera de una
-// peticion real de Next.
+// Sin `'use server'` a proposito: ahi cada export seria un endpoint RPC. Recibe
+// el actor ya autorizado, para que `rutas.ts` sea la unica entrada real.
 import {
   type AgregarHorario,
   type EditarHorario,
@@ -18,11 +12,8 @@ import { asignacion, db, evento, horario, ruta } from '@rutas/shared/db';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { registrarAuditoria } from '@/lib/audit/registrar';
 
-// Los mismos tres hitos que cierran la ventana de edicion en el resto del
-// panel (§ planeador: Cancelar/Reasignar se deshabilitan igual para una
-// asignacion de hoy ya completada). `inicio_ruta` cuenta porque el chofer ya
-// salio siguiendo los datos viejos; `fin_ruta`/`fin_ruta_incidente` cuentan
-// porque la ruta de hoy ya termino.
+// Los mismos tres hitos que cierran la ventana de edicion en todo el panel: el
+// chofer ya salio con los datos viejos, o la ruta de hoy ya termino.
 export const EVENTOS_QUE_BLOQUEAN_EDICION = [
   'inicio_ruta',
   'fin_ruta',
@@ -163,8 +154,8 @@ export async function borrarRutaNucleo(
     return NO_ENCONTRADO;
   }
 
-  // Nunca un DELETE: aunque la ruta ya tenga asignaciones, esto solo fija
-  // `deleted_at` y conserva la fila (Done-when del paso 6).
+  // Nunca un DELETE: solo fija `deleted_at` y conserva la fila, aunque la ruta
+  // ya tenga asignaciones.
   await db.transaction(async (tx) => {
     await tx.update(ruta).set({ deletedAt: new Date() }).where(eq(ruta.id, id));
     await registrarAuditoria(tx, {
@@ -247,11 +238,8 @@ export async function desactivarHorarioNucleo(
   actorId: string,
   id: string,
 ): Promise<Resultado<{ id: string }>> {
-  // `activo = true` y `deleted_at is null` en la busqueda, no solo el id: sin
-  // eso, desactivar dos veces el mismo horario respondia `ok` la segunda y
-  // dejaba una fila de bitacora por una desactivacion que no ocurrio. El panel
-  // solo ofrece el boton sobre horarios activos (listarRutas los filtra), asi
-  // que un segundo intento siempre viene de una pantalla vieja.
+  // `activo = true` y `deleted_at is null` en la busqueda: sin eso, desactivar
+  // dos veces respondia `ok` y dejaba bitacora de algo que no ocurrio.
   const [antes] = await db
     .select({ turno: horario.turno })
     .from(horario)
@@ -261,8 +249,8 @@ export async function desactivarHorarioNucleo(
     return NO_ENCONTRADO;
   }
 
-  // Nunca un DELETE: aunque el horario ya tenga asignaciones, esto solo fija
-  // `activo = false` y conserva la fila (Done-when del paso 6).
+  // Nunca un DELETE: solo fija `activo = false` y conserva la fila, aunque el
+  // horario ya tenga asignaciones.
   await db.transaction(async (tx) => {
     await tx.update(horario).set({ activo: false }).where(eq(horario.id, id));
     await registrarAuditoria(tx, {

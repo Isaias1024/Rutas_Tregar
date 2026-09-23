@@ -4,10 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { ZONA_OPERATIVA } from './estado.ts';
 import { eventoManualSchema, incidenteManualSchema } from './eventos.ts';
 
-// La captura manual del supervisor tiene DOS entradas, no una: la secuencia
-// (`eventoManualSchema`) y la salida por incidente (`incidenteManualSchema`).
-// Estas pruebas fijan esa separacion — si alguien la colapsa en un solo
-// esquema, aqui se nota.
+// La captura manual tiene DOS entradas: la secuencia y la salida por incidente.
+// Si alguien las colapsa en un solo esquema, aqui se nota.
 
 /** 'YYYY-MM-DDTHH:mm' en America/Mexico_City, `minutos` desde ahora (negativo = pasado). */
 function horaLocalRelativa(minutos: number): string {
@@ -114,8 +112,8 @@ describe('incidenteManualSchema — la salida por incidente', () => {
       razonIncidente: 'trafico',
       cantidad: 12,
     });
-    // zod ignora las llaves extra por defecto: lo que se fija aqui es que
-    // `cantidad` no forma parte del tipo de salida, no que el parseo falle.
+    // zod ignora las llaves extra: lo que se fija es que `cantidad` no forma
+    // parte del tipo de salida, no que el parseo falle.
     expect(parseo.success).toBe(true);
     if (parseo.success) {
       expect('cantidad' in parseo.data).toBe(false);

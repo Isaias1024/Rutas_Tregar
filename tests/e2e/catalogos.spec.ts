@@ -30,28 +30,21 @@ test.describe('Catalogos', () => {
     const filaEditada = page.locator('tr:visible, li:visible').filter({ hasText: nombreEditado });
     await expect(filaEditada).toBeVisible();
 
-    // Ningun `confirm()` nativo: si alguno sobrevive, esta llamada lo descarta
-    // (equivale a que devuelva `false`) y el borrado no ocurre — que es
-    // exactamente el fallo que se reportaba. La confirmacion tiene que ser un
-    // dialogo propio del panel, imposible de suprimir por el navegador.
+    // Descarta cualquier `confirm()` nativo que sobreviviera: la confirmacion
+    // tiene que ser un dialogo propio, imposible de suprimir por el navegador.
     page.on('dialog', (dialogo) => dialogo.dismiss());
     await filaEditada.getByRole('button', { name: 'Borrar' }).click();
     await expect(page.getByRole('dialog')).toContainText('Borrar cliente');
     await page.getByRole('dialog').getByRole('button', { name: 'Borrar' }).click();
 
-    // El boton tiene que ACUSAR el borrado, no solo hacerlo. Sin esto la
-    // pantalla solo "deja de mostrar la fila", que es indistinguible de un
-    // borrado rechazado en silencio — el sintoma que se reportaba como "el
-    // boton de eliminar no funciona".
+    // El boton tiene que ACUSAR el borrado: "la fila ya no esta" es
+    // indistinguible de un borrado rechazado en silencio.
     await expect(
       page.getByText(`Cliente "${nombreEditado}" eliminado correctamente.`),
     ).toBeVisible();
 
-    // Borrado logico: desaparece de la lista, pero la fila sigue en la base
-    // (`borrarCliente` solo fija `deleted_at`, nunca hace DELETE). La tabla
-    // de escritorio y las tarjetas de movil coexisten siempre en el DOM —
-    // una queda oculta por CSS segun el viewport — por eso el filtro
-    // `:visible` en vez de `getByText` a secas, que resolveria a las dos.
+    // Escritorio y movil coexisten en el DOM, ocultos por CSS: por eso el filtro
+    // `:visible`, que `getByText` a secas resolveria a las dos.
     await expect(
       page.locator('tr:visible, li:visible').filter({ hasText: nombreEditado }),
     ).toHaveCount(0);
@@ -62,8 +55,7 @@ test.describe('Catalogos', () => {
     context,
     baseURL,
   }) => {
-    // `borrarCliente` vive en una server action que necesita `next/headers`, asi
-    // que no hay forma de probarla con vitest: la unica prueba honesta de su
+    // `borrarCliente` necesita `next/headers`: la unica prueba honesta de su
     // predicado `deleted_at is null` es esta, contra el panel real.
     await iniciarSesionComo(context, 'admin', baseURL ?? 'http://127.0.0.1:3000');
     await page.goto('/catalogos/clientes');

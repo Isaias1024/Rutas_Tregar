@@ -1,6 +1,5 @@
-// `@/lib/env` importa primero A PROPOSITO (ver server/catalogos.ts): su
-// carga de `.env` tiene que correr antes de que `@rutas/shared/db` evalue
-// `process.env.DATABASE_URL` al importarse.
+// `@/lib/env` importa primero A PROPOSITO (ver server/catalogos.ts): su carga
+// de `.env` corre antes de que `@rutas/shared/db` lea DATABASE_URL.
 import '@/lib/env';
 import { dispositivoRegistrarSchema } from '@rutas/shared';
 import { createClient } from '@supabase/supabase-js';
@@ -8,12 +7,8 @@ import { NextResponse } from 'next/server';
 import { env } from '@/lib/env';
 import { registrarDispositivo } from '@/server/dispositivos';
 
-// Unico endpoint HTTP real del panel (no un server action): la app movil
-// guarda su sesion en expo-secure-store, no en cookies del navegador, asi
-// que se autentica con `Authorization: Bearer <access_token>` — el mismo
-// access_token que ya trae de iniciar sesion contra Supabase — y este
-// handler lo valida contra el cliente anonimo de Supabase, no contra
-// `crearClienteServidor()` (que solo sabe leer cookies).
+// Unico endpoint HTTP real del panel: la app movil llega con Bearer token, asi
+// que se valida contra el cliente anonimo y no contra el de cookies.
 export async function POST(request: Request): Promise<NextResponse> {
   const encabezadoAuth = request.headers.get('authorization');
   const token = encabezadoAuth?.startsWith('Bearer ') ? encabezadoAuth.slice(7) : null;

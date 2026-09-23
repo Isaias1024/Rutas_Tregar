@@ -2,13 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Punto de entrada ejecutable. `--version` imprime la version y sale 0;
-// `serve` arranca el servidor HTTP y el scheduler de verdad (paso 13).
-//
-// El entorno se carga ANTES que cualquier otro import propio (§ worker-y-reportes.md):
-// no hay un lib/env.ts en el worker, asi que esto es lo unico que garantiza
-// que DATABASE_URL, WORKER_PORT, etc. existan cuando servidor.ts y
-// scheduler.ts los lean.
+// El entorno se carga ANTES que cualquier import propio: no hay lib/env.ts en el
+// worker, y es lo unico que garantiza DATABASE_URL en servidor.ts y scheduler.ts.
 const ENV_RAIZ = path.resolve(import.meta.dirname, '../../../.env');
 if (existsSync(ENV_RAIZ)) {
   process.loadEnvFile(ENV_RAIZ);
@@ -21,10 +16,8 @@ const { iniciarScheduler } = await import('./scheduler.ts');
 const pkgPath = fileURLToPath(new URL('../package.json', import.meta.url));
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version: string };
 
-// Instancia unica de pino, creada aqui y pasada a servidor.ts y scheduler.ts
-// (§ worker-y-reportes.md: "no hay un modulo de logger aparte"). El redact
-// cubre todo lo que la LFPDPPP y el sentido comun prohiben loguear: tokens,
-// credenciales y datos personales de empleados.
+// Instancia unica de pino, pasada a servidor.ts y scheduler.ts. El redact cubre
+// lo que no se puede loguear: tokens, credenciales y datos personales.
 const logger = pino({
   redact: {
     paths: [

@@ -1,11 +1,8 @@
 import * as SQLite from 'expo-sqlite';
 
 /**
- * Cache de solo lectura para las pantallas de consulta. Vive aparte del
- * outbox (`src/outbox/db.ts`): aquel guarda lo que el chofer produjo y todavia
- * no se sube — es dato que solo existe aqui hasta que el flusher lo entrega —
- * mientras que esto es una copia descartable de lo que el servidor ya sabe.
- * Perderlo no pierde nada; perder el outbox si.
+ * Cache de solo lectura, aparte del outbox: esto es una copia descartable de lo
+ * que el servidor ya sabe, y perderlo no pierde nada; perder el outbox si.
  */
 export interface CacheAsignaciones<T> {
   leer: (clave: string) => Promise<T[]>;
@@ -27,8 +24,7 @@ function abrirDb(): Promise<SQLite.SQLiteDatabase> {
 }
 
 // Los metodos son genericos (no la constante) para que un mismo cache sirva a
-// cualquier tipo de fila: asi satisface `CacheAsignaciones<AsignacionDetallada>`
-// sin quedar casado con ese tipo, que vive en un modulo que importa de este.
+// cualquier tipo de fila sin casarse con uno que vive en un modulo que importa este.
 export const cacheSqlite = {
   async leer<T>(clave: string): Promise<T[]> {
     const db = await abrirDb();

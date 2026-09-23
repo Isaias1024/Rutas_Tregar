@@ -108,10 +108,8 @@ export function TablaCamiones({
     formEditar.reset({
       id: camion.id,
       codigo: camion.codigo,
-      // Un camion sembrado o creado antes del catalogo cerrado puede traer un
-      // tipo que ya no es opcion (p. ej. "Sprinter"): el cast es a proposito,
-      // el Select simplemente no lo encuentra y queda sin seleccion hasta que
-      // el supervisor elige uno de los tres validos para poder guardar.
+      // Un camion viejo puede traer un tipo que ya no es opcion: el Select no lo
+      // encuentra y queda sin seleccion hasta que se elija uno valido.
       tipo: camion.tipo as CamionEditar['tipo'],
       placas: camion.placas,
       km: camion.km,
@@ -158,9 +156,8 @@ export function TablaCamiones({
     }
     setErrorBorrado(null);
     startTransition(async () => {
-      // El resultado se ignoraba: un borrado rechazado (sin permiso, o la fila
-      // ya borrada desde otra pestana) dejaba la fila en pantalla sin decir por
-      // que, y se leia como "el boton no hace nada".
+      // El resultado se ignoraba: un borrado rechazado dejaba la fila en pantalla
+      // sin decir por que, y se leia como "el boton no hace nada".
       const resultado = await accionBorrar(camion.id);
       if (!resultado.ok) {
         setErrorBorrado(resultado.error.mensaje);

@@ -126,10 +126,8 @@ export default function PaginaDetalleRuta() {
   }
 
   /**
-   * Solo `retorno` pregunta antes: es el hito que cierra la ruta y `evento` es
-   * append-only — marcarlo por error no se deshace desde la app, hay que ir al
-   * panel. Los demas pasos no preguntan (§14: nada de confirmaciones
-   * innecesarias).
+   * Solo `retorno` pregunta antes: cierra la ruta y `evento` es append-only, asi
+   * que marcarlo por error no se deshace desde la app.
    */
   function intentarRegistrar(contadorValor?: number) {
     if (paso === 'retorno') {

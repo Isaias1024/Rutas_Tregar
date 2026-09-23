@@ -19,10 +19,8 @@ interface Props {
 const CLAVE_ANCHO_SIDEBAR = 'rutas:ancho-sidebar';
 
 /**
- * El unico trozo de cliente del marco: existe para que la barra lateral y el
- * boton de menu de la barra superior compartan el estado del cajon movil, y
- * para que el ancho de la barra lateral (arrastrable en escritorio) sobreviva
- * a la navegacion entre paginas del panel.
+ * El unico trozo de cliente del marco: comparte el estado del cajon movil entre
+ * barra lateral y barra superior, y conserva el ancho arrastrado al navegar.
  */
 export function MarcoPanel({
   nombre,
@@ -37,9 +35,8 @@ export function MarcoPanel({
 
   const [anchoSidebar, setAnchoSidebar] = useState(ANCHO_SIDEBAR_DEFECTO);
 
-  // El ancho preferido se lee del navegador, no del servidor: evita el
-  // desajuste de hidratacion entre lo que Next renderizo en el servidor y lo
-  // que localStorage tiene guardado en esta maquina.
+  // El ancho preferido se lee del navegador, no del servidor: evita el desajuste
+  // de hidratacion contra lo que localStorage tiene en esta maquina.
   useEffect(() => {
     const guardado = Number(window.localStorage.getItem(CLAVE_ANCHO_SIDEBAR));
     if (Number.isFinite(guardado) && guardado > 0) {

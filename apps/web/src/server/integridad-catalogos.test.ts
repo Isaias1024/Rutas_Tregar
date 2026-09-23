@@ -5,9 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { borrarClienteNucleo, rutasDeCliente } from './clientes-nucleo.ts';
 import { borrarParadaNucleo, rutasQueUsanParada } from './paradas-nucleo.ts';
 
-// "Reglas de Backend — Catalogos, Rutas, Choferes y Camiones", pasos 1, 3 y 5:
-// una parada o un cliente en uso no se pueden eliminar, y una ruta REFERENCIA
-// a su parada en vez de copiarla, para que un cambio se propague solo.
+// Una parada o un cliente en uso no se pueden eliminar, y una ruta REFERENCIA a
+// su parada en vez de copiarla, para que un cambio se propague solo.
 
 describe('paradas y clientes en uso no se pueden eliminar (pasos 1 y 3)', () => {
   const actorId = randomUUID();
@@ -172,10 +171,8 @@ describe('una ruta REFERENCIA a su parada, nunca copia sus datos (paso 5)', () =
   });
 
   it('cambiar la parada cambia lo que ve la ruta, sin tocar la fila de ruta', async () => {
-    // La tabla `ruta` no tiene columnas de nombre/direccion/lat/lng de parada:
-    // solo los dos ids. Esta prueba lo comprueba por comportamiento — si
-    // alguien agregara esas columnas para "cachear", el join dejaria de
-    // reflejar el cambio y esto fallaria.
+    // Comprobado por comportamiento: si alguien agregara columnas de parada a
+    // `ruta` para "cachear", el join dejaria de reflejar el cambio y esto fallaria.
     await db
       .update(parada)
       .set({ nombre: 'Nombre corregido', direccion: 'Direccion corregida', lat: 26.1, lng: -101.2 })

@@ -19,19 +19,8 @@ import { fechaOperativa } from '../packages/shared/src/estado.ts';
 import type { TipoEvento, TipoIncidente } from '../packages/shared/src/flujo.ts';
 
 /**
- * Semilla de desarrollo: DESTRUCTIVA y de conjunto fijo.
- *
- * Cada corrida vacia las doce tablas y las vuelve a llenar con exactamente el
- * mismo conjunto minimo. No es "idempotente" por buscar-antes-de-insertar como
- * la version anterior, sino por reconstruccion: correrla N veces deja siempre
- * los mismos conteos.
- *
- * Ademas de las plantillas de ruta, siembra `asignacion` + `evento` para tres
- * dias hacia atras (historial ya cerrado: a tiempo, tarde, adelantado,
- * incidente y cancelada), el dia de hoy (una completada, una en curso, el
- * resto pendiente) y dos dias hacia adelante (planeacion, sin eventos). Los
- * conteos exactos se derivan de `ASIGNACIONES` en `validar()`, no se
- * hardcodean.
+ * Semilla de desarrollo DESTRUCTIVA: cada corrida vacia las doce tablas y
+ * las vuelve a llenar con el mismo conjunto fijo.
  */
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -44,10 +33,8 @@ if (!supabaseUrl || !serviceRoleKey) {
   process.exit(1);
 }
 
-// Guarda de seguridad. Esta semilla BORRA TODO, incluidas las cuentas de Auth:
-// apuntada por accidente a un entorno compartido se lleva los datos reales por
-// delante. Solo corre contra un Supabase local salvo que se pida explicito con
-// `--forzar`, que existe para un staging desechable y para nada mas.
+// Guarda de seguridad: esta semilla BORRA TODO, incluidas las cuentas de Auth.
+// `--forzar` existe solo para un staging desechable.
 const esLocal = /^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/.test(supabaseUrl);
 if (!esLocal && !process.argv.includes('--forzar')) {
   console.error(
@@ -61,10 +48,8 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-// --- credenciales dummy -------------------------------------------------------
 // Un solo lugar define usuarios y contrasenas: lo que se siembra es
-// literalmente lo que se imprime al final. Dos listas separadas se
-// desincronizan en cuanto alguien cambia una contrasena.
+// literalmente lo que se imprime al final.
 
 const PASSWORD_ADMIN = 'Admin123!';
 const PASSWORD_SUPERVISOR = 'Supervisor123!';
@@ -103,13 +88,8 @@ type Chofer = {
   telefono: string;
 };
 
-// El chofer NO teclea un correo: teclea `credencial`, y la app sintetiza
-// `<credencial>@choferes.rutas.local` (apps/mobile/src/lib/credencial.ts). Por
-// eso el correo de Auth se deriva de la credencial y no puede ser
-// `driverN@test.com`: con ese correo en Auth, teclear `driver1` en la app
-// buscaria `driver1@choferes.rutas.local` y el login fallaria. El
-// `driverN@test.com` de la especificacion se conserva como correo de contacto
-// en `perfil_personal`, que es donde este modelo lo guarda.
+// El chofer teclea `credencial`, no un correo, y la app sintetiza
+// `<credencial>@choferes.rutas.local`: con otro correo en Auth el login falla.
 const CHOFERES: Chofer[] = [
   {
     credencial: 'driver1',
@@ -137,8 +117,6 @@ const CHOFERES: Chofer[] = [
 function correoDeChofer(credencial: string): string {
   return `${credencial}@choferes.rutas.local`;
 }
-
-// --- catalogos ----------------------------------------------------------------
 
 // Coordenadas reales del area metropolitana de Monterrey: el panel las pinta en
 // un mapa y una parada en medio del mar se nota de inmediato.
@@ -235,21 +213,16 @@ const PARADAS = [
   },
 ] as const;
 
-// Los tres tipos que el formulario ofrece hoy (`TIPOS_CAMION` en
-// packages/shared/src/catalogos.ts); la semilla no puede sembrar uno que el
-// panel no deje elegir.
+// Solo los tipos que el formulario ofrece (`TIPOS_CAMION`): la semilla no
+// puede sembrar uno que el panel no deje elegir.
 const CAMIONES = [
   { codigo: 'T01', tipo: 'Van', placas: 'NLE-0101-A' },
   { codigo: 'T02', tipo: 'Autobus', placas: 'NLE-0202-B' },
   { codigo: 'T03', tipo: 'Urvan', placas: 'NLE-0303-C' },
 ] as const;
 
-// Cada ruta trae su horario porque en este sistema una ruta SIN horario no
-// existe: `rutaCrearSchema` exige `min(1)` y el Planeador arma su cuadricula
-// desde `horario`, no desde `ruta` (`listarHorariosActivos`). Una ruta sin
-// horario seria invisible y no se podria programar — justo lo contrario de lo
-// que se busca. El horario no lleva fecha: la fecha nace en `asignacion`, y de
-// esas se siembran cero.
+// Una ruta SIN horario no existe en este modelo: `rutaCrearSchema` exige
+// `min(1)` y el Planeador arma su cuadricula desde `horario`, no desde `ruta`.
 const RUTAS = [
   {
     nombre: 'CEVA - ESCOBEDO',
@@ -325,11 +298,8 @@ const RUTAS = [
   },
 ] as const;
 
-// --- historial y planeacion -----------------------------------------------
-// Configura que asignaciones sembrar por dia: `diasOffset` es relativo a HOY
-// (fechaOperativa). Negativo es historial ya cerrado, 0 es hoy, positivo es
-// planeacion futura. `resultado` decide que eventos se generan — ver
-// `eventosPorResultado` y `crearAsignacion`.
+// `diasOffset` es relativo a HOY (fechaOperativa): negativo es historial ya
+// cerrado, 0 es hoy, positivo es planeacion futura.
 type ResultadoAsignacion =
   | 'a_tiempo'
   | 'tarde'
@@ -349,7 +319,6 @@ type ConfigAsignacion = {
 };
 
 const ASIGNACIONES: ConfigAsignacion[] = [
-  // --- historial: hace 3 dias ---
   {
     diasOffset: -3,
     rutaNombre: 'CEVA - ESCOBEDO',
@@ -387,7 +356,6 @@ const ASIGNACIONES: ConfigAsignacion[] = [
     resultado: 'cancelada',
   },
 
-  // --- historial: hace 2 dias ---
   {
     diasOffset: -2,
     rutaNombre: 'CEVA - ESCOBEDO',
@@ -424,7 +392,6 @@ const ASIGNACIONES: ConfigAsignacion[] = [
     resultado: 'a_tiempo',
   },
 
-  // --- historial: ayer ---
   {
     diasOffset: -1,
     rutaNombre: 'CEVA - ESCOBEDO',
@@ -469,7 +436,6 @@ const ASIGNACIONES: ConfigAsignacion[] = [
     resultado: 'cancelada',
   },
 
-  // --- hoy ---
   {
     diasOffset: 0,
     rutaNombre: 'CEVA - ESCOBEDO',
@@ -527,7 +493,6 @@ const ASIGNACIONES: ConfigAsignacion[] = [
     resultado: 'pendiente',
   },
 
-  // --- planeacion: manana ---
   {
     diasOffset: 1,
     rutaNombre: 'CEVA - ESCOBEDO',
@@ -564,7 +529,6 @@ const ASIGNACIONES: ConfigAsignacion[] = [
     resultado: 'pendiente',
   },
 
-  // --- planeacion: pasado manana ---
   {
     diasOffset: 2,
     rutaNombre: 'GRIFFITH - LINCOLN',
@@ -624,11 +588,8 @@ function sumarDias(fecha: string, dias: number): string {
 }
 
 /**
- * `fecha` + `horaHHMM` + `offsetMin`, como instante real en
- * `America/Mexico_City`. Offset fijo -06:00 a proposito: Monterrey no esta en
- * la franja fronteriza que Mexico dejo con horario de verano al abolirlo en
- * 2022, asi que el area metropolitana no cambia de offset en ninguna epoca
- * del anio.
+ * `fecha` + `horaHHMM` + `offsetMin` como instante real. Offset fijo -06:00:
+ * Monterrey quedo fuera del horario de verano que Mexico abolio en 2022.
  */
 function horaEnFecha(fecha: string, horaHHMM: string, offsetMin = 0): Date {
   const [horas, minutos] = horaHHMM.split(':').map(Number);
@@ -650,21 +611,9 @@ function horaEnFecha(fecha: string, horaHHMM: string, offsetMin = 0): Date {
 
 const NOMBRE_CLIENTE = 'CEVA';
 
-// --- limpieza -----------------------------------------------------------------
-
 /**
- * Deja la base vacia sin tocar el esquema.
- *
- * `truncate` con las doce tablas en UNA sola sentencia resuelve el orden de las
- * foreign keys por si mismo — no hay que borrar en cascada a mano — y
- * `restart identity` devuelve el `bigserial` de `audit_log` a 1 para que dos
- * corridas produzcan ids identicos.
- *
- * Sobre `evento`, que es append-only (§ datos-y-rls.md): esa regla prohibe el
- * UPDATE y el DELETE de negocio, y `db:check` la verifica comprobando que la
- * tabla no tenga politicas de UPDATE ni DELETE. Esto no es una correccion de
- * datos, es el vaciado completo de una base local de desarrollo, y corre como
- * dueno de la tabla via DATABASE_URL, no bajo RLS. Ninguna politica cambia.
+ * Deja la base vacia sin tocar el esquema. Un solo `truncate` resuelve el orden
+ * de las FK, y `restart identity` hace que dos corridas produzcan ids iguales.
  */
 async function limpiarBase(): Promise<number> {
   await db.execute(sql`
@@ -684,9 +633,8 @@ async function limpiarBase(): Promise<number> {
     restart identity cascade
   `);
 
-  // Las cuentas de Auth viven fuera del esquema `public`, asi que el truncate
-  // no las toca. Van DESPUES: mientras `usuario` tuviera filas, su FK contra
-  // `auth.users` es `on delete restrict` y el borrado fallaria.
+  // Las cuentas de Auth viven fuera de `public` y el truncate no las toca. Van
+  // despues: con filas en `usuario`, su FK `on delete restrict` lo impediria.
   let borradas = 0;
   for (;;) {
     const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
@@ -707,8 +655,6 @@ async function limpiarBase(): Promise<number> {
     // hacia adelante. Pedir la pagina 2 se saltaria filas.
   }
 }
-
-// --- creacion -----------------------------------------------------------------
 
 async function crearCuentaAuth(correo: string, password: string): Promise<string> {
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
@@ -769,13 +715,11 @@ async function sembrar() {
       credencial: c.credencial,
       rol: 'chofer',
       activo: true,
-      // `false` a proposito: en `true` la app exige cambiar la contrasena al
-      // primer ingreso y `Driver123!` dejaria de servir en cuanto alguien
-      // entre una vez — que es justo lo que hace inservible una credencial de
-      // prueba. Para ejercitar esa pantalla: `pnpm chofer:prueba --forzar-cambio`.
+      // `false` a proposito: en `true`, `Driver123!` dejaria de servir tras el
+      // primer ingreso. Para probar esa pantalla: `pnpm chofer:prueba --forzar-cambio`.
       debeCambiarPassword: false,
-      // El Planeador deriva el camion del chofer (`resolverCamionDelChofer`) y
-      // `asignacion.camion_id` es NOT NULL: sin este vinculo, asignar falla.
+      // El Planeador deriva el camion del chofer y `asignacion.camion_id` es
+      // NOT NULL: sin este vinculo, asignar falla.
       camionId: camionIds[indice],
     });
     await db.insert(perfilPersonal).values({
@@ -839,11 +783,8 @@ async function sembrar() {
 }
 
 /**
- * Una asignacion (dia + horario + chofer + camion) y, salvo `cancelada` /
- * `pendiente`, la secuencia de `evento` que le corresponde. Misma pareja
- * evento+contador que usa la captura manual del supervisor
- * (`registrarEventoManual` en `apps/web/src/server/monitor.ts`): el contador
- * de `fin_ruta`/`retorno` vive en `asignacion`, nunca en la fila del evento.
+ * Una asignacion y, salvo `cancelada` / `pendiente`, su secuencia de eventos.
+ * El contador de `fin_ruta`/`retorno` vive en `asignacion`, no en el evento.
  */
 async function crearAsignacion(
   cfg: ConfigAsignacion,
@@ -935,8 +876,6 @@ async function crearAsignacion(
     .where(eq(asignacion.id, asignacionId));
 }
 
-// --- validacion ---------------------------------------------------------------
-
 async function contarFilas(consulta: Promise<{ n: number }[]>): Promise<number> {
   const [fila] = await consulta;
   return fila?.n ?? 0;
@@ -972,10 +911,8 @@ async function validar(): Promise<Verificacion[]> {
       obtenido: await contarFilas(db.select({ n: count() }).from(camion)),
       esperado: CAMIONES.length,
     },
-    // En este modelo "ruta programada" y "asignacion" son la MISMA fila: una
-    // `asignacion` es un horario + una fecha + un chofer + un camion. Por eso
-    // no son dos conteos distintos, y se reporta como una sola linea en vez de
-    // fingir dos. `evento` va aparte: es lo que marca el chofer.
+    // En este modelo "ruta programada" y "asignacion" son la MISMA fila, por eso
+    // se reporta una sola linea; `evento` va aparte porque lo marca el chofer.
     {
       etiqueta: 'Scheduled / Assignments',
       obtenido: await contarFilas(db.select({ n: count() }).from(asignacion)),
@@ -988,8 +925,6 @@ async function validar(): Promise<Verificacion[]> {
     },
   ];
 }
-
-// --- salida -------------------------------------------------------------------
 
 const LINEA = '========================================';
 const GUIONES = '----------------------------------------';
@@ -1044,8 +979,6 @@ function imprimirResumen(verificaciones: Verificacion[], ok: boolean) {
   console.log(LINEA);
   console.log('');
 }
-
-// --- principal ----------------------------------------------------------------
 
 async function principal() {
   const cuentasBorradas = await limpiarBase();

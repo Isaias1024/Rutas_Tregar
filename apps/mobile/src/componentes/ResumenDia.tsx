@@ -26,12 +26,8 @@ function Celda({ valor, etiqueta, color }: { valor: number; etiqueta: string; co
 }
 
 /**
- * El dia en tres cifras, arriba de la lista.
- *
- * "En curso" solo aparece cuando de verdad hay una ruta corriendo: el resto
- * del dia esa celda seria un cero que no le dice nada al chofer, y su lugar lo
- * ocupa mejor el conteo de completadas. La cifra en curso usa el mismo naranja
- * del badge para que el ojo la ligue con la tarjeta correspondiente.
+ * "En curso" solo aparece cuando hay una ruta corriendo: el resto del dia seria
+ * un cero inutil, y su lugar lo ocupa el conteo de completadas.
  */
 export function ResumenDia({ conteo }: Props) {
   return (

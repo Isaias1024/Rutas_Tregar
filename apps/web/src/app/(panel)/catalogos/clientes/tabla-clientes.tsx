@@ -124,9 +124,8 @@ export function TablaClientes({
     }
     setErrorBorrado(null);
     startTransition(async () => {
-      // El resultado se ignoraba: un borrado rechazado (sin permiso, o la fila
-      // ya borrada desde otra pestana) dejaba la fila en pantalla sin decir por
-      // que, y se leia como "el boton no hace nada".
+      // El resultado se ignoraba: un borrado rechazado dejaba la fila en pantalla
+      // sin decir por que, y se leia como "el boton no hace nada".
       const resultado = await accionBorrar(cliente.id);
       if (!resultado.ok) {
         setErrorBorrado(resultado.error.mensaje);

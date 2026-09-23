@@ -1,8 +1,7 @@
 'use server';
 
 // `@/lib/env` importa primero A PROPOSITO (ver catalogos.ts): su carga de
-// `.env` tiene que correr antes de que `@rutas/shared/db` evalue
-// `process.env.DATABASE_URL` al importarse. Import de solo efecto.
+// `.env` corre antes de que `@rutas/shared/db` lea DATABASE_URL.
 import '@/lib/env';
 import { idSchema, paradaCrearSchema, paradaEditarSchema, type Resultado } from '@rutas/shared';
 import { db, parada } from '@rutas/shared/db';
@@ -42,20 +41,15 @@ async function actorAutorizado() {
   return actor;
 }
 
-// El borrado es logico (`deleted_at`), igual que cliente/camion: una parada
-// borrada desaparece de aqui (y por tanto del selector de "nueva ruta"), pero
-// una ruta que ya la referencia sigue resolviendo su nombre via `innerJoin`
-// en listarRutas(), que no filtra por deleted_at. La FK `restrict` de
-// `ruta.parada_inicio_id`/`parada_fin_id` solo protege contra un DELETE real,
-// que este modulo nunca emite.
+// Borrado logico: la parada sale del selector, pero una ruta que ya la referencia
+// sigue resolviendo su nombre porque `listarRutas` no filtra por `deleted_at`.
 export async function listarParadas() {
   return db.select().from(parada).where(isNull(parada.deletedAt)).orderBy(parada.nombre);
 }
 
 /**
- * Para la advertencia previa a editar una parada. Como este archivo es
- * `'use server'`, cada export es un endpoint RPC: lleva su `can()` propio
- * aunque solo lea.
+ * Para la advertencia previa a editar una parada. Lleva su `can()` propio aunque
+ * solo lea: en un archivo `'use server'` cada export es un endpoint RPC.
  */
 export async function consultarRutasQueUsanParada(
   input: unknown,
@@ -113,9 +107,8 @@ export async function editarParada(input: unknown): Promise<Resultado<{ id: stri
     return SIN_PERMISO;
   }
 
-  // `isNull(deleted_at)`, igual que borrarParada abajo: editar una parada ya
-  // borrada respondia `ok` y la revivia a medias en la bitacora, sobre una
-  // fila que ninguna pantalla vuelve a mostrar.
+  // `isNull(deleted_at)`, igual que borrarParada: editar una parada ya borrada
+  // respondia `ok` y la revivia a medias en la bitacora.
   const [antes] = await db
     .select()
     .from(parada)

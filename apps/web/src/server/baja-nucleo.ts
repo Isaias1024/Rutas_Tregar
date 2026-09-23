@@ -1,7 +1,5 @@
-// Sin `'use server'` a proposito (ver rutas-nucleo.ts, planeador-nucleo.ts):
-// el nucleo recibe el actor ya autorizado y no toca `next/headers`, para que
-// `baja.ts` sea el unico endpoint real y este archivo se pueda probar
-// contra Postgres sin una peticion real de Next.
+// Sin `'use server'` a proposito (ver rutas-nucleo.ts): recibe el actor ya
+// autorizado y no toca `next/headers`, asi se prueba contra Postgres sin Next.
 import type { Resultado } from '@rutas/shared';
 import { db, dispositivo, perfilPersonal, usuario } from '@rutas/shared/db';
 import { and, eq, isNull } from 'drizzle-orm';
@@ -15,13 +13,8 @@ const NO_ENCONTRADO: Resultado<never> = {
 };
 
 /**
- * La baja de la LFPDPPP (§4, §9 paso 16): vacia `perfil_personal`, borra
- * `dispositivo` y marca `usuario.deleted_at`/`activo = false`, todo en una
- * transaccion — si cualquier escritura falla, ninguna queda aplicada. La
- * fila de `usuario` se conserva siempre: es lo que sostiene el historial de
- * `asignacion` y `evento` (§4: "el unico cascade a datos personales... para
- * que la baja los borre" es `usuario -> perfil_personal`, no `usuario`
- * mismo).
+ * La baja de la LFPDPPP en una sola transaccion. La fila de `usuario` se conserva:
+ * es la que sostiene el historial de `asignacion` y `evento`.
  */
 export async function bajaEmpleadoNucleo(
   actorId: string,
@@ -43,19 +36,14 @@ export async function bajaEmpleadoNucleo(
     .limit(1);
 
   await db.transaction(async (tx) => {
-    // Antes que nada, soltar sus rutas de hoy en adelante: un chofer dado de
-    // baja no puede seguir apareciendo como responsable de una ruta que ya no
-    // va a manejar, y esos horarios tienen que quedar libres para otro. Va
-    // DENTRO de esta transaccion: si la baja se revierte, las asignaciones
-    // vuelven a ser suyas. Las pasadas no se tocan — son el historial.
+    // Dentro de la transaccion, para que un rollback devuelva las rutas al
+    // chofer. Las pasadas no se tocan: son el historial.
     await liberarYAuditar(tx, actorId, usuarioId);
-    // "Vacia perfil_personal" es literal: DELETE de la fila completa, no un
-    // UPDATE a columnas nulas — §4 documenta la tabla como "una fila por
-    // usuario, o ninguna si ya se dio de baja".
+    // DELETE de la fila completa, no un UPDATE a columnas nulas: la tabla es
+    // "una fila por usuario, o ninguna si ya se dio de baja".
     await tx.delete(perfilPersonal).where(eq(perfilPersonal.usuarioId, usuarioId));
-    // `dispositivo` tiene cascade desde `usuario` (§4), pero ese cascade
-    // solo dispara si se borra la fila de `usuario` — y aqui se conserva a
-    // proposito, asi que el borrado va explicito.
+    // El cascade de `dispositivo` solo dispara al borrar la fila de `usuario`,
+    // que aqui se conserva a proposito.
     await tx.delete(dispositivo).where(eq(dispositivo.usuarioId, usuarioId));
     await tx
       .update(usuario)
@@ -70,13 +58,8 @@ export async function bajaEmpleadoNucleo(
     });
   });
 
-  // Revocar el acceso en Supabase Auth es un efecto secundario FUERA de la
-  // transaccion de Postgres — no hay forma de meter una llamada HTTP dentro
-  // de un rollback. Si esto falla, los datos personales YA se borraron (el
-  // requisito de la LFPDPPP) y `proxy.ts` ya bloquea a este usuario en su
-  // siguiente peticion via `activo = false` / `deleted_at`, asi que el
-  // baneo de Supabase Auth es defensa en profundidad, no la unica barrera —
-  // un fallo de red aqui no revierte la baja, solo se ignora.
+  // Revocar en Supabase Auth queda fuera de la transaccion. Si falla, los datos
+  // ya se borraron y `proxy.ts` bloquea al usuario por `activo`/`deleted_at`.
   try {
     await supabaseAdmin.auth.admin.updateUserById(usuarioId, { ban_duration: '876000h' });
   } catch {

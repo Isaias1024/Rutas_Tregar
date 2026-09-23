@@ -130,12 +130,26 @@ que correo quedo cada una.
 Cuando el proyecto este verde:
 
 1. Ve a **Project Settings** (el engrane) → **Database** → seccion **Connection string**.
-2. Copia a tu libreta, etiquetandolas:
-   - La cadena de **Transaction pooler** → etiqueta: `DATABASE_URL`
-   - La cadena de **Direct connection** → etiqueta: `DIRECT_DATABASE_URL`
-3. En las dos cadenas, donde diga `[YOUR-PASSWORD]`, **sustituye ese texto** (incluidos los
-   corchetes) por la contraseña que guardaste en 1.1.
-4. Ve a **Project Settings** → **API** y copia tambien:
+3. Copia a tu libreta, etiquetandolas:
+   - La cadena de **Shared pooler** en modo **transaction** (puerto `6543`) → etiqueta: `DATABASE_URL`
+   - La cadena de **Shared pooler** en modo **session** (puerto `5432`, mismo host que la anterior,
+     algo como `aws-0-<region>.pooler.supabase.com`) → etiqueta: `DIRECT_DATABASE_URL`
+
+   > ⚠️ **No uses la opcion "Direct connection"** (host `db.<ref>.supabase.co`) para
+   > `DIRECT_DATABASE_URL` aunque el nombre coincida. Ese host solo tiene registro DNS **IPv6**, y la
+   > mayoria de las redes/ISP en Mexico no lo resuelven — la migracion del paso 1.3 falla con
+   > `getaddrinfo ENOTFOUND` sin mensaje claro. El **Shared/Session pooler** (puerto `5432`) es
+   > compatible con IPv4, es gratis, y sirve igual de bien para migraciones.
+   >
+   > Las dos cadenas (`DATABASE_URL` y `DIRECT_DATABASE_URL`) deben ser del **mismo proyecto** de
+   > Supabase (mismo `<ref>` en el usuario `postgres.<ref>` y mismo host) — solo cambia el puerto.
+4. En las dos cadenas, donde diga `[YOUR-PASSWORD]`, **sustituye ese texto** (incluidos los
+   corchetes) por la contraseña que guardaste en 1.1. Si la contraseña tiene caracteres especiales
+   (`@`, `#`, `/`, espacios, etc.), hay que **percent-encodearlos** antes de pegarlos en la cadena, o
+   la conexion falla.
+
+5. Ve a **Project Settings** → **API** y copia tambien:
+6. 
    - **Project URL** → etiqueta: `NEXT_PUBLIC_SUPABASE_URL`
    - Llave **anon / public** → etiqueta: `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - Llave **service_role** → etiqueta: `SUPABASE_SERVICE_ROLE_KEY`
@@ -443,6 +457,8 @@ Esto no lo puede resolver quien sigue este documento; se lo tienes que pedir a q
 | El deploy de Vercel falla al instalar | Root Directory no quedo en `apps/web` | Settings → General → corregir y redeploy |
 | El login con Google da vueltas y regresa | Falta la URL en Supabase → URL Configuration | Paso 2.7.3 |
 | El login rechaza un correo valido | `GOOGLE_OAUTH_ALLOWED_DOMAIN` mal escrito, o falta la fila del usuario | Revisar el valor en Vercel; paso 2.8 |
+| `pnpm db:migrate` falla con `[ELIFECYCLE] Command failed` y sin ningun mensaje de error visible | Bug conocido de `drizzle-kit`: al fallar, corta el proceso sin imprimir el error real | Corre `pnpm db:migrate:debug` para ver el error de verdad |
+| El error real dice `getaddrinfo ENOTFOUND db.<ref>.supabase.co` | `DIRECT_DATABASE_URL` quedo con la cadena de **Direct connection** (IPv6 only) | Usa la del **Shared/Session pooler**, puerto `5432` — ver 1.2 |
 | El panel abre pero no muestra datos | `DATABASE_URL` mal capturada (falta sustituir la contraseña) | Paso 1.2.3 |
 | `/salud` del worker responde error | `DATABASE_URL` mal capturada en Railway | Paso 3.3 |
 | El PDF no se genera | `WORKER_SHARED_SECRET` distinto entre Vercel y Railway | Paso 2.5 |

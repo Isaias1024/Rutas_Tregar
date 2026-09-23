@@ -1,5 +1,5 @@
-// La maquina de los cinco pasos (§ paso 10). La pantalla no decide nada:
-// pinta lo que estas funciones digan.
+// La maquina de los cinco pasos: la pantalla no decide nada, pinta lo que
+// estas funciones digan.
 
 export type TipoEvento =
   | 'vio_ruta'
@@ -37,11 +37,8 @@ export interface EventoRegistrado {
 }
 
 /**
- * El primer paso de ORDEN_PASOS que todavia no esta en `eventosRegistrados`.
- * Si hay un hueco (por ejemplo, `vio_ruta` y `fin_ruta` registrados pero no
- * `listo_inicio` ni `inicio_ruta`), regresa el hueco — nunca el siguiente de
- * la lista tras el ultimo evento marcado. `null` cuando los cinco ya estan o
- * cuando se registra `fin_ruta_incidente` (que cierra la ruta sin completar).
+ * El primer paso de ORDEN_PASOS que falta, incluso si quedo un hueco atras de
+ * un evento ya marcado. `null` con los cinco listos o con incidente registrado.
  */
 export function siguientePaso(eventosRegistrados: EventoRegistrado[]): TipoEvento | null {
   const registrados = new Set(eventosRegistrados.map((evento) => evento.tipo));
@@ -58,15 +55,8 @@ export function siguientePaso(eventosRegistrados: EventoRegistrado[]): TipoEvent
 }
 
 /**
- * Solo se puede registrar el paso que `siguientePaso` senala: rechaza tanto
- * saltarse un paso (marcar `inicio_ruta` sin `listo_inicio`) como repetir uno
- * ya marcado (marcar `vio_ruta` otra vez).
- *
- * EXCEPCION: `fin_ruta_incidente` se puede registrar en cualquier momento
- * desde que el chofer ve la ruta — no hace falta haber marcado `inicio_ruta`,
- * porque el incidente (choque, emergencia, camion vardado) puede impedir que
- * la ruta arranque siquiera. Solo se cierra la puerta cuando la ruta ya
- * termino: `retorno` ya registrado, o un incidente ya registrado antes.
+ * Solo se registra el paso que `siguientePaso` senala. EXCEPCION:
+ * `fin_ruta_incidente` va en cualquier momento, salvo con la ruta ya cerrada.
  */
 export function puedeRegistrar(tipo: TipoEvento, eventosRegistrados: EventoRegistrado[]): boolean {
   if (tipo === 'fin_ruta_incidente') {
@@ -82,22 +72,14 @@ export function requiereContador(tipo: TipoEvento): boolean {
 }
 
 /**
- * El ciclo de vida de una ruta tal como lo lee un humano en una tarjeta.
- *
- * NO es una sexta columna ni un estado guardado: se deriva de los mismos
- * cinco hitos de `ORDEN_PASOS` (§8 "el estado se deriva, nunca se guarda").
- * Los cinco pasos siguen siendo el motor — enum de Postgres, RLS, monitor del
- * panel y CSV del cliente dependen de ellos; esto solo los agrupa en las
- * cuatro etiquetas que el chofer necesita distinguir de un vistazo.
+ * El ciclo de vida de una ruta como lo lee un humano. NO es un estado guardado:
+ * agrupa los cinco hitos de `ORDEN_PASOS` en las etiquetas que ve el chofer.
  */
 export type EstadoRuta = 'pendiente' | 'en_curso' | 'completada' | 'cancelada';
 
 /**
- * `cancelada` gana sobre todo lo demas: una asignacion con `cancelada_en`
- * puesto ya no se ejecuta aunque traiga eventos de cuando si estaba vigente.
- * Despues manda el avance: `retorno` (el ultimo hito) o `fin_ruta_incidente`
- * la cierran, `inicio_ruta` la pone en curso, y `vio_ruta`/`listo_inicio`
- * todavia son preparacion — la ruta no arranco, asi que sigue pendiente.
+ * `cancelada` gana sobre todo lo demas, aunque traiga eventos de cuando estaba
+ * vigente. Despues manda el avance: vio_ruta/listo_inicio siguen siendo pendiente.
  */
 export function estadoRuta(
   eventosRegistrados: EventoRegistrado[],

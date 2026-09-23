@@ -16,9 +16,8 @@ const buttonVariants = cva(
           'bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground',
         ghost:
           'hover:bg-accent hover:text-accent-foreground aria-expanded:bg-accent aria-expanded:text-accent-foreground',
-        // Rojo pleno: es el boton que confirma una baja dentro de un dialogo.
-        // Para la accion equivalente en una fila de tabla se usa `ghost` con
-        // `text-destructive`, que no grita en una lista de veinte renglones.
+        // Rojo pleno: confirma una baja dentro de un dialogo. En una fila de
+        // tabla se usa `ghost` con `text-destructive`, que no grita en la lista.
         destructive:
           'bg-destructive text-destructive-foreground shadow-tarjeta hover:bg-destructive/90 focus-visible:ring-destructive',
         success: 'bg-success text-success-foreground shadow-tarjeta hover:bg-success/90',

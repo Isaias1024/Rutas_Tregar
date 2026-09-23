@@ -14,12 +14,8 @@ interface Props {
 }
 
 /**
- * Una ruta en una lista. Responde, en este orden, las preguntas del §17: que
- * ruta, a que hora, de donde a donde, en que estado.
- *
- * La barra de color al borde izquierdo repite el estado del badge para que la
- * lista se pueda escanear por franjas sin leer ninguna palabra; el badge sigue
- * llevando el texto, asi que el color nunca es la unica senal.
+ * La barra de color al borde izquierdo repite el estado del badge para escanear
+ * la lista por franjas; el texto del badge sigue ahi.
  */
 export function TarjetaRuta({ asignacion, soloLectura, onPress }: Props) {
   const estado = estadoRuta(asignacion.eventos, asignacion.canceladaEn);

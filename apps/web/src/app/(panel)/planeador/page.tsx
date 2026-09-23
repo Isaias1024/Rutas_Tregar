@@ -37,9 +37,8 @@ export default async function PaginaPlaneador({
   searchParams: Promise<{ semana?: string }>;
 }) {
   const { semana } = await searchParams;
-  // "Hoy" se calcula por zona IANA (America/Mexico_City), no por la hora
-  // local del host: en un servidor en UTC, `new Date()` puede caer del otro
-  // lado de la medianoche justo en el turno de noche.
+  // "Hoy" por zona IANA y no por la hora del host: en un servidor en UTC,
+  // `new Date()` cae del otro lado de la medianoche en el turno de noche.
   const hoy = fechaOperativa(new Date());
   const base =
     semana && /^\d{4}-\d{2}-\d{2}$/.test(semana)

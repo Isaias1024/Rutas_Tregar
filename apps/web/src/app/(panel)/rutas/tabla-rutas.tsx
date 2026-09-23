@@ -144,9 +144,8 @@ export function TablaRutas({
     }
     setErrorBorrado(null);
     startTransition(async () => {
-      // El resultado se ignoraba: un borrado rechazado (sin permiso, o la ruta
-      // ya borrada desde otra pestana) dejaba la fila en pantalla sin decir por
-      // que, y se leia como "el boton no hace nada".
+      // El resultado se ignoraba: un borrado rechazado dejaba la fila en pantalla
+      // sin decir por que, y se leia como "el boton no hace nada".
       const resultado = await accionBorrarRuta(ruta.id);
       if (!resultado.ok) {
         setErrorBorrado(resultado.error.mensaje);
@@ -275,8 +274,6 @@ export function TablaRutas({
     </div>
   );
 }
-
-// === horarios de una ruta ya guardada ==============================================
 
 function ListaHorarios({
   ruta,
@@ -487,8 +484,6 @@ function ListaHorarios({
   );
 }
 
-// === selector de parada reutilizable (existente + "nueva parada") =================
-
 function CampoParada({
   id,
   etiqueta,
@@ -609,8 +604,6 @@ function CampoParada({
     </div>
   );
 }
-
-// === dialogo: crear ruta (con sus horarios iniciales) ==============================
 
 function DialogoCrearRuta({
   abierto,
@@ -851,8 +844,6 @@ function DialogoCrearRuta({
     </Dialog>
   );
 }
-
-// === dialogo: editar datos de una ruta existente (sin horarios) ====================
 
 function DialogoEditarRuta({
   ruta,

@@ -1,9 +1,7 @@
 import * as Location from 'expo-location';
 
-// Captura de GPS solo para listo_inicio y fin_ruta (paso 10). Permiso
-// negado, timeout o sin senal: coordenadas nulas y sin_gps=true, NUNCA
-// bloquea el registro del evento (§ movil-expo.md). No se pide permiso de
-// ubicacion en segundo plano — solo `requestForegroundPermissionsAsync`.
+// GPS solo para listo_inicio y fin_ruta, y solo en primer plano. Permiso negado,
+// timeout o sin senal: coordenadas nulas y sin_gps, nunca bloquea el evento.
 
 export interface CoordenadasCapturadas {
   lat: number | null;

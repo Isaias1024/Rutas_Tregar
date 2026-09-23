@@ -3,12 +3,8 @@ import { Geist_Mono, Inter } from 'next/font/google';
 import { Providers } from '@/components/providers';
 import './globals.css';
 
-// El sistema de diseno (§7) pide Inter con stack de sistema de respaldo. El
-// nombre de la variable tiene que ser exactamente `--font-sans`: es el mismo
-// nombre que `@theme inline` en globals.css reenvia hacia la utilidad
-// `font-sans` de Tailwind — un nombre distinto (p. ej. el `--font-geist-sans`
-// que trae la plantilla por defecto) deja esa variable sin valor y el
-// navegador cae a su serif por defecto en todo el panel.
+// La variable tiene que llamarse exactamente `--font-sans`: es la que `@theme
+// inline` reenvia a `font-sans`, y con otro nombre el panel cae a la serif.
 const inter = Inter({
   variable: '--font-sans',
   subsets: ['latin'],
@@ -20,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 // Todo el panel es interno: nunca debe indexarse, y no hay VPN ni Cloudflare
-// Access delante que lo compense de otro modo (§1, §2).
+// Access delante que lo compense de otro modo.
 export const metadata: Metadata = {
   title: 'Rutas',
   description: 'Panel de operacion de transporte de personal',

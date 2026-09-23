@@ -1,8 +1,6 @@
 import { z } from 'zod';
 
-// Esquemas de entrada de los catalogos (§5: "todo esquema de entrada vive en
-// packages/shared/src"). El mismo esquema valida en el formulario del
-// cliente y en la server action.
+// El mismo esquema valida en el formulario del cliente y en la server action.
 
 export const idSchema = z.uuid();
 
@@ -23,10 +21,8 @@ export const camionCrearSchema = z.object({
   codigo: z.string().trim().min(1, 'El codigo es obligatorio'),
   tipo: z.enum(TIPOS_CAMION, { message: 'Elige un tipo de camion' }),
   placas: z.string().trim().min(1, 'Las placas son obligatorias'),
-  // Sin coerce ni default: el formulario ya manda un `number` real
-  // (`valueAsNumber` en el input) y ya trae `0`/`'disponible'` como valor
-  // inicial. Mantener el tipo de entrada identico al de salida es lo que
-  // evita el choque de tipos entre zodResolver y react-hook-form.
+  // Sin coerce ni default: el formulario ya manda un `number` real y su valor
+  // inicial. Igualar entrada y salida evita el choque zodResolver/react-hook-form.
   km: z.number().int().min(0),
   estado: z.enum(ESTADOS_CAMION),
 });
@@ -39,11 +35,8 @@ export const choferCrearSchema = z.object({
   correo: z.union([z.email('Correo invalido'), z.literal('')]).optional(),
   telefono: z.string().trim().optional(),
 });
-// `camionId` vive aqui y NO en el planeador: el camion es del chofer, y este
-// formulario es el unico lugar donde se elige cual le toca. `null` es un
-// estado legitimo (un chofer recien dado de alta todavia no tiene camion),
-// pero un chofer sin camion no se puede asignar a una ruta — eso lo valida
-// `asignarNucleo`, no este esquema.
+// `camionId` vive aqui y NO en el planeador: el camion es del chofer y este es el
+// unico lugar donde se elige. `null` es legitimo; asignarlo ya lo valida el nucleo.
 export const choferEditarSchema = z.object({
   id: idSchema,
   nombre: z.string().trim().min(1, 'El nombre es obligatorio'),
@@ -56,12 +49,8 @@ export const choferEditarSchema = z.object({
     .optional(),
 });
 
-// El admin da de alta un supervisor con nombre y correo corporativo — sin
-// contrasena ni credencial que compartir, porque el panel entra por Google
-// (§ apps/web/src/app/(auth)/auth/callback). El correo tiene que coincidir
-// con el dominio permitido para que el OAuth lo reconozca; esa comprobacion
-// vive en el servidor (`env.GOOGLE_OAUTH_ALLOWED_DOMAIN`), no aqui, porque
-// `packages/shared` no lee variables de entorno de una app en particular.
+// Sin contrasena ni credencial: el panel entra por Google. Que el correo sea del
+// dominio permitido lo valida el servidor, porque aqui no se leen variables.
 export const supervisorCrearSchema = z.object({
   nombre: z.string().trim().min(1, 'El nombre es obligatorio'),
   correo: z.email('Correo invalido'),

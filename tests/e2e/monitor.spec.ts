@@ -131,11 +131,8 @@ test.describe('Monitor', () => {
 
     await fila.getByRole('button', { name: 'Registrar evento' }).click();
 
-    // El supervisor ya no elige el paso: el dialogo deriva el siguiente con la
-    // misma `siguientePaso` que sigue el chofer y solo deja registrar ese. Sin
-    // eventos previos, el siguiente es `vio_ruta` — y el dialogo lo dice en dos
-    // lugares, asi que la prueba verifica los dos: el bloque "Proximo evento" y
-    // el propio boton de guardar.
+    // El dialogo deriva el siguiente paso con la misma `siguientePaso` del chofer
+    // y lo dice en dos lugares, asi que se verifican los dos.
     const dialogo = page.getByRole('dialog');
     // `exact` importa: sin el, esto tambien casa con el boton "Registrar vio la
     // ruta" y el localizador deja de ser unico.

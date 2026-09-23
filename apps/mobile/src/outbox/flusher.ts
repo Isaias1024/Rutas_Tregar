@@ -5,11 +5,8 @@ import { almacenSqlite, type AlmacenPendientes, type PayloadEvento } from './db'
 export type ResultadoSubida = 'exito' | 'conflicto' | 'error';
 
 /**
- * `23505` es `unique_violation` en Postgres: lo produce tanto el unique de
- * `client_event_id` como el de `(asignacion_id, tipo)`. Un conflicto por
- * cualquiera de los dos es exactamente lo que deja un reintento correcto —
- * el evento ya quedo insertado la vez anterior — asi que se trata como
- * exito, nunca como motivo para reintentar de nuevo.
+ * `23505` lo produce tanto `client_event_id` como `(asignacion_id, tipo)`: el
+ * evento ya quedo insertado en el intento anterior, asi que cuenta como exito.
  */
 const CODIGO_CONFLICTO_POSTGRES = '23505';
 
@@ -21,10 +18,7 @@ export function esperaExponencial(intentos: number): number {
   return Math.min(BASE_ESPERA_MS * 2 ** intentos, TOPE_ESPERA_MS);
 }
 
-/**
- * Sube una sola fila. `cliente` es inyectable para las pruebas — la app real
- * siempre usa el cliente autenticado del chofer (`@/lib/supabase`).
- */
+/** Sube una sola fila. `cliente` es inyectable para las pruebas. */
 export async function subirPendiente(
   payload: PayloadEvento,
   cliente: SupabaseClient = supabaseReal,
@@ -37,9 +31,8 @@ export async function subirPendiente(
   }
 
   if (contador) {
-    // El contador solo importa si el evento en si se aplico (exito o ya
-    // aplicado antes via conflicto): en ambos casos vale la pena intentar
-    // dejarlo escrito.
+    // El contador solo importa si el evento se aplico, sea ahora o en el intento
+    // anterior que provoco el conflicto.
     await cliente
       .from('asignacion')
       .update({ [contador.campo]: contador.valor })
@@ -50,12 +43,8 @@ export async function subirPendiente(
 }
 
 /**
- * Sube toda la cola. Cada fila que tuvo un intento reciente respeta su
- * propia espera exponencial antes de reintentar (`proximoIntentoEn`);
- * `exito` y `conflicto` borran la fila, `error` la deja para la proxima
- * pasada con un nuevo `proximoIntentoEn`. `almacen` y `cliente` son
- * inyectables — la app real usa `almacenSqlite` y el cliente de
- * `@/lib/supabase`.
+ * Sube toda la cola respetando la espera exponencial de cada fila: `exito` y
+ * `conflicto` la borran, `error` la deja para la proxima pasada.
  */
 export async function vaciarCola(
   almacen: AlmacenPendientes = almacenSqlite,

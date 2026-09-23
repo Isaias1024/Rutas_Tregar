@@ -103,17 +103,16 @@ export function PlaneadorSemana({
   accionReasignar,
   accionCancelar,
 }: Props) {
-  // Se abre en el dia de hoy cuando la semana en pantalla lo incluye; si no
-  // (semana anterior/siguiente), cae al primer dia de esa semana — ya no hay
-  // "hoy" que mostrar ahi.
+  // Se abre en hoy cuando la semana en pantalla lo incluye; si no, en el primer
+  // dia de esa semana.
   const [diaSeleccionado, setDiaSeleccionado] = useState(
     fechas.includes(hoy) ? hoy : (fechas[0] ?? ''),
   );
   const [dialogo, setDialogo] = useState<DialogoState | null>(null);
   const [exitoCancelacion, setExitoCancelacion] = useState<string | null>(null);
 
-  // Un dia estrictamente anterior a hoy es solo consulta (§ Planeador — dias
-  // pasados): ni crear, reasignar ni cancelar. Hoy mismo sigue siendo editable.
+  // Un dia estrictamente anterior a hoy es solo consulta: ni crear, reasignar ni
+  // cancelar. Hoy mismo sigue siendo editable.
   const diaEsPasado = diaSeleccionado !== '' && diaSeleccionado < hoy;
 
   const horariosPorTurno = useMemo(() => {
@@ -138,10 +137,8 @@ export function PlaneadorSemana({
 
   const horarioPorId = useMemo(() => new Map(horarios.map((h) => [h.id, h])), [horarios]);
 
-  // Mismo `hayTraslape` que corre en el servidor (@rutas/shared): aqui solo
-  // adelanta la respuesta apagando en la lista a quien ya trae una ruta
-  // encimada ese dia. La decision real sigue siendo la del servidor, que es
-  // la unica que ve la tabla completa y corre bajo el advisory lock.
+  // Mismo `hayTraslape` que corre en el servidor, solo para adelantar la
+  // respuesta: la decision real es la del servidor, bajo el advisory lock.
   const choferesConTraslape = useMemo(() => {
     const conflictivos = new Set<string>();
     const objetivo = dialogo ? horarioPorId.get(dialogo.horarioId) : undefined;
@@ -327,9 +324,8 @@ function BotonCancelar({
   function cancelar() {
     setError(null);
     startTransition(async () => {
-      // El resultado se ignoraba: una cancelacion rechazada (sin permiso, o
-      // la fila ya cancelada desde otra pestana) dejaba la fila en pantalla
-      // sin decir por que, y se leia como "el boton no hace nada".
+      // El resultado se ignoraba: una cancelacion rechazada dejaba la fila en
+      // pantalla y se leia como "el boton no hace nada".
       const resultado = await accionCancelar({ asignacionId });
       if (!resultado.ok) {
         setError(resultado.error.mensaje);
@@ -409,9 +405,8 @@ function DialogoAsignar({
     values: { choferId: asignacionExistente?.choferId ?? '' },
   });
 
-  // El camion que va a quedar en la asignacion, mostrado en vivo conforme se
-  // elige el chofer. Es lectura, no entrada: el servidor lo vuelve a resolver
-  // al guardar y su respuesta es la que manda.
+  // Lectura, no entrada: el servidor vuelve a resolver el camion al guardar y su
+  // respuesta es la que manda.
   const choferElegido = choferes.find((c) => c.id === form.watch('choferId')) ?? null;
 
   function guardar(valores: FormularioAsignacion) {
@@ -459,9 +454,8 @@ function DialogoAsignar({
                   <SelectContent>
                     {choferes.map((chofer) => {
                       const traslapa = choferesConTraslape.has(chofer.id);
-                      // Un chofer sin camion, o con el camion en el taller, no
-                      // se puede planear: se apaga aqui y se dice por que, en
-                      // vez de dejar que el servidor lo rechace al guardar.
+                      // Se apaga aqui y se dice por que, en vez de dejar que el
+                      // servidor lo rechace al guardar.
                       const sinCamion = chofer.camionCodigo === null;
                       const motivo = traslapa
                         ? ' (horario encimado)'

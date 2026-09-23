@@ -1,9 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { iniciarSesionComo } from './ayuda-sesion.ts';
 
-// Este entorno no tiene una llave real de Google Maps (`.env` la deja vacia
-// a proposito): el selector de paradas siempre cae en captura manual aqui,
-// que es exactamente el camino que el Done-when del paso 6 pide poder probar.
+// Este entorno no tiene llave de Google Maps (`.env` la deja vacia a proposito):
+// el selector de paradas siempre cae en captura manual aqui.
 
 test.describe('Paradas y rutas', () => {
   test('un admin da de alta una parada por captura manual (sin llave de Maps)', async ({
@@ -56,8 +55,7 @@ test.describe('Paradas y rutas', () => {
 
     await filaCreada.getByRole('button', { name: 'Editar' }).click();
 
-    // El dialogo de edicion reutiliza el mismo selector de parada, precargado
-    // con los datos existentes: el flujo de busqueda+mapa/captura manual es
+    // El dialogo de edicion reutiliza el mismo selector, precargado: el flujo es
     // identico al de creacion, solo cambia el titulo y el verbo del boton.
     await expect(page.getByRole('heading', { name: 'Editar parada' })).toBeVisible();
     await expect(page.getByLabel('Nombre')).toHaveValue(nombreOriginal);
@@ -95,9 +93,6 @@ test.describe('Paradas y rutas', () => {
     const filaCreada = page.locator('tr:visible, li:visible').filter({ hasText: nombreParada });
     await expect(filaCreada).toBeVisible();
 
-    // El borrado es logico (`deleted_at`): la confirmacion del panel es la
-    // unica friccion antes de que desaparezca del listado (y por tanto del
-    // selector de "nueva ruta"), tal como ya pasa con clientes y camiones.
     // `dismiss()` sobre cualquier dialogo NATIVO: si quedara un `confirm()`, el
     // navegador puede suprimirlo y el borrado no ocurriria nunca.
     page.on('dialog', (dialogo) => dialogo.dismiss());
@@ -105,8 +100,8 @@ test.describe('Paradas y rutas', () => {
     await expect(page.getByRole('dialog')).toContainText('Borrar parada');
     await page.getByRole('dialog').getByRole('button', { name: 'Borrar' }).click();
 
-    // Acusa el borrado ademas de hacerlo: "la fila ya no esta" por si solo no
-    // distingue un borrado exitoso de uno rechazado en silencio.
+    // Acusa el borrado ademas de hacerlo: "la fila ya no esta" no distingue un
+    // borrado exitoso de uno rechazado en silencio.
     await expect(page.getByText(`Parada "${nombreParada}" eliminada correctamente.`)).toBeVisible();
     await expect(filaCreada).toBeHidden();
   });
@@ -135,9 +130,8 @@ test.describe('Paradas y rutas', () => {
     await page.getByLabel('Parada de fin').click();
     await page.getByRole('option', { name: 'Stop 4' }).click();
 
-    // El primer horario ya trae valores validos por defecto (manana,
-    // 06:00-06:30, 1 persona). Agregamos un segundo del mismo turno: es
-    // justo el caso que el paso 6 exige aceptar.
+    // Un segundo horario del mismo turno que el que viene por defecto: es justo
+    // el caso que hay que aceptar.
     await page.getByRole('button', { name: 'Agregar horario' }).click();
 
     await page.getByRole('button', { name: 'Crear' }).click();

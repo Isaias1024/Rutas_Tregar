@@ -1,16 +1,14 @@
 'use server';
 
-// `@/lib/env` importa primero A PROPOSITO (ver catalogos.ts, monitor.ts): su
-// carga de `.env` tiene que correr antes de que `@rutas/shared/db` evalue
-// `process.env.DATABASE_URL` al importarse.
+// `@/lib/env` importa primero A PROPOSITO (ver catalogos.ts): su carga de
+// `.env` corre antes de que `@rutas/shared/db` lea DATABASE_URL.
 import '@/lib/env';
 import { derivarEstado, type EstadoSemaforo } from '@rutas/shared';
 import { asignacion, cliente, db, evento, horario, perfilPersonal, ruta } from '@rutas/shared/db';
 import { and, desc, eq, gte, isNull, lte, sql } from 'drizzle-orm';
 
-// Las cuatro consultas del paso 15. Todas asumen que quien llega hasta aqui
-// ya paso el gate de `supervisor`/`admin` de `proxy.ts` (mismo patron que
-// monitor.ts: no hay `can()` propio aqui porque la ruta ya lo exige).
+// Sin `can()` propio (mismo patron que monitor.ts): la ruta ya paso el gate de
+// `supervisor`/`admin` de `proxy.ts`.
 
 const LIMITE_DEFAULT = 50;
 const LIMITE_MAXIMO = 200;
@@ -38,10 +36,8 @@ export async function obtenerClientePorId(id: string): Promise<ClienteBasico | n
   return fila ?? null;
 }
 
-// === 1. Cumplimiento por chofer, desglosado por origen =====================
-// Done-when: los conteos de origen='app' y origen='supervisor' NUNCA se
-// suman en un solo total — se devuelven en dos sub-objetos separados y quien
-// consuma esto tiene que sumarlos a proposito si de verdad los quiere juntos.
+// Los conteos de origen='app' y origen='supervisor' NUNCA se suman: van en dos
+// sub-objetos y quien los quiera juntos tiene que sumarlos a proposito.
 
 export interface ConteoOrigen {
   total: number;
@@ -110,13 +106,8 @@ export async function obtenerCumplimientoPorChofer(
   );
 }
 
-// === 2. Ocupacion por ruta ===================================================
-// Done-when: una asignacion con `cnt_abordaron` nulo se EXCLUYE del promedio,
-// nunca cuenta como cero. `avg()` de Postgres ya ignora NULL por definicion
-// del estandar SQL (los excluye tanto de la suma como del denominador) — la
-// trampa comun es escribir `sum(cnt_abordaron) / count(*)`, que SI cuenta el
-// nulo como cero porque `count(*)` cuenta la fila aunque el contador este
-// vacio. Por eso aqui va `avg()` puro y nunca esa division a mano.
+// `avg()` excluye los NULL del promedio y del denominador: una asignacion sin
+// `cnt_abordaron` no cuenta como cero, que es lo que haria `sum()/count(*)`.
 
 export interface FilaOcupacion {
   rutaId: string;
@@ -154,9 +145,7 @@ export async function obtenerOcupacionPorRuta(
     .orderBy(ruta.nombre);
 }
 
-// === 2b. Cumplimiento por ruta de un cliente ================================
-// Version de (1) agrupada por ruta en vez de chofer, para la portada del PDF
-// (§9 paso 15: "puntualidad y ocupacion de todas sus rutas").
+// Version de (1) agrupada por ruta en vez de chofer, para la portada del PDF.
 
 export interface FilaCumplimientoRuta {
   rutaId: string;
@@ -231,9 +220,8 @@ export async function obtenerCumplimientoPorRutaDeCliente(
   return [...porRuta.values()].sort((a, b) => a.rutaNombre.localeCompare(b.rutaNombre));
 }
 
-// === 3. Resumen por cliente ==================================================
-// Mismo criterio que el reporte 1: puntualidad separada por origen. La
-// ocupacion se calcula igual que en el reporte 2 pero agregada por cliente.
+// Mismo criterio que el reporte 1: puntualidad separada por origen; la ocupacion
+// se calcula como en el reporte 2 pero agregada por cliente.
 
 export interface FilaResumenCliente {
   clienteId: string;
@@ -318,11 +306,8 @@ export async function obtenerResumenPorCliente(
   return [...porCliente.values()].sort((a, b) => a.clienteNombre.localeCompare(b.clienteNombre));
 }
 
-// === 4. Bitacora de ejecuciones =============================================
-// Version paginada (pantalla HTML, cursor sobre (fecha, id) — igual que §5
-// documenta para la bitacora de auditoria) y version CSV en streaming (la
-// descarga, sin limite de rango practico: un cursor de Postgres entrega
-// lotes en vez de que el arreglo completo viva en memoria del proceso).
+// Paginada con cursor sobre (fecha, id) para la pantalla, y en streaming para el
+// CSV: el cursor de Postgres entrega lotes sin que todo viva en memoria.
 
 export interface FilaEjecucion {
   id: string;
